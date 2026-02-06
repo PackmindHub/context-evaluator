@@ -11,7 +11,7 @@ Analyze the provided codebase information and extract a concise technical summar
 1. **Languages** - Primary programming languages with relative usage (e.g., "TypeScript (primary), JavaScript, CSS")
 2. **Frameworks** - Key frameworks and libraries (e.g., "React, Express.js, Jest")
 3. **Architecture** - High-level architecture pattern if detectable (e.g., "Monorepo with frontend/backend separation")
-4. **Patterns** - High-level architectural patterns only (e.g., "Layered architecture, Repository pattern, DDD, MVC, Event-driven")
+4. **Patterns** - High-level architectural patterns only (e.g., "Layered architecture, Repository pattern, DDD, MVC, Event-driven, Component-based, File-based routing")
 
 ---
 
@@ -56,7 +56,10 @@ Key Folders:
   - Framework-specific conventions
 - If CLOC data is not available, infer from the repository structure
 - If certain aspects are unclear, write "Unknown" rather than guessing
-- For Patterns: Report ONLY high-level architectural patterns that describe the overall system design (examples: DDD, MVC, MVVM, hexagonal/ports-and-adapters, layered architecture, event-driven, microservices, Repository pattern, CQRS). Do NOT include:
+- For Patterns: Report ONLY high-level architectural patterns that describe the overall system design. Valid patterns include:
+  - **Backend/system**: DDD, MVC, MVVM, hexagonal/ports-and-adapters, layered architecture, event-driven, microservices, Repository pattern, CQRS
+  - **Frontend/web**: Component-based architecture (React, Vue, Angular, Svelte), File-based routing (Next.js App Router, Nuxt, SvelteKit), Server-side rendering (SSR), Static site generation (SSG), API routes / serverless functions, Feature-based module organization, Atomic design (atoms/molecules/organisms), Container/presenter pattern (smart/dumb components)
+  Do NOT include:
   - Naming conventions (interface prefixes like "I", abstract class prefixes, casing rules)
   - Testing patterns (AAA, TDD, BDD, single assertion per test)
   - Dependency injection (implementation detail, not architecture)
@@ -69,7 +72,7 @@ Key Folders:
 - Keep descriptions to 2-5 words each
 - Focus on folders that an AI agent would need to understand to work effectively
 
-**Example Output:**
+**Example Output (fullstack project):**
 
 ```
 Languages: TypeScript (primary), JavaScript, CSS
@@ -87,6 +90,25 @@ Key Folders:
 - tests/integration - Integration tests
 - prisma - Database schema and migrations
 - config - Application configuration
+```
+
+**Example Output (frontend project):**
+
+```
+Languages: TypeScript (primary), CSS, JavaScript
+Frameworks: Next.js 14, React, Tailwind CSS, Vitest (testing)
+Architecture: Next.js App Router with app/ directory structure
+Patterns: Component-based architecture, File-based routing, Server-side rendering
+
+Key Folders:
+- app - Next.js App Router pages and layouts
+- app/api - API route handlers
+- components - Shared React components
+- components/ui - Base UI primitives
+- lib - Utility functions and helpers
+- hooks - Custom React hooks
+- styles - Global styles and Tailwind config
+- tests - Test files
 ```
 
 DO NOT include:
