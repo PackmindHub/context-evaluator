@@ -3,6 +3,7 @@
 // Algorithm: "Base + Setup Bonus - Issue Penalty"
 
 import { invokeClaudeWithRetry } from "@shared/claude/invoker";
+import { DEFAULT_TIMEOUT_MS } from "@shared/constants";
 import type {
 	ContextScoreGrade,
 	IContextScore,
@@ -421,9 +422,9 @@ export async function generateScoreExplanation(
 	score: number,
 	breakdown: IContextScoreBreakdown,
 	issues: Issue[],
-	options: { verbose?: boolean } = {},
+	options: { verbose?: boolean; timeout?: number } = {},
 ): Promise<{ summary: string; recommendations: string[] }> {
-	const { verbose = false } = options;
+	const { verbose = false, timeout } = options;
 
 	// Build a concise issue summary for the AI (high severity = 8+)
 	const errorIssues = issues.filter(
@@ -475,7 +476,7 @@ Respond in this exact JSON format:
 	try {
 		const response = await invokeClaudeWithRetry(prompt, {
 			verbose,
-			timeout: 60000, // 1 minute should be enough
+			timeout: timeout ?? DEFAULT_TIMEOUT_MS,
 		});
 
 		if (response.result) {
@@ -661,9 +662,10 @@ export async function computeFullContextScore(
 		verbose?: boolean;
 		filesExpected?: number;
 		projectContext?: IProjectContext;
+		timeout?: number;
 	} = {},
 ): Promise<IContextScore> {
-	const { verbose = false, filesExpected, projectContext } = options;
+	const { verbose = false, filesExpected, projectContext, timeout } = options;
 
 	// Compute breakdown
 	const breakdown = computeContextScore({
@@ -682,7 +684,7 @@ export async function computeFullContextScore(
 		score,
 		breakdown,
 		issues,
-		{ verbose },
+		{ verbose, timeout },
 	);
 
 	// Generate user-friendly explanation

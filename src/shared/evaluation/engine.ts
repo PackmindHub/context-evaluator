@@ -1297,6 +1297,7 @@ export class EvaluationEngine {
 			maxIssuesForAI: options.deduplication?.maxIssuesForAI ?? 500,
 			verbose,
 			provider: aiProvider,
+			timeout: options.timeout,
 		});
 
 		const deduplicatedIssues = dedupResult.deduplicated;
@@ -1311,6 +1312,7 @@ export class EvaluationEngine {
 			workingDir,
 			provider: aiProvider,
 			progressCallback,
+			timeout: options.timeout,
 		});
 
 		const { curationOutput, errorCurationResult, suggestionCurationResult } =
@@ -1324,7 +1326,11 @@ export class EvaluationEngine {
 		const contextScore = await computeFullContextScore(
 			allIssues,
 			agentsFiles.length,
-			{ verbose, projectContext: contextResult?.context },
+			{
+				verbose,
+				projectContext: contextResult?.context,
+				timeout: options.timeout,
+			},
 		);
 
 		if (verbose) {
@@ -1690,6 +1696,7 @@ export class EvaluationEngine {
 			maxIssuesForAI: options.deduplication?.maxIssuesForAI ?? 500,
 			verbose,
 			provider: aiProvider,
+			timeout: options.timeout,
 		});
 
 		const deduplicatedIssues = dedupResult.deduplicated;
@@ -1704,6 +1711,7 @@ export class EvaluationEngine {
 			workingDir,
 			provider: aiProvider,
 			progressCallback,
+			timeout: options.timeout,
 		});
 
 		const { curationOutput, errorCurationResult, suggestionCurationResult } =
@@ -1804,7 +1812,11 @@ export class EvaluationEngine {
 		const contextScore = await computeFullContextScore(
 			allIssues,
 			agentsFiles.length,
-			{ verbose, projectContext: contextResult?.context },
+			{
+				verbose,
+				projectContext: contextResult?.context,
+				timeout: options.timeout,
+			},
 		);
 
 		if (verbose) {

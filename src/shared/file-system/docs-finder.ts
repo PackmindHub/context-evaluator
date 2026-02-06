@@ -1,3 +1,4 @@
+import { DEFAULT_TIMEOUT_MS } from "@shared/constants";
 import type { IAIProvider } from "@shared/providers/types";
 import type { ILinkedDocSummary } from "@shared/types/evaluation";
 import { runWithConcurrencyLimit } from "@shared/utils/concurrency-limiter";
@@ -243,7 +244,7 @@ export async function summarizeDocFile(
 	try {
 		// Use isolated execution to prevent file exploration
 		const response = await invokeIsolated(provider, prompt, {
-			timeout: timeout ?? 60000,
+			timeout: timeout ?? DEFAULT_TIMEOUT_MS,
 		});
 
 		// Clean up the response - remove any extra whitespace/newlines

@@ -1,3 +1,4 @@
+import { DEFAULT_TIMEOUT_MS } from "@shared/constants";
 import { getProvider, type IAIProvider } from "@shared/providers";
 import type { Issue } from "@shared/types/evaluation";
 import { dirname, resolve } from "path";
@@ -259,7 +260,7 @@ export async function deduplicateIssuesSemantic(
 		verbose = false,
 		provider = getProvider(),
 		maxIssuesForAI = 500,
-		timeout = 180000,
+		timeout = DEFAULT_TIMEOUT_MS,
 	} = options;
 
 	if (issues.length === 0) {

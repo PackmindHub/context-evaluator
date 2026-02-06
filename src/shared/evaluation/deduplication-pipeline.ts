@@ -50,6 +50,8 @@ export interface DeduplicationOptions {
 	verbose?: boolean;
 	/** AI provider for semantic deduplication */
 	provider?: IAIProvider;
+	/** Timeout in milliseconds for AI provider calls */
+	timeout?: number;
 }
 
 /**
@@ -87,6 +89,7 @@ export async function executeDeduplicationPipeline(
 		maxIssuesForAI = 500,
 		verbose = false,
 		provider,
+		timeout,
 	} = options;
 
 	// If disabled, return issues unchanged
@@ -157,6 +160,7 @@ export async function executeDeduplicationPipeline(
 			verbose,
 			provider,
 			maxIssuesForAI,
+			timeout,
 			locationCandidates: phase1Result.locationCandidates,
 			entityCandidates: phase1Result.entityCandidates,
 		});

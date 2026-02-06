@@ -36,6 +36,8 @@ export interface CurationOptions {
 	provider?: IAIProvider;
 	/** Progress callback for UI updates */
 	progressCallback?: ProgressCallback;
+	/** Timeout in milliseconds for AI provider calls */
+	timeout?: number;
 }
 
 /**
@@ -92,6 +94,7 @@ export async function executeCurationPipeline(
 		workingDir,
 		provider,
 		progressCallback,
+		timeout,
 	} = options;
 
 	// If disabled, return empty result
@@ -127,6 +130,7 @@ export async function executeCurationPipeline(
 		errorCurationResult = await curateIssuesByImpact(errors, {
 			topN: errorTopN,
 			verbose,
+			timeout,
 			cwd: workingDir,
 			issueTypeFilter: "error",
 			provider,
@@ -167,6 +171,7 @@ export async function executeCurationPipeline(
 		suggestionCurationResult = await curateIssuesByImpact(suggestions, {
 			topN: suggestionTopN,
 			verbose,
+			timeout,
 			cwd: workingDir,
 			issueTypeFilter: "suggestion",
 			provider,

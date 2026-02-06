@@ -1,3 +1,4 @@
+import { DEFAULT_TIMEOUT_MS } from "@shared/constants";
 import type { Usage } from "@shared/types/evaluation";
 
 export interface ClaudeInvokeOptions {
@@ -21,7 +22,7 @@ export async function invokeClaudeCLI(
 	prompt: string,
 	options: ClaudeInvokeOptions = {},
 ): Promise<ClaudeResponse> {
-	const { verbose = false, timeout = 60000 } = options; // Default to 1 minute
+	const { verbose = false, timeout = DEFAULT_TIMEOUT_MS } = options;
 
 	const args = [
 		"--output-format",

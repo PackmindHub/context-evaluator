@@ -1,3 +1,4 @@
+import { DEFAULT_TIMEOUT_MS } from "@shared/constants";
 import { getProvider, type IAIProvider } from "@shared/providers";
 import type {
 	ICurationOutput,
@@ -178,7 +179,7 @@ export async function curateIssuesByImpact(
 	const {
 		topN = DEFAULT_TOP_N,
 		verbose = false,
-		timeout = 180000,
+		timeout = DEFAULT_TIMEOUT_MS,
 		cwd,
 		issueTypeFilter,
 		provider = getProvider(),
