@@ -813,7 +813,7 @@ export class EvaluationEngine {
 				verbose,
 				agentsFilePaths:
 					agentsFilePaths.length > 0 ? agentsFilePaths : undefined,
-				provider: options.provider,
+				provider: provider.name,
 				progressCallback,
 				timeout: options.timeout,
 			});

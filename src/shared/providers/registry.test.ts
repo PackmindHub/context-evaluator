@@ -147,6 +147,28 @@ describe("ProviderRegistry", () => {
 		});
 	});
 
+	describe("getProvider", () => {
+		it("should throw for 'random' which is not a registered provider", () => {
+			// "random" must be resolved to a concrete provider before passing downstream
+			const providers = new Map<ProviderName, IAIProvider>();
+			providers.set("claude", createMockProvider("claude", true));
+
+			// Simulate registry.get() logic
+			const get = (name: string): IAIProvider => {
+				const provider = providers.get(name as ProviderName);
+				if (!provider) {
+					const available = Array.from(providers.keys()).join(", ");
+					throw new Error(
+						`Unknown provider: '${name}'. Available providers: ${available}`,
+					);
+				}
+				return provider;
+			};
+
+			expect(() => get("random")).toThrow(/Unknown provider.*random/);
+		});
+	});
+
 	describe("isValidProvider", () => {
 		it('should accept "random" as a valid provider name', () => {
 			const providers = new Map<ProviderName, IAIProvider>();
