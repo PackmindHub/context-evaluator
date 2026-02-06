@@ -429,8 +429,7 @@ export const RepositoryUrlInput: React.FC<IRepositoryUrlInputProps> = ({
 																							(e) =>
 																								e.issueType === "suggestion",
 																						) || errorEvals[0];
-																					if (fallback)
-																						next.add(fallback.id);
+																					if (fallback) next.add(fallback.id);
 																				}
 																			} else {
 																				for (const e of errorEvals) {
@@ -446,8 +445,7 @@ export const RepositoryUrlInput: React.FC<IRepositoryUrlInputProps> = ({
 																		checked={allErrorsSelected}
 																		ref={(el) => {
 																			if (el)
-																				el.indeterminate =
-																					someErrorsSelected;
+																				el.indeterminate = someErrorsSelected;
 																		}}
 																		readOnly
 																		className="rounded border-slate-500 text-indigo-500 focus:ring-0 cursor-pointer"
@@ -463,9 +461,7 @@ export const RepositoryUrlInput: React.FC<IRepositoryUrlInputProps> = ({
 																	>
 																		<input
 																			type="checkbox"
-																			checked={selectedEvaluatorIds.has(
-																				ev.id,
-																			)}
+																			checked={selectedEvaluatorIds.has(ev.id)}
 																			onChange={() => {
 																				setSelectedEvaluatorIds((prev) => {
 																					const next = new Set(prev);
@@ -516,11 +512,9 @@ export const RepositoryUrlInput: React.FC<IRepositoryUrlInputProps> = ({
 																				if (next.size === 0) {
 																					const fallback =
 																						evaluatorsList.find(
-																							(e) =>
-																								e.issueType === "error",
+																							(e) => e.issueType === "error",
 																						) || suggestionEvals[0];
-																					if (fallback)
-																						next.add(fallback.id);
+																					if (fallback) next.add(fallback.id);
 																				}
 																			} else {
 																				for (const e of suggestionEvals) {
@@ -536,8 +530,7 @@ export const RepositoryUrlInput: React.FC<IRepositoryUrlInputProps> = ({
 																		checked={allSuggestionsSelected}
 																		ref={(el) => {
 																			if (el)
-																				el.indeterminate =
-																					someSuggestionsSelected;
+																				el.indeterminate = someSuggestionsSelected;
 																		}}
 																		readOnly
 																		className="rounded border-slate-500 text-indigo-500 focus:ring-0 cursor-pointer"
@@ -553,9 +546,7 @@ export const RepositoryUrlInput: React.FC<IRepositoryUrlInputProps> = ({
 																	>
 																		<input
 																			type="checkbox"
-																			checked={selectedEvaluatorIds.has(
-																				ev.id,
-																			)}
+																			checked={selectedEvaluatorIds.has(ev.id)}
 																			onChange={() => {
 																				setSelectedEvaluatorIds((prev) => {
 																					const next = new Set(prev);
