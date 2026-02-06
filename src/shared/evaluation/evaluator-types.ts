@@ -152,6 +152,19 @@ export function filterEvaluatorsByType(
 }
 
 /**
+ * Filter evaluator files by specific IDs.
+ * IDs are filenames without .md extension (e.g., "content-quality", "security").
+ * Returns filtered array preserving original order.
+ */
+export function filterEvaluatorsByIds(
+	evaluatorFiles: readonly string[],
+	selectedIds: string[],
+): string[] {
+	const idSet = new Set(selectedIds.map((id) => `${id}.md`));
+	return evaluatorFiles.filter((filename) => idSet.has(filename));
+}
+
+/**
  * Get count of evaluators by type
  * Note: This counts actual evaluator files, not all EVALUATOR_CONFIGS entries
  * (e.g., excludes internal validators like 00-file-consistency.md)

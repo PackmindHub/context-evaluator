@@ -30,6 +30,7 @@ import {
 	hasFileFiltering,
 } from "./config";
 import {
+	filterEvaluatorsByIds,
 	filterEvaluatorsByType,
 	getIssueTypeFromEvaluatorName,
 	shouldExecuteIfNoFile,
@@ -216,6 +217,8 @@ export async function runAllEvaluators(
 		provider?: IAIProvider;
 		/** Filter evaluators by type */
 		evaluatorFilter?: EvaluatorFilter;
+		/** Specific evaluator IDs to run (overrides evaluatorFilter when set) */
+		selectedEvaluators?: string[];
 		/** Timeout per evaluator in milliseconds */
 		timeout?: number;
 	} = {},
@@ -234,15 +237,16 @@ export async function runAllEvaluators(
 		noFileMode = false,
 		provider = getProvider(),
 		evaluatorFilter = "all",
+		selectedEvaluators,
 		timeout = DEFAULT_TIMEOUT_MS,
 	} = options;
 
 	// Apply filter first, then limit by count
 	const allEvaluatorFiles = EVALUATOR_FILES;
-	const filteredFiles = filterEvaluatorsByType(
-		allEvaluatorFiles,
-		evaluatorFilter,
-	);
+	const filteredFiles =
+		selectedEvaluators && selectedEvaluators.length > 0
+			? filterEvaluatorsByIds(allEvaluatorFiles, selectedEvaluators)
+			: filterEvaluatorsByType(allEvaluatorFiles, evaluatorFilter);
 	const selectedFiles = filteredFiles.slice(
 		0,
 		Math.min(evaluators, filteredFiles.length),
@@ -763,6 +767,8 @@ export async function runUnifiedEvaluation(
 		provider?: IAIProvider;
 		/** Filter evaluators by type */
 		evaluatorFilter?: EvaluatorFilter;
+		/** Specific evaluator IDs to run (overrides evaluatorFilter when set) */
+		selectedEvaluators?: string[];
 		/** Timeout per evaluator in milliseconds */
 		timeout?: number;
 	} = {},
@@ -782,6 +788,7 @@ export async function runUnifiedEvaluation(
 		noFileMode = false,
 		provider = getProvider(),
 		evaluatorFilter = "all",
+		selectedEvaluators,
 		timeout = DEFAULT_TIMEOUT_MS,
 	} = options;
 
@@ -802,10 +809,10 @@ export async function runUnifiedEvaluation(
 
 	// Apply filter first, then limit by count
 	const allEvaluatorFiles = EVALUATOR_FILES;
-	const filteredFiles = filterEvaluatorsByType(
-		allEvaluatorFiles,
-		evaluatorFilter,
-	);
+	const filteredFiles =
+		selectedEvaluators && selectedEvaluators.length > 0
+			? filterEvaluatorsByIds(allEvaluatorFiles, selectedEvaluators)
+			: filterEvaluatorsByType(allEvaluatorFiles, evaluatorFilter);
 	const selectedFiles = filteredFiles.slice(
 		0,
 		Math.min(evaluators, filteredFiles.length),

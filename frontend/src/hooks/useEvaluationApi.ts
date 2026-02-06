@@ -19,6 +19,7 @@ interface IUseEvaluationApiReturn {
 		evaluatorFilter?: EvaluatorFilter,
 		timeout?: number,
 		concurrency?: number,
+		selectedEvaluators?: string[],
 	) => Promise<IEvaluateResponse>;
 	getJobStatus: (jobId: string) => Promise<IJobStatusResponse>;
 	cancelJob: (jobId: string) => Promise<void>;
@@ -39,6 +40,7 @@ export function useEvaluationApi(): IUseEvaluationApiReturn {
 			evaluatorFilter?: EvaluatorFilter,
 			timeout?: number,
 			concurrency?: number,
+			selectedEvaluators?: string[],
 		): Promise<IEvaluateResponse> => {
 			setIsLoading(true);
 			setError(null);
@@ -55,6 +57,7 @@ export function useEvaluationApi(): IUseEvaluationApiReturn {
 							...(evaluatorFilter ? { evaluatorFilter } : {}),
 							...(timeout ? { timeout } : {}),
 							...(concurrency ? { concurrency } : {}),
+							...(selectedEvaluators ? { selectedEvaluators } : {}),
 						},
 					}),
 				});

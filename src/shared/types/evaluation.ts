@@ -518,6 +518,12 @@ export interface IEvaluationOptions {
 	 */
 	evaluatorFilter?: EvaluatorFilter;
 	/**
+	 * Specific evaluator IDs to run (filenames without .md extension).
+	 * When set and non-empty, overrides evaluatorFilter.
+	 * Example: ["content-quality", "security", "context-gaps"]
+	 */
+	selectedEvaluators?: string[];
+	/**
 	 * Enable assessment features (feedback buttons, selection basket, assessment page)
 	 * - Default: false (features hidden)
 	 * - Set to true to enable like/dislike buttons, issue selection, and assessment page
