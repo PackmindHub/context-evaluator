@@ -24,6 +24,9 @@ jobs:
       - name: Install dependencies
         run: bun install
 
+      - name: Install frontend dependencies
+        run: cd frontend && bun install
+
       - name: Run tests
         run: bun run test
         env:
@@ -49,6 +52,9 @@ jobs:
 
       - name: Install dependencies
         run: bun install
+
+      - name: Install frontend dependencies
+        run: cd frontend && bun install
 
       - name: Build all binaries
         run: bun run build
