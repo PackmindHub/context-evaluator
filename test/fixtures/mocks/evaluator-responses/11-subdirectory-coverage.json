@@ -1,0 +1,14 @@
+[
+	{
+		"category": "missing_subdirectory_docs",
+		"severity": 3,
+		"suggestion": "Consider adding AGENTS.md files in key subdirectories",
+		"description": "Large projects benefit from subdirectory-specific context files. The src/api and src/services directories could have their own AGENTS.md files with module-specific context",
+		"location": {
+			"file": "AGENTS.md",
+			"start": 13,
+			"end": 19
+		},
+		"recommendation": "Create src/api/AGENTS.md and src/services/AGENTS.md with detailed explanations of the patterns used in those modules"
+	}
+]

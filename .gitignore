@@ -1,0 +1,54 @@
+# dependencies (bun install)
+node_modules
+
+# output
+out
+dist
+*.tgz
+
+# Generated embedded assets (created by scripts/generate-embedded-assets.ts)
+src/embedded/frontend-assets.ts
+src/embedded/prompts-assets.ts
+
+# Generated version module (created by scripts/generate-version.ts)
+src/shared/version/
+
+# code coverage
+coverage
+*.lcov
+
+# logs
+logs
+_.log
+report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
+
+# dotenv environment variable files
+.env
+.env.development.local
+.env.test.local
+.env.production.local
+.env.local
+
+# caches
+.cache
+*.tsbuildinfo
+
+# IntelliJ based IDEs
+.idea
+
+# Finder (MacOS) folder config
+.DS_Store
+.idea
+.claude/settings.local.json
+.cursor
+tmp
+
+evaluator-results.json
+**/evaluator-results.json
+**/**/evaluator-results.json
+
+# SQLite database
+data/
+
+# Runtime debug prompts (not versioned)
+prompts/debug/

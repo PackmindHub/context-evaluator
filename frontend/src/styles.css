@@ -1,0 +1,1394 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================
+   CENTRALIZED COLOR PALETTE
+   ============================================
+   Keep colors minimal and purposeful:
+   - Primary: Purple for interactive elements
+   - Semantic: Red/Orange/Yellow for severity only
+   - Neutral: Purple-tinted for everything else
+   ============================================ */
+
+:root {
+	/* Primary accent - used for buttons, links, focus states */
+	--color-primary: 99, 102, 241; /* indigo-500 */
+	--color-primary-hover: 79, 70, 229; /* indigo-600 */
+
+	/* Severity colors - used only for severity indicators (3-level system) */
+	--color-severity-high: 249, 115, 22; /* orange-500 */
+	--color-severity-medium: 234, 179, 8; /* yellow-500 */
+	--color-severity-low: 148, 163, 184; /* slate-400 */
+
+	/* Semantic section backgrounds - unified muted style */
+	--color-section-bg: 51, 65, 85; /* slate-700 */
+	--color-section-border: 71, 85, 105; /* slate-600 */
+	--color-section-text: 203, 213, 225; /* slate-300 */
+
+	/* Code highlight */
+	--color-highlight-bg: 234, 179, 8; /* yellow-500 for code highlights */
+
+	/* ============================================
+     TYPOGRAPHY SCALE
+     ============================================
+     Using Tailwind's default scale:
+     - 2xs:  0.6875rem (11px)
+     - xs:   0.75rem (12px)
+     - sm:   0.875rem (14px) - issue descriptions
+     - base: 1rem (16px)
+     - lg:   1.125rem (18px)
+     - xl:   1.25rem (20px)
+     - 2xl:  1.5rem (24px)
+     - 3xl:  1.875rem (30px)
+     ============================================ */
+	--font-size-2xs: 0.6875rem;
+	--font-size-xs: 0.75rem;
+	--font-size-sm: 0.875rem;
+	--font-size-base: 1rem;
+	--font-size-lg: 1.125rem;
+	--font-size-xl: 1.25rem;
+	--font-size-2xl: 1.5rem;
+	--font-size-3xl: 1.875rem;
+
+	/* Animation timing */
+	--transition-fast: 150ms;
+	--transition-base: 200ms;
+	--transition-slow: 300ms;
+
+	/* Elevation system */
+	--shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
+	--shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.25);
+	--shadow-md: 0 4px 8px -2px rgba(0, 0, 0, 0.3);
+	--shadow-lg: 0 8px 16px -4px rgba(0, 0, 0, 0.35);
+
+	/* Semantic action colors */
+	--color-success: 34, 197, 94; /* green-500 */
+	--color-bookmark: 234, 179, 8; /* yellow-500 */
+	--color-error: 239, 68, 68; /* red-500 */
+}
+
+/* ============================================
+   KEYFRAME ANIMATIONS
+   ============================================ */
+
+/* Shimmer effect for loading skeletons */
+@keyframes shimmer {
+	0% {
+		background-position: -200% 0;
+	}
+	100% {
+		background-position: 200% 0;
+	}
+}
+
+/* Subtle floating animation for hero icons */
+@keyframes float {
+	0%,
+	100% {
+		transform: translateY(0);
+	}
+	50% {
+		transform: translateY(-6px);
+	}
+}
+
+/* Dropdown reveal animation */
+@keyframes slideDown {
+	from {
+		opacity: 0;
+		transform: translateY(-8px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+/* Slide up animation */
+@keyframes slideUp {
+	from {
+		opacity: 0;
+		transform: translateY(8px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+/* Bounce in for badges and success states */
+@keyframes bounceIn {
+	0% {
+		opacity: 0;
+		transform: scale(0.3);
+	}
+	50% {
+		transform: scale(1.05);
+	}
+	70% {
+		transform: scale(0.9);
+	}
+	100% {
+		opacity: 1;
+		transform: scale(1);
+	}
+}
+
+/* Animated gradient text */
+@keyframes gradientShift {
+	0%,
+	100% {
+		background-position: 0% 50%;
+	}
+	50% {
+		background-position: 100% 50%;
+	}
+}
+
+/* AI scanning line effect */
+@keyframes scanLine {
+	0% {
+		transform: translateY(-100%);
+		opacity: 0;
+	}
+	10% {
+		opacity: 1;
+	}
+	90% {
+		opacity: 1;
+	}
+	100% {
+		transform: translateY(100%);
+		opacity: 0;
+	}
+}
+
+/* Pulse glow effect */
+@keyframes pulseGlow {
+	0%,
+	100% {
+		box-shadow: 0 0 5px rgba(168, 85, 247, 0.3);
+	}
+	50% {
+		box-shadow: 0 0 20px rgba(168, 85, 247, 0.6);
+	}
+}
+
+/* Count up number animation helper */
+@keyframes countUp {
+	from {
+		opacity: 0;
+		transform: translateY(10px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+/* Stagger children animation */
+@keyframes staggerIn {
+	from {
+		opacity: 0;
+		transform: translateY(10px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@layer base {
+	* {
+		@apply border-slate-700;
+	}
+
+	body {
+		@apply text-slate-100 font-sans antialiased;
+		min-height: 100vh;
+		background-color: #0f172a; /* Dark slate-900 */
+		background-image:
+			radial-gradient(
+				at 0% 0%,
+				rgba(var(--color-primary), 0.08) 0,
+				transparent 50%
+			),
+			radial-gradient(
+				at 100% 100%,
+				rgba(var(--color-primary), 0.06) 0,
+				transparent 50%
+			);
+	}
+
+	html {
+		@apply scroll-smooth;
+	}
+
+	/* Respect reduced motion preferences */
+	@media (prefers-reduced-motion: reduce) {
+		*,
+		*::before,
+		*::after {
+			animation-duration: 0.01ms !important;
+			animation-iteration-count: 1 !important;
+			transition-duration: 0.01ms !important;
+		}
+	}
+}
+
+@layer components {
+	/* ============================================
+     TYPOGRAPHY CLASSES
+     ============================================
+     Semantic typography for consistent text sizing.
+     Use these instead of arbitrary text-[size] classes.
+     ============================================ */
+
+	/* Page titles */
+	.text-title {
+		@apply text-3xl font-bold text-slate-100;
+	}
+
+	/* Section headers (h2 level) */
+	.text-heading {
+		@apply text-xl font-bold text-slate-100;
+	}
+
+	/* Card/panel headers (h3 level) */
+	.text-subheading {
+		@apply text-lg font-bold text-slate-100;
+	}
+
+	/* Card titles, emphasized content */
+	.text-card-title {
+		@apply text-base font-semibold text-slate-100;
+	}
+
+	/* Body text - primary */
+	.text-body {
+		@apply text-sm text-slate-300;
+	}
+
+	/* Body text - secondary/muted */
+	.text-body-muted {
+		@apply text-sm text-slate-400;
+	}
+
+	/* Small text, metadata */
+	.text-caption {
+		@apply text-xs text-slate-400;
+	}
+
+	/* Labels above inputs, section labels */
+	.text-label {
+		@apply text-sm font-semibold text-slate-300;
+	}
+
+	/* Uppercase section labels */
+	.text-label-upper {
+		@apply text-xs font-semibold text-slate-400 uppercase tracking-wide;
+	}
+
+	/* Stat/metric numbers */
+	.text-stat {
+		@apply text-2xl font-bold text-slate-100;
+	}
+
+	/* Inline code, monospace text */
+	.text-code {
+		@apply text-xs font-mono text-slate-300;
+	}
+
+	/* ============================================
+     SEVERITY BADGES (3-level system: High, Medium, Low)
+     ============================================ */
+	.severity-badge {
+		@apply inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold;
+	}
+
+	.severity-critical {
+		@apply bg-red-950/60 text-red-300 border border-red-800/50;
+	}
+
+	.severity-high {
+		@apply bg-orange-950/60 text-orange-300 border border-orange-800/50;
+	}
+
+	.severity-medium {
+		@apply bg-yellow-950/60 text-yellow-300 border border-yellow-800/50;
+	}
+
+	.severity-low {
+		@apply bg-slate-700/60 text-slate-300 border border-slate-600/50;
+	}
+
+	/* Severity indicator dots */
+	.severity-dot {
+		@apply w-2.5 h-2.5 rounded-full;
+	}
+
+	.severity-dot-critical {
+		@apply bg-red-500;
+	}
+
+	.severity-dot-high {
+		@apply bg-orange-500;
+	}
+
+	.severity-dot-medium {
+		@apply bg-yellow-500;
+	}
+
+	.severity-dot-low {
+		@apply bg-blue-400;
+	}
+
+	/* ============================================
+     EVALUATOR GROUPING
+     Used for nested file -> evaluator -> issues display
+     ============================================ */
+	.evaluator-group-header {
+		@apply flex items-center gap-3 pb-3;
+	}
+
+	.evaluator-group-name {
+		@apply text-sm font-mono text-slate-300;
+	}
+
+	.evaluator-group-badge {
+		@apply text-xs text-slate-500 ml-auto;
+	}
+
+	.evaluator-groups-container {
+		@apply space-y-6 pl-4;
+	}
+
+	/* ============================================
+     FILE SECTION SEPARATION
+     Used for visually separating multiple AGENTS.md files
+     ============================================ */
+
+	/* File section with horizontal separator */
+	.file-section {
+		@apply py-8;
+	}
+
+	.file-section:not(:first-child) {
+		@apply border-t-2 border-slate-600/80 mt-10 pt-10;
+	}
+
+	/* File header styling */
+	.file-section-header {
+		@apply flex items-center gap-3 mb-8;
+	}
+
+	.file-section-header h3 {
+		@apply text-lg font-bold text-slate-100;
+	}
+
+	/* ============================================
+     INFO SECTIONS (unified neutral style)
+     Use icons/labels to differentiate, not colors
+     ============================================ */
+	.info-section {
+		@apply bg-slate-800/60 border border-slate-700/60 rounded-lg p-3;
+	}
+
+	.info-section-header {
+		@apply text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1;
+	}
+
+	.info-section-content {
+		@apply text-sm text-slate-300;
+	}
+
+	.info-section-icon {
+		@apply text-slate-500 mt-0.5 flex-shrink-0;
+		width: 16px;
+		height: 16px;
+		min-width: 16px;
+		min-height: 16px;
+		max-width: 16px;
+		max-height: 16px;
+	}
+
+	/* ============================================
+     EXPERIMENTAL NOTICE
+     Informational banner for project status
+     ============================================ */
+	.experimental-notice {
+		@apply mb-6 rounded-lg p-4 transition-all duration-200;
+		border: 2px solid rgb(var(--color-primary) / 0.3);
+		background: linear-gradient(
+			135deg,
+			rgb(var(--color-primary) / 0.05) 0%,
+			rgb(var(--color-primary) / 0.08) 100%
+		);
+	}
+
+	.experimental-notice-icon {
+		@apply mt-1 h-6 w-6 flex-shrink-0;
+		color: rgb(var(--color-primary));
+	}
+
+	/* ============================================
+     STAT CARDS (for summary metrics - 3-level system)
+     ============================================ */
+	.stat-card-high {
+		@apply bg-slate-800/80 border border-orange-900/40;
+	}
+
+	.stat-card-medium {
+		@apply bg-slate-800/80 border border-yellow-900/40;
+	}
+
+	.stat-card-low {
+		@apply bg-slate-800/80 border border-slate-700/40;
+	}
+
+	/* Cost & Performance Cards */
+	.cost-hero-card {
+		@apply bg-slate-700/50 border border-slate-600/60 rounded-lg p-4 transition-all duration-200;
+	}
+
+	.cost-detail-card {
+		@apply bg-slate-800/60 border border-slate-700/60 rounded-lg p-3 transition-all duration-200;
+	}
+
+	/* Modern Card System */
+	.card {
+		@apply bg-slate-800 rounded-xl shadow-lg shadow-black/50 border border-slate-700 p-4 transition-all duration-200;
+	}
+
+	.card-hover {
+		@apply hover:border-slate-500 hover:-translate-y-0.5;
+	}
+
+	.card-hover:hover {
+		box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.3); /* purple-900/30 */
+	}
+
+	.card-glass {
+		@apply bg-slate-800/95 backdrop-blur-sm border-slate-700;
+	}
+
+	/* Premium glass card variant */
+	.card-premium {
+		@apply relative overflow-hidden rounded-xl p-6;
+		background: rgba(30, 41, 59, 0.7); /* purple-900 tint */
+		backdrop-filter: blur(16px);
+		-webkit-backdrop-filter: blur(16px);
+		border: 1px solid rgba(71, 85, 105, 0.4); /* indigo-600 equivalent */
+		box-shadow:
+			0 8px 32px -8px rgba(0, 0, 0, 0.4),
+			0 4px 16px -4px rgba(0, 0, 0, 0.3),
+			inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+	}
+
+	/* Premium Badge System */
+	.badge {
+		@apply inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold tracking-wide;
+	}
+
+	.badge-gradient {
+		@apply bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-md shadow-indigo-900/50;
+	}
+
+	/* Enterprise Button System */
+	.btn-primary {
+		@apply relative bg-indigo-600 text-white px-5 py-2.5 rounded-lg font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden;
+		box-shadow:
+			0 4px 14px -3px rgba(99, 102, 241, 0.5),
+			inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
+	}
+
+	.btn-primary:hover:not(:disabled) {
+		@apply bg-indigo-500;
+		box-shadow:
+			0 6px 20px -3px rgba(99, 102, 241, 0.6),
+			inset 0 1px 0 0 rgba(255, 255, 255, 0.15);
+		transform: translateY(-1px);
+	}
+
+	.btn-primary:active:not(:disabled) {
+		transform: translateY(0) scale(0.98);
+	}
+
+	/* Shimmer effect on button hover */
+	.btn-primary::after {
+		content: "";
+		position: absolute;
+		top: -50%;
+		left: -50%;
+		width: 200%;
+		height: 200%;
+		background: linear-gradient(
+			45deg,
+			transparent 40%,
+			rgba(255, 255, 255, 0.15) 50%,
+			transparent 60%
+		);
+		transform: translateX(-100%);
+		transition: transform 0.6s ease;
+	}
+
+	.btn-primary:hover::after {
+		transform: translateX(100%);
+	}
+
+	.btn-secondary {
+		@apply bg-slate-700/80 text-slate-200 px-5 py-2.5 rounded-lg font-semibold border border-slate-600 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+		box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.3);
+	}
+
+	.btn-secondary:hover:not(:disabled) {
+		@apply bg-indigo-700 border-indigo-600 text-white;
+		transform: translateY(-1px);
+		box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.4);
+	}
+
+	.btn-secondary:active:not(:disabled) {
+		transform: translateY(0) scale(0.98);
+	}
+
+	.btn-ghost {
+		@apply text-slate-300 px-3 py-2 rounded-lg font-medium transition-all duration-200;
+	}
+
+	.btn-ghost:hover {
+		@apply bg-slate-700/60 text-slate-100;
+	}
+
+	/* Professional Input System */
+	.input-field {
+		@apply bg-slate-700/60 border border-slate-600 rounded-lg px-4 py-3 text-sm text-slate-100 placeholder:text-slate-500 transition-all duration-200;
+		box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
+	}
+
+	.input-field:focus {
+		@apply outline-none border-indigo-500/70;
+		box-shadow:
+			0 0 0 3px rgba(168, 85, 247, 0.15),
+			inset 0 1px 2px rgba(0, 0, 0, 0.2),
+			0 0 20px -5px rgba(168, 85, 247, 0.3);
+	}
+
+	/* Gradient Text */
+	.text-gradient {
+		@apply bg-gradient-to-r from-indigo-400 via-fuchsia-400 to-indigo-400 bg-clip-text text-transparent;
+	}
+
+	/* ============================================
+     ANIMATION UTILITY CLASSES
+     ============================================ */
+
+	/* Fade in with slide */
+	.animate-fade-in {
+		animation: fadeIn 0.4s ease-out;
+	}
+
+	@keyframes fadeIn {
+		from {
+			opacity: 0;
+			transform: translateY(10px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+
+	/* Floating animation for icons */
+	.animate-float {
+		animation: float 3s ease-in-out infinite;
+	}
+
+	/* Shimmer loading effect */
+	.skeleton-shimmer {
+		background: linear-gradient(
+			90deg,
+			rgba(51, 65, 85, 0.4) 0%,
+			rgba(71, 85, 105, 0.6) 50%,
+			rgba(51, 65, 85, 0.4) 100%
+		);
+		background-size: 200% 100%;
+		animation: shimmer 1.5s ease-in-out infinite;
+	}
+
+	/* Bounce in animation */
+	.animate-bounce-in {
+		animation: bounceIn 0.4s ease-out;
+	}
+
+	/* Slide down for dropdowns */
+	.animate-slide-down {
+		animation: slideDown 0.2s ease-out;
+	}
+
+	/* Slide up animation */
+	.animate-slide-up {
+		animation: slideUp 0.3s ease-out;
+	}
+
+	/* Pulse glow for active states */
+	.animate-pulse-glow {
+		animation: pulseGlow 2s ease-in-out infinite;
+	}
+
+	/* Gradient text animation */
+	.animate-gradient-text {
+		background-size: 200% auto;
+		animation: gradientShift 3s ease infinite;
+	}
+
+	/* AI scan line effect */
+	.scan-line {
+		position: absolute;
+		left: 0;
+		right: 0;
+		height: 2px;
+		background: linear-gradient(
+			90deg,
+			transparent,
+			rgba(168, 85, 247, 0.8),
+			transparent
+		);
+		animation: scanLine 2s linear infinite;
+	}
+
+	/* Staggered children animation - apply to parent */
+	.stagger-children > * {
+		animation: staggerIn 0.3s ease-out both;
+	}
+	.stagger-children > *:nth-child(1) {
+		animation-delay: 0ms;
+	}
+	.stagger-children > *:nth-child(2) {
+		animation-delay: 50ms;
+	}
+	.stagger-children > *:nth-child(3) {
+		animation-delay: 100ms;
+	}
+	.stagger-children > *:nth-child(4) {
+		animation-delay: 150ms;
+	}
+	.stagger-children > *:nth-child(5) {
+		animation-delay: 200ms;
+	}
+
+	/* ============================================
+     GLASSMORPHISM & CARD EFFECTS
+     ============================================ */
+
+	/* Premium glass card effect */
+	.glass-card {
+		@apply relative overflow-hidden rounded-xl;
+		background: rgba(30, 41, 59, 0.8); /* purple-900 tint */
+		backdrop-filter: blur(12px);
+		-webkit-backdrop-filter: blur(12px);
+		border: 1px solid rgba(71, 85, 105, 0.5); /* indigo-600 equivalent */
+		box-shadow:
+			0 4px 6px -1px rgba(0, 0, 0, 0.3),
+			0 2px 4px -1px rgba(0, 0, 0, 0.2),
+			inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+	}
+
+	.glass-card::before {
+		content: "";
+		position: absolute;
+		inset: 0;
+		border-radius: inherit;
+		padding: 1px;
+		background: linear-gradient(
+			135deg,
+			rgba(255, 255, 255, 0.1) 0%,
+			transparent 50%,
+			transparent 100%
+		);
+		-webkit-mask:
+			linear-gradient(#fff 0 0) content-box,
+			linear-gradient(#fff 0 0);
+		mask:
+			linear-gradient(#fff 0 0) content-box,
+			linear-gradient(#fff 0 0);
+		-webkit-mask-composite: xor;
+		mask-composite: exclude;
+		pointer-events: none;
+	}
+
+	/* Hover lift effect */
+	.hover-lift {
+		@apply transition-all duration-200;
+	}
+
+	.hover-lift:hover {
+		transform: translateY(-2px);
+		box-shadow:
+			0 10px 25px -5px rgba(0, 0, 0, 0.4),
+			0 8px 10px -6px rgba(0, 0, 0, 0.3);
+	}
+
+	/* Focus ring for accessibility */
+	.focus-ring {
+		@apply focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:ring-offset-2 focus:ring-offset-slate-900;
+	}
+
+	/* Gradient border on hover */
+	.gradient-border-hover {
+		@apply relative;
+	}
+
+	.gradient-border-hover::after {
+		content: "";
+		position: absolute;
+		inset: 0;
+		border-radius: inherit;
+		padding: 1px;
+		background: linear-gradient(
+			135deg,
+			rgba(168, 85, 247, 0) 0%,
+			rgba(168, 85, 247, 0) 100%
+		);
+		-webkit-mask:
+			linear-gradient(#fff 0 0) content-box,
+			linear-gradient(#fff 0 0);
+		mask:
+			linear-gradient(#fff 0 0) content-box,
+			linear-gradient(#fff 0 0);
+		-webkit-mask-composite: xor;
+		mask-composite: exclude;
+		pointer-events: none;
+		transition: background 0.3s ease;
+	}
+
+	.gradient-border-hover:hover::after {
+		background: linear-gradient(
+			135deg,
+			rgba(168, 85, 247, 0.5) 0%,
+			rgba(99, 102, 241, 0.5) 100%
+		);
+	}
+
+	/* Inner glow for inputs on focus */
+	.input-glow:focus {
+		box-shadow:
+			0 0 0 3px rgba(168, 85, 247, 0.15),
+			inset 0 0 0 1px rgba(168, 85, 247, 0.3);
+	}
+
+	/* Background gradient orbs */
+	.bg-orb {
+		position: absolute;
+		border-radius: 50%;
+		filter: blur(80px);
+		pointer-events: none;
+	}
+
+	.bg-orb-blue {
+		background: radial-gradient(
+			circle,
+			rgba(168, 85, 247, 0.15) 0%,
+			transparent 70%
+		);
+	}
+
+	.bg-orb-purple {
+		background: radial-gradient(
+			circle,
+			rgba(139, 92, 246, 0.1) 0%,
+			transparent 70%
+		);
+	}
+
+	/* Noise texture overlay */
+	.noise-overlay::after {
+		content: "";
+		position: absolute;
+		inset: 0;
+		background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+		opacity: 0.02;
+		pointer-events: none;
+	}
+
+	/* Modern Scrollbar */
+	.custom-scrollbar::-webkit-scrollbar {
+		@apply w-2;
+	}
+
+	.custom-scrollbar::-webkit-scrollbar-track {
+		@apply bg-slate-800 rounded-full;
+	}
+
+	.custom-scrollbar::-webkit-scrollbar-thumb {
+		@apply bg-indigo-700 rounded-full hover:bg-indigo-600;
+	}
+
+	/* Progress Bar Animation */
+	.progress-bar-animated {
+		background-image: linear-gradient(
+			-45deg,
+			rgba(255, 255, 255, 0.15) 25%,
+			transparent 25%,
+			transparent 50%,
+			rgba(255, 255, 255, 0.15) 50%,
+			rgba(255, 255, 255, 0.15) 75%,
+			transparent 75%,
+			transparent
+		);
+		background-size: 1rem 1rem;
+		animation: progress-stripes 1s linear infinite;
+	}
+
+	@keyframes progress-stripes {
+		from {
+			background-position: 1rem 0;
+		}
+		to {
+			background-position: 0 0;
+		}
+	}
+
+	/* Markdown Content Styling */
+	.markdown-content {
+		@apply text-slate-300 leading-relaxed;
+	}
+
+	.markdown-content h1 {
+		@apply text-2xl font-bold text-slate-100 mt-6 mb-4 pb-2 border-b border-slate-700;
+	}
+
+	.markdown-content h2 {
+		@apply text-xl font-semibold text-slate-100 mt-6 mb-3;
+	}
+
+	.markdown-content h3 {
+		@apply text-lg font-semibold text-slate-200 mt-5 mb-2;
+	}
+
+	.markdown-content h4 {
+		@apply text-base font-semibold text-slate-200 mt-4 mb-2;
+	}
+
+	.markdown-content p {
+		@apply text-sm text-slate-300 mb-4 leading-relaxed;
+	}
+
+	.markdown-content code {
+		@apply bg-slate-700 px-1.5 py-0.5 rounded text-xs text-cyan-300 font-mono;
+	}
+
+	.markdown-content pre {
+		@apply bg-slate-800 border border-slate-700 p-4 rounded-lg overflow-x-auto my-4;
+	}
+
+	.markdown-content pre code {
+		@apply bg-transparent px-0 py-0 text-sm text-slate-300;
+	}
+
+	.markdown-content ul {
+		@apply list-disc list-outside text-sm text-slate-300 space-y-1 ml-6 mb-4;
+	}
+
+	.markdown-content ol {
+		@apply list-decimal list-outside text-sm text-slate-300 space-y-1 ml-6 mb-4;
+	}
+
+	.markdown-content li {
+		@apply pl-1;
+	}
+
+	.markdown-content blockquote {
+		@apply border-l-4 border-indigo-500 pl-4 py-2 my-4 bg-slate-800/50 rounded-r-lg italic text-slate-400;
+	}
+
+	.markdown-content hr {
+		@apply border-slate-700 my-6;
+	}
+
+	.markdown-content table {
+		@apply w-full text-sm border-collapse my-4;
+	}
+
+	.markdown-content th {
+		@apply bg-slate-700 text-slate-200 px-3 py-2 text-left font-semibold border border-slate-600;
+	}
+
+	.markdown-content td {
+		@apply border border-slate-700 px-3 py-2 text-slate-300;
+	}
+
+	.markdown-content a {
+		@apply text-indigo-400 hover:text-slate-300 underline;
+	}
+
+	.markdown-content strong {
+		@apply font-semibold text-slate-200;
+	}
+
+	.markdown-content em {
+		@apply italic text-slate-400;
+	}
+
+	/* Compact variant for issue cards - reduced spacing */
+	.markdown-content-compact {
+		@apply text-slate-300 leading-normal;
+		font-size: var(--font-size-sm);
+	}
+
+	.markdown-content-compact p {
+		@apply text-slate-300 mb-2 leading-normal;
+		font-size: var(--font-size-sm);
+	}
+
+	.markdown-content-compact h2 {
+		@apply text-base font-semibold text-slate-100 mt-3 mb-1.5;
+	}
+
+	.markdown-content-compact h3 {
+		@apply text-sm font-semibold text-slate-200 mt-2.5 mb-1;
+	}
+
+	.markdown-content-compact h4 {
+		@apply text-xs font-semibold text-slate-200 mt-2 mb-1;
+	}
+
+	.markdown-content-compact code {
+		@apply bg-slate-700/60 px-1.5 py-0.5 rounded text-xs text-rose-300 font-mono;
+	}
+
+	.markdown-content-compact pre {
+		@apply bg-slate-800 border border-slate-700 p-3 rounded-lg overflow-x-auto my-2;
+	}
+
+	.markdown-content-compact pre code {
+		@apply bg-transparent px-0 py-0 text-sm text-slate-300;
+	}
+
+	.markdown-content-compact ul,
+	.markdown-content-compact ol {
+		@apply list-disc list-outside text-slate-300 space-y-1 ml-6 mb-2;
+		font-size: var(--font-size-2xs);
+	}
+
+	.markdown-content-compact ol {
+		@apply list-decimal;
+	}
+
+	.markdown-content-compact li {
+		@apply pl-1;
+	}
+
+	.markdown-content-compact blockquote {
+		@apply border-l-4 border-indigo-500 pl-4 py-1.5 my-2 bg-slate-800/50 rounded-r-lg italic text-slate-400;
+	}
+
+	.markdown-content-compact a {
+		@apply text-indigo-400 hover:text-slate-300 underline;
+	}
+
+	.markdown-content-compact strong {
+		@apply font-semibold text-slate-200;
+	}
+
+	.markdown-content-compact em {
+		@apply italic text-slate-400;
+	}
+
+	/* ============================================
+     TAB NAVIGATION - Enhanced with animations
+     ============================================ */
+	.tab-navigation {
+		@apply flex items-center gap-1 p-1.5 rounded-xl border border-slate-700/60 overflow-x-auto relative;
+		background: rgba(30, 41, 59, 0.6); /* purple-900 tint */
+		backdrop-filter: blur(8px);
+		-webkit-backdrop-filter: blur(8px);
+	}
+
+	.tab-button {
+		@apply relative px-5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 text-slate-400 flex items-center gap-2.5 whitespace-nowrap cursor-pointer z-10;
+	}
+
+	.tab-button:hover:not(.tab-button-active) {
+		@apply text-slate-200 bg-slate-700/40;
+	}
+
+	.tab-button-active {
+		@apply text-white;
+		text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+	}
+
+	/* Animated tab indicator background */
+	.tab-indicator {
+		@apply absolute rounded-lg transition-all duration-200 ease-out;
+		background: linear-gradient(
+			135deg,
+			rgb(var(--color-primary)) 0%,
+			rgb(var(--color-primary-hover)) 100%
+		);
+		box-shadow:
+			0 4px 12px -2px rgba(var(--color-primary), 0.4),
+			inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
+	}
+
+	.tab-icon {
+		@apply w-4 h-4 flex-shrink-0;
+	}
+
+	.tab-count {
+		@apply bg-slate-700/60 text-slate-300 px-2.5 py-0.5 rounded-full text-xs font-semibold ml-1 transition-all duration-200;
+	}
+
+	.tab-count-active {
+		@apply bg-white/20 text-white;
+	}
+
+	/* Tab content transition */
+	.tab-content-enter {
+		animation: tabFadeIn 0.25s ease-out;
+	}
+
+	@keyframes tabFadeIn {
+		from {
+			opacity: 0;
+			transform: translateY(4px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+
+	/* ============================================
+     TRUST SIGNALS / FEATURE BADGES
+     ============================================ */
+	.trust-badge {
+		@apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium;
+		background: rgba(51, 65, 85, 0.5);
+		border: 1px solid rgba(71, 85, 105, 0.4);
+		color: #94a3b8;
+	}
+
+	.trust-badge-icon {
+		@apply w-3.5 h-3.5 opacity-70;
+	}
+
+	/* ============================================
+     HEADER WITH SCROLL EFFECT
+     ============================================ */
+	.header-scrolled {
+		backdrop-filter: blur(12px);
+		-webkit-backdrop-filter: blur(12px);
+		background: rgba(30, 41, 59, 0.85) !important; /* purple-900 tint */
+		box-shadow:
+			0 4px 20px -4px rgba(0, 0, 0, 0.3),
+			0 1px 0 0 rgba(71, 85, 105, 0.3); /* indigo-600 equivalent */
+	}
+
+	/* ============================================
+     HERO SECTION ENHANCEMENTS
+     ============================================ */
+	.hero-headline {
+		@apply text-4xl md:text-5xl font-bold tracking-tight;
+		background: linear-gradient(135deg, #f8fafc 0%, #94a3b8 100%);
+		background-clip: text;
+		-webkit-background-clip: text;
+		-webkit-text-fill-color: transparent;
+	}
+
+	.hero-headline-gradient {
+		background: linear-gradient(135deg, #a855f7 0%, #e879f9 50%, #a855f7 100%);
+		background-size: 200% auto;
+		background-clip: text;
+		-webkit-background-clip: text;
+		-webkit-text-fill-color: transparent;
+		animation: gradientShift 4s ease infinite;
+	}
+
+	.hero-tagline {
+		@apply text-lg text-slate-400 max-w-2xl mx-auto;
+		animation: fadeIn 0.6s ease-out 0.2s both;
+	}
+
+	/* ============================================
+     SKELETON LOADERS
+     ============================================ */
+	.skeleton {
+		@apply rounded-lg;
+		background: linear-gradient(
+			90deg,
+			rgba(51, 65, 85, 0.3) 0%,
+			rgba(71, 85, 105, 0.4) 50%,
+			rgba(51, 65, 85, 0.3) 100%
+		);
+		background-size: 200% 100%;
+		animation: shimmer 1.5s ease-in-out infinite;
+	}
+
+	.skeleton-text {
+		@apply h-4 rounded;
+	}
+
+	.skeleton-title {
+		@apply h-6 w-3/4 rounded;
+	}
+
+	.skeleton-avatar {
+		@apply w-10 h-10 rounded-full;
+	}
+
+	.skeleton-card {
+		@apply p-4 rounded-xl border border-slate-700/50;
+		background: rgba(30, 41, 59, 0.5); /* purple-900 tint */
+	}
+
+	/* ============================================
+     ISSUE CARD TOP BORDER SEVERITY (3-level system)
+     ============================================ */
+	.issue-card-severity-border {
+		@apply relative overflow-hidden;
+	}
+
+	.issue-card-severity-border::before {
+		content: "";
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		height: 3px;
+	}
+
+	.issue-card-severity-high::before {
+		background: linear-gradient(90deg, #f97316 0%, #ea580c 100%);
+	}
+
+	.issue-card-severity-medium::before {
+		background: linear-gradient(90deg, #eab308 0%, #ca8a04 100%);
+	}
+
+	.issue-card-severity-low::before {
+		background: linear-gradient(
+			90deg,
+			#94a3b8 0%,
+			#64748b 100%
+		); /* slate-400 to slate-500 */
+	}
+
+	/* ============================================
+     ANIMATED NUMBER COUNTER
+     ============================================ */
+	.animate-count {
+		animation: countUp 0.5s ease-out;
+	}
+
+	/* Number with glow effect based on value */
+	.score-glow {
+		text-shadow: 0 0 20px currentColor;
+	}
+
+	/* ============================================
+     ISSUE SELECTION
+     ============================================ */
+	/* Issue add/select button */
+	.issue-add-button {
+		@apply w-8 h-8 rounded-full border-2 border-slate-600 bg-slate-700 text-slate-300 hover:border-indigo-500 hover:text-indigo-400 focus:ring-2 focus:ring-indigo-500/50 cursor-pointer transition-all duration-200 flex items-center justify-center;
+	}
+
+	.issue-add-button-selected {
+		@apply bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-700;
+	}
+
+	/* Selected issue card */
+	.issue-card-selected {
+		@apply border-indigo-500 bg-slate-800/10;
+	}
+
+	/* Selection summary bar (top of page) */
+	.selection-summary-bar {
+		@apply fixed top-[72px] left-0 right-0 z-40 bg-slate-800 border-b border-slate-700 shadow-md shadow-black/30 transition-transform duration-300;
+	}
+
+	.selection-summary-bar-hidden {
+		@apply -translate-y-full;
+	}
+
+	/* ============================================
+     CONTEXT SCORE GRADES
+     ============================================
+     Color coding by grade using red-to-green gradient
+     Critical (red) → Poor (orange) → Moderate (yellow) → Good (green) → Excellent (emerald)
+     ============================================ */
+	.score-grade-excellent {
+		@apply text-emerald-400;
+	}
+
+	.score-grade-good {
+		@apply text-green-400;
+	}
+
+	.score-grade-moderate {
+		@apply text-yellow-400;
+	}
+
+	.score-grade-poor {
+		@apply text-orange-400;
+	}
+
+	.score-grade-critical {
+		@apply text-red-400;
+	}
+
+	.score-badge-excellent {
+		@apply bg-emerald-950/60 text-emerald-300 border border-emerald-800/50;
+	}
+
+	.score-badge-good {
+		@apply bg-green-950/60 text-green-300 border border-green-800/50;
+	}
+
+	.score-badge-moderate {
+		@apply bg-yellow-950/60 text-yellow-300 border border-yellow-800/50;
+	}
+
+	.score-badge-poor {
+		@apply bg-orange-950/60 text-orange-300 border border-orange-800/50;
+	}
+
+	.score-badge-critical {
+		@apply bg-red-950/60 text-red-300 border border-red-800/50;
+	}
+
+	/* Context Score Card */
+	.context-score-card {
+		@apply relative overflow-hidden rounded-xl border border-slate-700 bg-slate-800/80 p-6;
+	}
+
+	.context-score-number {
+		@apply text-5xl font-bold tabular-nums;
+	}
+
+	.context-score-label {
+		@apply text-sm font-semibold text-slate-400 uppercase tracking-wide;
+	}
+
+	/* ============================================
+     ACTION BUTTON SYSTEM
+     Circular icon buttons with semantic color states
+     ============================================ */
+	.action-btn {
+		@apply w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200;
+		@apply border-2 border-slate-600 text-slate-400;
+	}
+
+	.action-btn-bookmark {
+		@apply hover:border-yellow-500 hover:text-yellow-400 hover:bg-slate-700;
+	}
+	.action-btn-bookmark-active {
+		@apply bg-yellow-600 border-yellow-500 text-white;
+	}
+
+	.action-btn-like {
+		@apply hover:border-green-500 hover:text-green-400 hover:bg-slate-700;
+	}
+	.action-btn-like-active {
+		@apply bg-green-600 border-green-500 text-white;
+	}
+
+	.action-btn-dislike {
+		@apply hover:border-red-500 hover:text-red-400 hover:bg-slate-700;
+	}
+	.action-btn-dislike-active {
+		@apply bg-red-600 border-red-500 text-white;
+	}
+
+	/* ============================================
+     FILTER SECTION SYSTEM
+     Organized filter panel with collapsible sections
+     ============================================ */
+	.filter-section {
+		@apply py-4 border-b border-slate-700/40 last:border-b-0;
+	}
+	.filter-section-title {
+		@apply text-sm font-semibold text-slate-200 mb-2;
+	}
+
+	/* ============================================
+     LOG COLORS (for ProgressPanel)
+     ============================================ */
+	.log-success {
+		@apply text-green-400;
+	}
+	.log-error {
+		@apply text-red-400;
+	}
+	.log-warning {
+		@apply text-yellow-400;
+	}
+	.log-info {
+		@apply text-slate-300;
+	}
+
+	/* ============================================
+     INFO BADGE COLORS
+     ============================================ */
+	.badge-info {
+		@apply bg-slate-800/40 text-slate-300;
+	}
+
+	/* ============================================
+     TEXT SEMANTIC COLORS
+     ============================================ */
+	.text-primary {
+		@apply text-indigo-400;
+	}
+	.text-bookmark {
+		@apply text-yellow-400;
+	}
+	.text-success {
+		@apply text-green-400;
+	}
+	.text-info {
+		@apply text-indigo-400;
+	}
+
+	/* ============================================
+     AGENT DETECTION STATES
+     Agent card status indicators for CLI detection
+     ============================================ */
+	.agent-card-detecting {
+		@apply border-indigo-500/40 animate-pulse;
+	}
+	.agent-card-available {
+		@apply border-green-500/40 bg-green-900/10;
+	}
+	.agent-card-unavailable {
+		@apply border-red-500/40 opacity-70;
+	}
+	.agent-status-icon {
+		@apply w-6 h-6 mb-3;
+	}
+
+	/* ============================================
+     ACTIVE JOB STATUS INDICATORS
+     Status dots for running and queued jobs
+     ============================================ */
+	.status-dot-running {
+		@apply bg-indigo-500;
+		animation: pulse-glow-indigo 2s ease-in-out infinite;
+	}
+
+	.status-dot-queued {
+		@apply bg-slate-500;
+	}
+}
+
+/* Pulsing glow animation for running status dot */
+@keyframes pulse-glow-indigo {
+	0%,
+	100% {
+		box-shadow: 0 0 4px rgba(99, 102, 241, 0.4);
+	}
+	50% {
+		box-shadow: 0 0 12px rgba(99, 102, 241, 0.8);
+	}
+}

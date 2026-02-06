@@ -1,0 +1,33 @@
+{
+	"header": {
+		"cloc_version": "1.90",
+		"elapsed_seconds": 0.5,
+		"n_files": 12,
+		"n_lines": 3450,
+		"files_per_second": 24
+	},
+	"TypeScript": {
+		"nFiles": 8,
+		"blank": 245,
+		"comment": 180,
+		"code": 2150
+	},
+	"JavaScript": {
+		"nFiles": 2,
+		"blank": 45,
+		"comment": 20,
+		"code": 380
+	},
+	"JSON": {
+		"nFiles": 2,
+		"blank": 0,
+		"comment": 0,
+		"code": 450
+	},
+	"SUM": {
+		"nFiles": 12,
+		"blank": 290,
+		"comment": 200,
+		"code": 2980
+	}
+}

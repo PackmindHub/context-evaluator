@@ -1,0 +1,26 @@
+[
+	{
+		"category": "missing_examples",
+		"severity": 7,
+		"problem": "API authentication section lacks concrete examples",
+		"description": "The Authentication Flow section describes the process but doesn't show actual code examples of how to implement JWT authentication",
+		"location": {
+			"file": "AGENTS.md",
+			"start": 22,
+			"end": 24
+		},
+		"fix": "Add a code snippet showing how to authenticate a user and return a JWT token"
+	},
+	{
+		"category": "incomplete_explanation",
+		"severity": 5,
+		"problem": "Database migration process is mentioned but not explained",
+		"description": "The common tasks section shows 'npm run migrate' but doesn't explain what migrations are, when to run them, or how to create new migrations",
+		"location": {
+			"file": "AGENTS.md",
+			"start": 54,
+			"end": 58
+		},
+		"recommendation": "Add a subsection explaining the migration system, when migrations run automatically vs manually, and how to create new migration files"
+	}
+]

@@ -1,0 +1,7 @@
+[build]
+loader = [
+  { ext = ".css", loader = "css" }
+]
+
+[build.css]
+postcss = true

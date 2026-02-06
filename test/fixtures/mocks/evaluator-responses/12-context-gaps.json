@@ -1,0 +1,9 @@
+[
+	{
+		"category": "missing_context_file",
+		"severity": 9,
+		"problem": "No AGENTS.md or CLAUDE.md files found in the repository",
+		"description": "The repository lacks any context documentation files. AI agents working on this codebase will have no guidance on architecture, patterns, or conventions",
+		"recommendation": "Create an AGENTS.md file in the repository root with sections covering project overview, architecture, key concepts, and development guidelines"
+	}
+]

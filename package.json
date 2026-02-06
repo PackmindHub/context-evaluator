@@ -1,0 +1,61 @@
+{
+	"name": "context-evaluator",
+	"version": "0.0.1",
+	"description": "CLI tool and web app to evaluate AGENTS.md files using AI agents",
+	"module": "src/index.ts",
+	"type": "module",
+	"private": true,
+	"bin": {
+		"agents-eval": "./dist/index.js"
+	},
+	"scripts": {
+		"dev": "bun run generate:version && (cd frontend && bun run css:build) && (bun --hot src/index.ts api &) && bun --hot frontend/server.ts",
+		"dev:cloud": "bun run generate:version && (cd frontend && bun run css:build) && (bun --hot src/index.ts api --cloud &) && bun --hot frontend/server.ts",
+		"dev:api": "bun run generate:version && bun --hot src/index.ts api",
+		"dev:frontend": "(cd frontend && bun run css:build) && bun --hot frontend/server.ts",
+		"dev:cli": "bun run generate:version && bun src/index.ts cli evaluate --claude",
+		"start": "NODE_ENV=production bun run dist/index.js api",
+		"start:public": "NODE_ENV=production bun run dist/index.js api --host 0.0.0.0",
+		"evaluate": "bun run src/index.ts cli evaluate --claude",
+		"test": "bun test",
+		"typecheck": "tsc --noEmit",
+		"lint": "biome check --error-on-warnings",
+		"lint:fix": "biome check --write",
+		"format": "biome format --write",
+		"clean": "rm -rf dist && rm -rf frontend/dist && rm -f src/embedded/frontend-assets.ts src/embedded/prompts-assets.ts",
+		"build": "bun run clean && bun run generate:version && bun run build:frontend && bun run generate:embedded && bun run build:binaries",
+		"build:frontend": "cd frontend && bun run build:prod",
+		"build:binaries": "bun run build:bin:darwin-arm64 && bun run build:bin:darwin-x64 && bun run build:bin:linux-x64 && bun run build:bin:windows-x64",
+		"build:bin:darwin-arm64": "bun build src/index.ts --compile --target=bun-darwin-arm64 --outfile dist/bin/context-evaluator-darwin-arm64 --minify",
+		"build:bin:darwin-x64": "bun build src/index.ts --compile --target=bun-darwin-x64 --outfile dist/bin/context-evaluator-darwin-x64 --minify",
+		"build:bin:linux-x64": "bun build src/index.ts --compile --target=bun-linux-x64 --outfile dist/bin/context-evaluator-linux-x64 --minify",
+		"build:bin:windows-x64": "bun build src/index.ts --compile --target=bun-windows-x64 --outfile dist/bin/context-evaluator-windows-x64.exe --minify",
+		"generate:version": "bun run scripts/generate-version.ts",
+		"generate:embedded": "bun run scripts/generate-embedded-assets.ts",
+		"prepare": "husky"
+	},
+	"engines": {
+		"node": ">=22.0.0"
+	},
+	"dependencies": {
+		"commander": "^14.0.2",
+		"diff": "8.0.3",
+		"glob": "^13.0.0",
+		"react": "^18.3.1",
+		"react-dom": "^18.3.1",
+		"react-markdown": "^10.1.0",
+		"remark-gfm": "^4.0.1"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.3.11",
+		"@types/bun": "latest",
+		"@types/diff": "^5.2.3",
+		"@types/react": "^18.3.27",
+		"@types/react-dom": "^18.3.7",
+		"autoprefixer": "^10.4.23",
+		"husky": "^9.1.7",
+		"postcss": "^8.5.6",
+		"tailwindcss": "^3.4.19",
+		"typescript": "^5.9.3"
+	}
+}

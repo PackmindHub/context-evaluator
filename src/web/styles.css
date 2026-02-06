@@ -1,0 +1,97 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+	* {
+		@apply border-slate-700;
+	}
+
+	body {
+		@apply bg-slate-900 text-slate-100 font-sans antialiased;
+		min-height: 100vh;
+		background-image:
+			radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.08) 0, transparent 50%),
+			radial-gradient(at 100% 100%, rgba(99, 102, 241, 0.08) 0, transparent 50%);
+	}
+
+	html {
+		@apply scroll-smooth;
+	}
+}
+
+@layer components {
+	/* Modern Card System */
+	.card {
+		@apply bg-slate-800 rounded-xl shadow-lg shadow-black/50 border border-slate-700 p-4 transition-all duration-200;
+	}
+
+	.card-hover {
+		@apply hover:shadow-xl hover:shadow-black/60 hover:border-slate-600 hover:-translate-y-0.5;
+	}
+
+	.card-glass {
+		@apply bg-slate-800/95 backdrop-blur-sm border-slate-700;
+	}
+
+	/* Premium Badge System */
+	.badge {
+		@apply inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold tracking-wide uppercase;
+	}
+
+	.badge-gradient {
+		@apply bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-900/50;
+	}
+
+	/* Enterprise Button System */
+	.btn-primary {
+		@apply bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700 transition-all duration-200 shadow-md shadow-blue-900/40 hover:shadow-lg hover:shadow-blue-900/50 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed;
+	}
+
+	.btn-secondary {
+		@apply bg-slate-700 text-slate-200 px-4 py-2 rounded-lg font-semibold border border-slate-600 hover:bg-slate-600 hover:border-slate-500 transition-all duration-200 shadow-md shadow-black/30 hover:shadow active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed;
+	}
+
+	.btn-ghost {
+		@apply text-slate-300 px-3 py-2 rounded-lg font-medium hover:bg-slate-700 transition-all duration-200;
+	}
+
+	/* Professional Input System */
+	.input-field {
+		@apply bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all duration-200;
+	}
+
+	/* Gradient Text */
+	.text-gradient {
+		@apply bg-gradient-to-r from-blue-400 via-cyan-400 to-indigo-400 bg-clip-text text-transparent;
+	}
+
+	/* Subtle Animations */
+	.animate-fade-in {
+		animation: fadeIn 0.5s ease-in-out;
+	}
+
+	@keyframes fadeIn {
+		from {
+			opacity: 0;
+			transform: translateY(10px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+
+	/* Modern Scrollbar */
+	.custom-scrollbar::-webkit-scrollbar {
+		@apply w-2;
+	}
+
+	.custom-scrollbar::-webkit-scrollbar-track {
+		@apply bg-slate-800 rounded-full;
+	}
+
+	.custom-scrollbar::-webkit-scrollbar-thumb {
+		@apply bg-slate-600 rounded-full hover:bg-slate-500;
+	}
+}

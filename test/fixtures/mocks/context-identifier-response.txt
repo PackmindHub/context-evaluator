@@ -1,0 +1,4 @@
+Languages: TypeScript, JavaScript
+Frameworks: Express.js, Node.js
+Architecture: REST API with service layer pattern, PostgreSQL database
+Patterns: MVC-style separation with API layer, service layer, and data models. Uses JWT for authentication. Follows async/await pattern for all asynchronous operations.

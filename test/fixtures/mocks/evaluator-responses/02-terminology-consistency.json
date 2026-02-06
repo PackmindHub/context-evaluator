@@ -1,0 +1,14 @@
+[
+	{
+		"category": "inconsistent_naming",
+		"severity": 4,
+		"problem": "Inconsistent use of 'API' vs 'endpoints'",
+		"description": "The document uses both 'API endpoints' and 'REST API' interchangeably without clear distinction",
+		"location": {
+			"file": "AGENTS.md",
+			"start": 11,
+			"end": 11
+		},
+		"fix": "Standardize on either 'API endpoints' or 'REST endpoints' throughout the document"
+	}
+]
