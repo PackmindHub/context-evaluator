@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useFeatureFlags } from "../contexts/FeatureFlagContext";
 import type { ProviderName } from "../hooks/useEvaluationApi";
 import { useEvaluatorsApi } from "../hooks/useEvaluatorsApi";
@@ -6,9 +6,18 @@ import { useProviderDetection } from "../hooks/useProviderDetection";
 import { isValidGitUrl } from "../lib/url-validation";
 import type { EvaluatorFilter } from "../types/evaluation";
 
+type InputMode = "single" | "batch";
+
 interface IRepositoryUrlInputProps {
 	onSubmit: (
 		url: string,
+		evaluators: number,
+		provider: ProviderName,
+		evaluatorFilter: EvaluatorFilter,
+		concurrency: number,
+	) => Promise<void>;
+	onBatchSubmit?: (
+		urls: string[],
 		evaluators: number,
 		provider: ProviderName,
 		evaluatorFilter: EvaluatorFilter,
@@ -30,6 +39,7 @@ const PROVIDERS: { name: ProviderName; displayName: string }[] = [
 
 export const RepositoryUrlInput: React.FC<IRepositoryUrlInputProps> = ({
 	onSubmit,
+	onBatchSubmit,
 	isLoading,
 	error,
 	disabled = false,
@@ -42,12 +52,30 @@ export const RepositoryUrlInput: React.FC<IRepositoryUrlInputProps> = ({
 		getProviderStatus,
 	} = useProviderDetection();
 	const [url, setUrl] = useState("");
+	const [batchText, setBatchText] = useState("");
+	const [inputMode, setInputMode] = useState<InputMode>("single");
 	const [concurrency, setConcurrency] = useState<number>(3);
 	const [totalEvaluators, setTotalEvaluators] = useState<number>(17); // Default fallback
 	const [evaluatorFilter, setEvaluatorFilter] =
 		useState<EvaluatorFilter>("all");
 	const [provider, setProvider] = useState<ProviderName>("claude");
 	const [validationError, setValidationError] = useState<string | null>(null);
+
+	// Parse batch URLs from textarea
+	const parsedBatchUrls = useMemo(() => {
+		return batchText
+			.split("\n")
+			.map((line) => line.trim())
+			.filter((line) => line.length > 0);
+	}, [batchText]);
+
+	const validBatchUrls = useMemo(() => {
+		return parsedBatchUrls.filter((u) => isValidGitUrl(u));
+	}, [parsedBatchUrls]);
+
+	const invalidBatchUrls = useMemo(() => {
+		return parsedBatchUrls.filter((u) => !isValidGitUrl(u));
+	}, [parsedBatchUrls]);
 
 	// Fetch evaluators list on mount to get the total count
 	useEffect(() => {
@@ -78,9 +106,46 @@ export const RepositoryUrlInput: React.FC<IRepositoryUrlInputProps> = ({
 		return true;
 	}, []);
 
+	const validateBatchUrls = useCallback((): boolean => {
+		if (parsedBatchUrls.length === 0) {
+			setValidationError("Please enter at least one repository URL");
+			return false;
+		}
+		if (parsedBatchUrls.length > 50) {
+			setValidationError(
+				`Maximum 50 URLs allowed (${parsedBatchUrls.length} entered)`,
+			);
+			return false;
+		}
+		if (invalidBatchUrls.length > 0) {
+			setValidationError(
+				`${invalidBatchUrls.length} invalid URL(s) found. Please fix them before submitting.`,
+			);
+			return false;
+		}
+		setValidationError(null);
+		return true;
+	}, [parsedBatchUrls, invalidBatchUrls]);
+
 	const handleSubmit = useCallback(
 		async (e: React.FormEvent) => {
 			e.preventDefault();
+
+			if (inputMode === "batch") {
+				if (!validateBatchUrls() || !onBatchSubmit) return;
+				try {
+					await onBatchSubmit(
+						validBatchUrls,
+						totalEvaluators,
+						provider,
+						evaluatorFilter,
+						concurrency,
+					);
+				} catch {
+					// Error is handled by parent component
+				}
+				return;
+			}
 
 			if (!validateUrl(url)) {
 				return;
@@ -102,13 +167,17 @@ export const RepositoryUrlInput: React.FC<IRepositoryUrlInputProps> = ({
 			}
 		},
 		[
+			inputMode,
 			url,
+			validBatchUrls,
 			totalEvaluators,
 			provider,
 			evaluatorFilter,
 			concurrency,
 			validateUrl,
+			validateBatchUrls,
 			onSubmit,
+			onBatchSubmit,
 			cloudMode,
 		],
 	);
@@ -117,6 +186,16 @@ export const RepositoryUrlInput: React.FC<IRepositoryUrlInputProps> = ({
 		(e: React.ChangeEvent<HTMLInputElement>) => {
 			const value = e.target.value;
 			setUrl(value);
+			if (validationError) {
+				setValidationError(null);
+			}
+		},
+		[validationError],
+	);
+
+	const handleBatchTextChange = useCallback(
+		(e: React.ChangeEvent<HTMLTextAreaElement>) => {
+			setBatchText(e.target.value);
 			if (validationError) {
 				setValidationError(null);
 			}
@@ -243,6 +322,13 @@ export const RepositoryUrlInput: React.FC<IRepositoryUrlInputProps> = ({
 		);
 	};
 
+	// Determine if submit button should be enabled
+	const isSubmitDisabled =
+		disabled ||
+		isLoading ||
+		(inputMode === "single" && !url.trim()) ||
+		(inputMode === "batch" && validBatchUrls.length === 0);
+
 	return (
 		<div className="w-full">
 			<form onSubmit={handleSubmit}>
@@ -251,47 +337,123 @@ export const RepositoryUrlInput: React.FC<IRepositoryUrlInputProps> = ({
 						{/* Text Content */}
 						<div className="text-center mb-3">
 							<p className="text-sm font-medium text-slate-200">
-								Enter a Git repository URL to analyze
+								{inputMode === "batch"
+									? "Enter Git repository URLs to analyze (one per line)"
+									: "Enter a Git repository URL to analyze"}
 							</p>
 						</div>
 
-						{/* URL Input with focus glow */}
-						<div className="w-full max-w-lg px-4 mb-3">
-							<div className="relative">
-								<div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-									<svg
-										className="h-5 w-5 text-slate-500"
-										fill="none"
-										stroke="currentColor"
-										viewBox="0 0 24 24"
-									>
-										<path
-											strokeLinecap="round"
-											strokeLinejoin="round"
-											strokeWidth={2}
-											d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
-										/>
-									</svg>
-								</div>
-								<input
-									type="url"
-									value={url}
-									onChange={handleInputChange}
-									placeholder="Enter repository URL (GitHub, GitLab, Bitbucket, etc.)"
-									disabled={disabled || isLoading}
-									className={`
-										w-full pl-12 pr-4 py-3.5 bg-slate-800/60 border rounded-xl
-										text-slate-100 placeholder-slate-500
-										focus:outline-none focus:border-indigo-500/70
-										disabled:opacity-50 disabled:cursor-not-allowed
-										transition-all duration-200
-										${displayError ? "border-red-500/60" : "border-slate-600/60"}
-									`}
-									style={{
-										boxShadow: "inset 0 2px 4px rgba(0,0,0,0.2)",
+						{/* Mode Toggle - only shown when not in cloud mode */}
+						{!cloudMode && onBatchSubmit && (
+							<div className="flex items-center gap-1 mb-3 p-0.5 bg-slate-800/60 rounded-lg border border-slate-700/50">
+								<button
+									type="button"
+									onClick={() => {
+										setInputMode("single");
+										setValidationError(null);
 									}}
-								/>
+									className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200 ${
+										inputMode === "single"
+											? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
+											: "text-slate-400 hover:text-slate-300 border border-transparent"
+									}`}
+								>
+									Single URL
+								</button>
+								<button
+									type="button"
+									onClick={() => {
+										setInputMode("batch");
+										setValidationError(null);
+									}}
+									className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200 ${
+										inputMode === "batch"
+											? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
+											: "text-slate-400 hover:text-slate-300 border border-transparent"
+									}`}
+								>
+									Batch URLs
+								</button>
 							</div>
+						)}
+
+						{/* URL Input / Batch Textarea */}
+						<div className="w-full max-w-lg px-4 mb-3">
+							{inputMode === "batch" ? (
+								<>
+									<textarea
+										value={batchText}
+										onChange={handleBatchTextChange}
+										placeholder={"Enter up to 50 Git repository URLs, one per line\n\nhttps://github.com/owner/repo1\nhttps://github.com/owner/repo2\nhttps://gitlab.com/owner/repo3"}
+										disabled={disabled || isLoading}
+										rows={8}
+										className={`
+											w-full px-4 py-3 bg-slate-800/60 border rounded-xl
+											text-slate-100 placeholder-slate-500 text-sm
+											focus:outline-none focus:border-indigo-500/70
+											disabled:opacity-50 disabled:cursor-not-allowed
+											transition-all duration-200 resize-y
+											${displayError ? "border-red-500/60" : "border-slate-600/60"}
+										`}
+										style={{
+											boxShadow: "inset 0 2px 4px rgba(0,0,0,0.2)",
+										}}
+									/>
+									{parsedBatchUrls.length > 0 && (
+										<div className="mt-2 flex items-center gap-3 text-xs">
+											<span className="text-slate-400">
+												{validBatchUrls.length} valid URL{validBatchUrls.length !== 1 ? "s" : ""}
+											</span>
+											{invalidBatchUrls.length > 0 && (
+												<span className="text-red-400">
+													{invalidBatchUrls.length} invalid
+												</span>
+											)}
+											{parsedBatchUrls.length > 50 && (
+												<span className="text-red-400">
+													Max 50 URLs
+												</span>
+											)}
+										</div>
+									)}
+								</>
+							) : (
+								<div className="relative">
+									<div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+										<svg
+											className="h-5 w-5 text-slate-500"
+											fill="none"
+											stroke="currentColor"
+											viewBox="0 0 24 24"
+										>
+											<path
+												strokeLinecap="round"
+												strokeLinejoin="round"
+												strokeWidth={2}
+												d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+											/>
+										</svg>
+									</div>
+									<input
+										type="url"
+										value={url}
+										onChange={handleInputChange}
+										placeholder="Enter repository URL (GitHub, GitLab, Bitbucket, etc.)"
+										disabled={disabled || isLoading}
+										className={`
+											w-full pl-12 pr-4 py-3.5 bg-slate-800/60 border rounded-xl
+											text-slate-100 placeholder-slate-500
+											focus:outline-none focus:border-indigo-500/70
+											disabled:opacity-50 disabled:cursor-not-allowed
+											transition-all duration-200
+											${displayError ? "border-red-500/60" : "border-slate-600/60"}
+										`}
+										style={{
+											boxShadow: "inset 0 2px 4px rgba(0,0,0,0.2)",
+										}}
+									/>
+								</div>
+							)}
 						</div>
 
 						{/* Options Row: Evaluator Filter and Provider - hidden in cloud mode */}
@@ -393,7 +555,7 @@ export const RepositoryUrlInput: React.FC<IRepositoryUrlInputProps> = ({
 						{/* Submit Button */}
 						<button
 							type="submit"
-							disabled={disabled || isLoading || !url.trim()}
+							disabled={isSubmitDisabled}
 							className="btn-primary px-8 py-3 text-base cursor-pointer"
 						>
 							<div className="flex items-center gap-2">
@@ -435,7 +597,11 @@ export const RepositoryUrlInput: React.FC<IRepositoryUrlInputProps> = ({
 												d="M13 10V3L4 14h7v7l9-11h-7z"
 											/>
 										</svg>
-										<span>Start Evaluation</span>
+										<span>
+											{inputMode === "batch"
+												? `Start Batch Evaluation (${validBatchUrls.length})`
+												: "Start Evaluation"}
+										</span>
 									</>
 								)}
 							</div>
