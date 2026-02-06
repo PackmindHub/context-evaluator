@@ -26,6 +26,8 @@ jobs:
 
       - name: Run tests
         run: bun run test
+        env:
+          GITHUB_ACTIONS: false
 
       - name: Run linting
         run: bun run lint
