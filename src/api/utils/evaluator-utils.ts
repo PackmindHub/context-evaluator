@@ -8,7 +8,7 @@ import {
 	getEvaluator,
 	getEvaluatorList,
 	hasEmbeddedPrompts,
-} from "../../embedded";
+} from "../../embedded/prompt-server";
 
 /**
  * Evaluator metadata

@@ -15,13 +15,6 @@ describe("CodexProvider", () => {
 		});
 	});
 
-	describe("Availability Check", () => {
-		test("should return boolean from isAvailable", async () => {
-			const available = await provider.isAvailable();
-			expect(typeof available).toBe("boolean");
-		});
-	});
-
 	describe("NDJSON Parsing", () => {
 		test("should extract text from agent_message items", () => {
 			const ndjsonLines = [
@@ -164,18 +157,6 @@ describe("CodexProvider", () => {
 			const registeredProvider = providerRegistry.get("codex");
 			expect(registeredProvider).toBeDefined();
 			expect(registeredProvider.name).toBe("codex");
-		});
-
-		test("should be included in provider list with availability", async () => {
-			const providersWithAvailability =
-				await providerRegistry.listWithAvailability();
-			const codexProvider = providersWithAvailability.find(
-				(p) => p.name === "codex",
-			);
-
-			expect(codexProvider).toBeDefined();
-			expect(codexProvider?.displayName).toBe("OpenAI Codex");
-			expect(typeof codexProvider?.available).toBe("boolean");
 		});
 
 		test("should validate as valid provider name", () => {

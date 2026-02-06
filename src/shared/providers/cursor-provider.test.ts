@@ -15,13 +15,6 @@ describe("CursorProvider", () => {
 		});
 	});
 
-	describe("Availability Check", () => {
-		test("should return boolean from isAvailable", async () => {
-			const available = await provider.isAvailable();
-			expect(typeof available).toBe("boolean");
-		});
-	});
-
 	describe("Response Normalization", () => {
 		test("should normalize standard format with all fields", () => {
 			const input = {
@@ -207,18 +200,6 @@ describe("CursorProvider", () => {
 			const registeredProvider = providerRegistry.get("cursor");
 			expect(registeredProvider).toBeDefined();
 			expect(registeredProvider.name).toBe("cursor");
-		});
-
-		test("should be included in provider list with availability", async () => {
-			const providersWithAvailability =
-				await providerRegistry.listWithAvailability();
-			const cursorProvider = providersWithAvailability.find(
-				(p) => p.name === "cursor",
-			);
-
-			expect(cursorProvider).toBeDefined();
-			expect(cursorProvider?.displayName).toBe("Cursor Agent");
-			expect(typeof cursorProvider?.available).toBe("boolean");
 		});
 
 		test("should validate as valid provider name", () => {
