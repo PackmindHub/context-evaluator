@@ -52,9 +52,10 @@ async function runCloc(
 			cwd: workingDir,
 		});
 
-		// Set up timeout
+		// Set up timeout with clearable timer
+		let timeoutId: ReturnType<typeof setTimeout>;
 		const timeoutPromise = new Promise<null>((resolve) => {
-			setTimeout(() => {
+			timeoutId = setTimeout(() => {
 				if (verbose) {
 					console.log(
 						`[ContextIdentifier] CLOC command timed out after ${timeout}ms`,
@@ -119,7 +120,9 @@ async function runCloc(
 			return stdout;
 		})();
 
-		return await Promise.race([resultPromise, timeoutPromise]);
+		const result = await Promise.race([resultPromise, timeoutPromise]);
+		clearTimeout(timeoutId!);
+		return result;
 	} catch (error) {
 		// CLOC not installed or other error
 		if (verbose) {
