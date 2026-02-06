@@ -1,5 +1,9 @@
 // API request and response types
-import type { EvaluationOutput, IEvaluationOptions } from "./evaluation";
+import type {
+	EvaluationOutput,
+	IEvaluationOptions,
+	Issue,
+} from "./evaluation";
 
 // Job status types
 export type JobStatus = "queued" | "running" | "completed" | "failed";
@@ -172,4 +176,27 @@ export interface IJob {
 	completedAt?: Date;
 	failedAt?: Date;
 	updatedAt: Date;
+}
+
+// Aggregated issues types (cross-evaluation)
+export interface IAggregatedIssue {
+	issue: Issue;
+	evaluationId: string;
+	repositoryUrl: string;
+	evaluationDate: string;
+	evaluatorName: string;
+}
+
+export interface IAggregatedIssuesResponse {
+	issues: IAggregatedIssue[];
+	pagination: {
+		page: number;
+		pageSize: number;
+		totalItems: number;
+		totalPages: number;
+	};
+	availableFilters: {
+		evaluators: string[];
+		repositories: string[];
+	};
 }

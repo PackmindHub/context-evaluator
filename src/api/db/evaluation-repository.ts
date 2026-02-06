@@ -269,6 +269,49 @@ export class EvaluationRepository {
 	}
 
 	/**
+	 * Get all completed evaluations with their full result JSON.
+	 * Used by the aggregated issues endpoint to extract issues across evaluations.
+	 */
+	getAllCompletedEvaluationsWithResults(): Array<{
+		id: string;
+		repositoryUrl: string;
+		completedAt: string;
+		result: EvaluationOutput;
+	}> {
+		const db = getDatabase();
+
+		const rows = db
+			.prepare<
+				Pick<
+					EvaluationRow,
+					"id" | "repository_url" | "completed_at" | "result_json"
+				>,
+				[]
+			>(
+				`SELECT id, repository_url, completed_at, result_json
+			FROM evaluations
+			WHERE status = 'completed' AND result_json IS NOT NULL
+			ORDER BY completed_at DESC`,
+			)
+			.all();
+
+		return rows
+			.map((row) => {
+				try {
+					return {
+						id: row.id,
+						repositoryUrl: row.repository_url,
+						completedAt: row.completed_at,
+						result: JSON.parse(row.result_json!) as EvaluationOutput,
+					};
+				} catch {
+					return null;
+				}
+			})
+			.filter((r): r is NonNullable<typeof r> => r !== null);
+	}
+
+	/**
 	 * Get evaluation count
 	 */
 	getCount(): number {

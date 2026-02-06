@@ -19,6 +19,7 @@ import { EvaluatorTemplatesPanel } from "./components/EvaluatorTemplatesPanel";
 import type { FilterOptionCounts, FilterState } from "./components/FilterPanel";
 import { FilterPanel } from "./components/FilterPanel";
 import { HowItWorksPage } from "./components/HowItWorksPage";
+import { IssuesPage } from "./components/IssuesPage";
 import { IssuesList } from "./components/IssuesList";
 import { ProgressPanel } from "./components/ProgressPanel";
 import { RecentEvaluationsPage } from "./components/RecentEvaluationsPage";
@@ -1872,6 +1873,7 @@ function AppRoutes() {
 			<Route path="/evaluation/:id" element={<AppContent />} />
 			<Route path="/recent" element={<RecentEvaluationsPage />} />
 			<Route path="/evaluators" element={<EvaluatorsPage />} />
+			<Route path="/issues" element={<IssuesPage />} />
 			<Route path="/how-it-works" element={<HowItWorksPage />} />
 			{assessmentEnabled && (
 				<Route path="/assessment" element={<AssessmentPage />} />

@@ -13,6 +13,7 @@ import { BookmarkRoutes } from "./routes/bookmark";
 import { ConfigRoutes } from "./routes/config";
 import { EvaluationRoutes } from "./routes/evaluation";
 import { FeedbackRoutes } from "./routes/feedback";
+import { IssuesRoutes } from "./routes/issues";
 import { HealthRoutes } from "./routes/health";
 import { ProviderRoutes } from "./routes/providers";
 import { SSEProgressHandler } from "./sse/progress-handler";
@@ -64,6 +65,7 @@ export class APIServer {
 	private feedbackRoutes: FeedbackRoutes;
 	private bookmarkRoutes: BookmarkRoutes;
 	private healthRoutes: HealthRoutes;
+	private issuesRoutes: IssuesRoutes;
 	private configRoutes: ConfigRoutes;
 	private providerRoutes: ProviderRoutes;
 	private rateLimiter: DailyRateLimiter;
@@ -84,6 +86,7 @@ export class APIServer {
 		);
 		this.feedbackRoutes = new FeedbackRoutes();
 		this.bookmarkRoutes = new BookmarkRoutes();
+		this.issuesRoutes = new IssuesRoutes();
 		this.healthRoutes = new HealthRoutes(this.jobManager);
 		this.configRoutes = new ConfigRoutes(
 			config.enableAssessmentFeatures ?? false,
@@ -235,6 +238,11 @@ export class APIServer {
 		if (path.match(/^\/api\/feedback\/evaluation\/[^/]+$/)) {
 			const evaluationId = path.split("/").pop()!;
 			return this.feedbackRoutes.getForEvaluation(req, evaluationId);
+		}
+
+		// Aggregated issues routes
+		if (path === "/api/issues" && req.method === "GET") {
+			return this.issuesRoutes.list(req);
 		}
 
 		// Bookmark routes
