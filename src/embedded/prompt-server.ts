@@ -4,13 +4,22 @@
  * Provides evaluator and shared prompts from embedded content
  */
 
-import {
-	evaluatorPrompts,
-	getEvaluatorIds,
-	getEvaluatorPrompt,
-	getSharedPrompt,
-	sharedPrompts,
-} from "./prompts-assets";
+let evaluatorPrompts: Record<string, string> = {};
+let sharedPrompts: Record<string, string> = {};
+let getEvaluatorPrompt: (id: string) => string | undefined = () => undefined;
+let getSharedPrompt: (id: string) => string | undefined = () => undefined;
+let getEvaluatorIds: () => string[] = () => [];
+
+try {
+	const mod = await import("./prompts-assets");
+	evaluatorPrompts = mod.evaluatorPrompts;
+	sharedPrompts = mod.sharedPrompts;
+	getEvaluatorPrompt = mod.getEvaluatorPrompt;
+	getSharedPrompt = mod.getSharedPrompt;
+	getEvaluatorIds = mod.getEvaluatorIds;
+} catch {
+	// Generated module not available - running in dev/CI mode without build
+}
 
 /**
  * Check if embedded prompts are available
@@ -80,4 +89,4 @@ function extractEvaluatorName(content: string): string {
 }
 
 // Re-export for convenience
-export { getEvaluatorPrompt, getSharedPrompt, getEvaluatorIds };
+export { getEvaluatorIds, getEvaluatorPrompt, getSharedPrompt };

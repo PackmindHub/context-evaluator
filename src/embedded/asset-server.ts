@@ -4,7 +4,20 @@
  * Serves frontend assets from memory (embedded at compile time)
  */
 
-import { type EmbeddedAsset, frontendAssets } from "./frontend-assets";
+interface EmbeddedAsset {
+	content: string;
+	mimeType: string;
+	isBase64?: boolean;
+}
+
+let frontendAssets: Record<string, EmbeddedAsset> = {};
+
+try {
+	const mod = await import("./frontend-assets");
+	frontendAssets = mod.frontendAssets;
+} catch {
+	// Generated module not available - running in dev/CI mode without build
+}
 
 /**
  * Check if embedded assets are available
