@@ -21,6 +21,7 @@ import type { FilterOptionCounts, FilterState } from "./components/FilterPanel";
 import { FilterPanel } from "./components/FilterPanel";
 import { HowItWorksPage } from "./components/HowItWorksPage";
 import { IssuesList } from "./components/IssuesList";
+import { IssuesPage } from "./components/IssuesPage";
 import { ProgressPanel } from "./components/ProgressPanel";
 import { RecentEvaluationsPage } from "./components/RecentEvaluationsPage";
 import { SelectionSummaryBar } from "./components/SelectionSummaryBar";
@@ -596,6 +597,7 @@ function AppContent() {
 			provider?: "claude" | "opencode" | "cursor" | "github-copilot",
 			evaluatorFilter?: EvaluatorFilter,
 			concurrency?: number,
+			selectedEvaluators?: string[],
 		) => {
 			setEvaluationMode("evaluating");
 			setApiError(null);
@@ -610,6 +612,7 @@ function AppContent() {
 					evaluatorFilter,
 					undefined,
 					concurrency,
+					selectedEvaluators,
 				);
 				setCurrentJobId(response.jobId);
 				setSSEUrl(response.sseUrl);
@@ -623,6 +626,7 @@ function AppContent() {
 					totalEvaluators: getFilteredEvaluatorCount(
 						evaluatorFilter || "all",
 						evaluators,
+						selectedEvaluators?.length,
 					),
 					completedEvaluators: 0,
 					percentage: 0,
@@ -1905,6 +1909,7 @@ function AppRoutes() {
 			<Route path="/evaluation/:id" element={<AppContent />} />
 			<Route path="/recent" element={<RecentEvaluationsPage />} />
 			<Route path="/evaluators" element={<EvaluatorsPage />} />
+			<Route path="/issues" element={<IssuesPage />} />
 			<Route path="/how-it-works" element={<HowItWorksPage />} />
 			{assessmentEnabled && (
 				<Route path="/assessment" element={<AssessmentPage />} />

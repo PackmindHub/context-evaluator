@@ -9,6 +9,7 @@ import {
 	getEvaluatorList,
 	hasEmbeddedPrompts,
 } from "../../embedded/prompt-server";
+import { getIssueTypeFromEvaluatorName } from "../../shared/evaluation/evaluator-types";
 
 /**
  * Evaluator metadata
@@ -16,6 +17,7 @@ import {
 export interface EvaluatorInfo {
 	id: string;
 	name: string;
+	issueType: "error" | "suggestion";
 }
 
 /**
@@ -54,7 +56,10 @@ export async function getEvaluators(
 	let evaluators: EvaluatorInfo[];
 
 	if (isEmbeddedPromptMode()) {
-		evaluators = getEvaluatorList();
+		evaluators = getEvaluatorList().map((e) => ({
+			...e,
+			issueType: getIssueTypeFromEvaluatorName(e.id),
+		}));
 	} else {
 		const files = await readdir(evaluatorsDir);
 		const mdFiles = files.filter(
@@ -67,7 +72,8 @@ export async function getEvaluators(
 				const filePath = resolve(evaluatorsDir, file);
 				const content = await readFile(filePath, "utf-8");
 				const name = extractEvaluatorName(content);
-				return { id, name };
+				const issueType = getIssueTypeFromEvaluatorName(id);
+				return { id, name, issueType };
 			}),
 		);
 	}
@@ -89,7 +95,10 @@ export async function getEvaluatorById(
 	if (isEmbeddedPromptMode()) {
 		const evaluator = getEvaluator(evaluatorId);
 		if (evaluator) {
-			return evaluator as EvaluatorWithContent;
+			return {
+				...evaluator,
+				issueType: getIssueTypeFromEvaluatorName(evaluatorId),
+			} as EvaluatorWithContent;
 		}
 		return null;
 	}
@@ -100,7 +109,8 @@ export async function getEvaluatorById(
 	try {
 		const content = await readFile(filePath, "utf-8");
 		const name = extractEvaluatorName(content);
-		return { id: evaluatorId, name, content };
+		const issueType = getIssueTypeFromEvaluatorName(evaluatorId);
+		return { id: evaluatorId, name, issueType, content };
 	} catch (error) {
 		// Check if it's a file not found error
 		const isNotFound =

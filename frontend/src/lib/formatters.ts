@@ -173,7 +173,13 @@ export function formatCost(usd: number): string {
 export function getFilteredEvaluatorCount(
 	filter: EvaluatorFilter,
 	maxCount: number = 17,
+	selectedCount?: number,
 ): number {
+	// When specific evaluators are selected, use that count directly
+	if (selectedCount !== undefined) {
+		return Math.min(selectedCount, maxCount);
+	}
+
 	// Total counts by filter type
 	const COUNTS = {
 		all: 17,

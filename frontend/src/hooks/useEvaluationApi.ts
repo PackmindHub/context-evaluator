@@ -24,6 +24,7 @@ interface IUseEvaluationApiReturn {
 		evaluatorFilter?: EvaluatorFilter,
 		timeout?: number,
 		concurrency?: number,
+		selectedEvaluators?: string[],
 	) => Promise<IEvaluateResponse>;
 	submitBatch: (
 		urls: string[],
@@ -53,6 +54,7 @@ export function useEvaluationApi(): IUseEvaluationApiReturn {
 			evaluatorFilter?: EvaluatorFilter,
 			timeout?: number,
 			concurrency?: number,
+			selectedEvaluators?: string[],
 		): Promise<IEvaluateResponse> => {
 			setIsLoading(true);
 			setError(null);
@@ -69,6 +71,7 @@ export function useEvaluationApi(): IUseEvaluationApiReturn {
 							...(evaluatorFilter ? { evaluatorFilter } : {}),
 							...(timeout ? { timeout } : {}),
 							...(concurrency ? { concurrency } : {}),
+							...(selectedEvaluators ? { selectedEvaluators } : {}),
 						},
 					}),
 				});

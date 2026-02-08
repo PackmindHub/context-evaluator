@@ -1251,6 +1251,7 @@ export class EvaluationEngine {
 			onTimeout,
 			provider: aiProvider,
 			evaluatorFilter: options.evaluatorFilter,
+			selectedEvaluators: options.selectedEvaluators,
 			timeout: options.timeout,
 		});
 
@@ -1635,6 +1636,7 @@ export class EvaluationEngine {
 				onTimeout,
 				provider: aiProvider,
 				evaluatorFilter: options.evaluatorFilter,
+				selectedEvaluators: options.selectedEvaluators,
 				timeout: options.timeout,
 			});
 
