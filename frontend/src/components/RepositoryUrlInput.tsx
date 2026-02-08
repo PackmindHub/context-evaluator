@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+	useCallback,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import { useFeatureFlags } from "../contexts/FeatureFlagContext";
 import type { ProviderName } from "../hooks/useEvaluationApi";
 import { useEvaluatorsApi } from "../hooks/useEvaluatorsApi";
@@ -24,6 +30,7 @@ interface IRepositoryUrlInputProps {
 		provider: ProviderName,
 		evaluatorFilter: EvaluatorFilter,
 		concurrency: number,
+		selectedEvaluators?: string[],
 	) => Promise<void>;
 	isLoading: boolean;
 	error?: string | null;
@@ -153,15 +160,24 @@ export const RepositoryUrlInput: React.FC<IRepositoryUrlInputProps> = ({
 		async (e: React.FormEvent) => {
 			e.preventDefault();
 
+			// Compute selected evaluators array (shared by both modes)
+			const isAllSelected =
+				selectedEvaluatorIds.size === totalEvaluators ||
+				selectedEvaluatorIds.size === 0;
+			const selectedArray = isAllSelected
+				? undefined
+				: Array.from(selectedEvaluatorIds);
+
 			if (inputMode === "batch") {
 				if (!validateBatchUrls() || !onBatchSubmit) return;
 				try {
 					await onBatchSubmit(
 						validBatchUrls,
-						totalEvaluators,
+						selectedArray ? selectedArray.length : totalEvaluators,
 						provider,
-						evaluatorFilter,
+						"all",
 						concurrency,
+						cloudMode ? undefined : selectedArray,
 					);
 				} catch {
 					// Error is handled by parent component
@@ -176,12 +192,6 @@ export const RepositoryUrlInput: React.FC<IRepositoryUrlInputProps> = ({
 			try {
 				// In cloud mode, use "random" sentinel to let backend pick an available provider
 				const effectiveProvider = cloudMode ? "random" : provider;
-				const isAllSelected =
-					selectedEvaluatorIds.size === totalEvaluators ||
-					selectedEvaluatorIds.size === 0;
-				const selectedArray = isAllSelected
-					? undefined
-					: Array.from(selectedEvaluatorIds);
 				await onSubmit(
 					url.trim(),
 					selectedArray ? selectedArray.length : totalEvaluators,
@@ -412,7 +422,9 @@ export const RepositoryUrlInput: React.FC<IRepositoryUrlInputProps> = ({
 									<textarea
 										value={batchText}
 										onChange={handleBatchTextChange}
-										placeholder={"Enter up to 50 Git repository URLs, one per line\n\nhttps://github.com/owner/repo1\nhttps://github.com/owner/repo2\nhttps://gitlab.com/owner/repo3"}
+										placeholder={
+											"Enter up to 50 Git repository URLs, one per line\n\nhttps://github.com/owner/repo1\nhttps://github.com/owner/repo2\nhttps://gitlab.com/owner/repo3"
+										}
 										disabled={disabled || isLoading}
 										rows={8}
 										className={`
@@ -430,7 +442,8 @@ export const RepositoryUrlInput: React.FC<IRepositoryUrlInputProps> = ({
 									{parsedBatchUrls.length > 0 && (
 										<div className="mt-2 flex items-center gap-3 text-xs">
 											<span className="text-slate-400">
-												{validBatchUrls.length} valid URL{validBatchUrls.length !== 1 ? "s" : ""}
+												{validBatchUrls.length} valid URL
+												{validBatchUrls.length !== 1 ? "s" : ""}
 											</span>
 											{invalidBatchUrls.length > 0 && (
 												<span className="text-red-400">
@@ -438,9 +451,7 @@ export const RepositoryUrlInput: React.FC<IRepositoryUrlInputProps> = ({
 												</span>
 											)}
 											{parsedBatchUrls.length > 50 && (
-												<span className="text-red-400">
-													Max 50 URLs
-												</span>
+												<span className="text-red-400">Max 50 URLs</span>
 											)}
 										</div>
 									)}

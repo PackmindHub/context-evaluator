@@ -619,10 +619,7 @@ export class EvaluationRoutes {
 	/**
 	 * GET /api/evaluate/batch/:batchId - Get batch status
 	 */
-	async getBatchStatus(
-		_req: Request,
-		batchId: string,
-	): Promise<Response> {
+	async getBatchStatus(_req: Request, batchId: string): Promise<Response> {
 		if (!this.batchManager) {
 			return new Response(
 				JSON.stringify({

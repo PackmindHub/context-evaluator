@@ -155,7 +155,12 @@ export type SSEEvent =
 	| IJobFailedEvent;
 
 // Batch API types
-export type BatchEntryStatus = "pending" | "queued" | "running" | "completed" | "failed";
+export type BatchEntryStatus =
+	| "pending"
+	| "queued"
+	| "running"
+	| "completed"
+	| "failed";
 
 export interface IBatchEvaluateRequest {
 	urls: string[]; // 1-50 public Git URLs

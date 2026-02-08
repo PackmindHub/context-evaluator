@@ -11,8 +11,18 @@ function getStatusBadge(status: BatchEntryStatus) {
 		case "completed":
 			return (
 				<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-green-500/10 text-green-400 border border-green-500/20">
-					<svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+					<svg
+						className="w-3 h-3"
+						fill="none"
+						stroke="currentColor"
+						viewBox="0 0 24 24"
+					>
+						<path
+							strokeLinecap="round"
+							strokeLinejoin="round"
+							strokeWidth={2}
+							d="M5 13l4 4L19 7"
+						/>
 					</svg>
 					Completed
 				</span>
@@ -20,8 +30,18 @@ function getStatusBadge(status: BatchEntryStatus) {
 		case "failed":
 			return (
 				<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">
-					<svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+					<svg
+						className="w-3 h-3"
+						fill="none"
+						stroke="currentColor"
+						viewBox="0 0 24 24"
+					>
+						<path
+							strokeLinecap="round"
+							strokeLinejoin="round"
+							strokeWidth={2}
+							d="M6 18L18 6M6 6l12 12"
+						/>
 					</svg>
 					Failed
 				</span>
@@ -29,8 +49,18 @@ function getStatusBadge(status: BatchEntryStatus) {
 		case "running":
 			return (
 				<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-					<svg className="w-3 h-3 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+					<svg
+						className="w-3 h-3 animate-spin"
+						fill="none"
+						stroke="currentColor"
+						viewBox="0 0 24 24"
+					>
+						<path
+							strokeLinecap="round"
+							strokeLinejoin="round"
+							strokeWidth={2}
+							d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+						/>
 					</svg>
 					Running
 				</span>
@@ -71,7 +101,9 @@ function getRepoName(url: string): string {
 export function BatchStatusPage() {
 	const { batchId } = useParams<{ batchId: string }>();
 	const api = useEvaluationApi();
-	const [batchStatus, setBatchStatus] = useState<IBatchStatusResponse | null>(null);
+	const [batchStatus, setBatchStatus] = useState<IBatchStatusResponse | null>(
+		null,
+	);
 	const [loadError, setLoadError] = useState<string | null>(null);
 	const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -112,8 +144,18 @@ export function BatchStatusPage() {
 			<div className="max-w-4xl mx-auto p-6">
 				<div className="glass-card p-6">
 					<div className="flex items-center gap-3 text-red-400">
-						<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+						<svg
+							className="w-6 h-6"
+							fill="none"
+							stroke="currentColor"
+							viewBox="0 0 24 24"
+						>
+							<path
+								strokeLinecap="round"
+								strokeLinejoin="round"
+								strokeWidth={2}
+								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
+							/>
 						</svg>
 						<div>
 							<p className="font-medium">Error loading batch</p>
@@ -129,9 +171,24 @@ export function BatchStatusPage() {
 		return (
 			<div className="max-w-4xl mx-auto p-6">
 				<div className="glass-card p-6 text-center">
-					<svg className="w-8 h-8 animate-spin text-indigo-400 mx-auto mb-3" fill="none" viewBox="0 0 24 24">
-						<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-						<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+					<svg
+						className="w-8 h-8 animate-spin text-indigo-400 mx-auto mb-3"
+						fill="none"
+						viewBox="0 0 24 24"
+					>
+						<circle
+							className="opacity-25"
+							cx="12"
+							cy="12"
+							r="10"
+							stroke="currentColor"
+							strokeWidth="4"
+						/>
+						<path
+							className="opacity-75"
+							fill="currentColor"
+							d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+						/>
 					</svg>
 					<p className="text-sm text-slate-400">Loading batch status...</p>
 				</div>
@@ -154,8 +211,18 @@ export function BatchStatusPage() {
 						to="/"
 						className="text-slate-400 hover:text-slate-200 transition-colors"
 					>
-						<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+						<svg
+							className="w-5 h-5"
+							fill="none"
+							stroke="currentColor"
+							viewBox="0 0 24 24"
+						>
+							<path
+								strokeLinecap="round"
+								strokeLinejoin="round"
+								strokeWidth={2}
+								d="M10 19l-7-7m0 0l7-7m-7 7h18"
+							/>
 						</svg>
 					</Link>
 					<h1 className="text-heading">Batch Evaluation</h1>
@@ -171,9 +238,7 @@ export function BatchStatusPage() {
 			{/* Progress Bar */}
 			<div className="glass-card p-4 mb-4">
 				<div className="flex items-center justify-between mb-2">
-					<span className="text-sm text-slate-300">
-						Overall Progress
-					</span>
+					<span className="text-sm text-slate-300">Overall Progress</span>
 					<span className="text-sm text-slate-400">
 						{completedOrFailed} / {batchStatus.totalUrls}
 					</span>
@@ -235,9 +300,7 @@ export function BatchStatusPage() {
 									<p className="text-sm text-slate-200 truncate">
 										{getRepoName(job.url)}
 									</p>
-									<p className="text-xs text-slate-500 truncate">
-										{job.url}
-									</p>
+									<p className="text-xs text-slate-500 truncate">{job.url}</p>
 								</div>
 							</div>
 							<div className="flex items-center gap-3 flex-shrink-0 ml-4">

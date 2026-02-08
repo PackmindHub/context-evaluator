@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { DailyRateLimiter } from "../rate-limiter";
 import { BatchManager } from "./batch-manager";
+import type { JobManager } from "./job-manager";
 
 // Create a mock JobManager with controllable behavior
 function createMockJobManager() {
@@ -59,7 +60,7 @@ describe("BatchManager", () => {
 		mockJobManager = createMockJobManager();
 		rateLimiter = new DailyRateLimiter(50);
 		batchManager = new BatchManager(
-			mockJobManager as any,
+			mockJobManager as unknown as JobManager,
 			rateLimiter,
 		);
 	});
@@ -77,9 +78,9 @@ describe("BatchManager", () => {
 			expect(batch.id).toBeTruthy();
 			expect(batch.entries).toHaveLength(3);
 			// First URL should be submitted (queued), rest should be pending
-			expect(batch.entries[0].status).toBe("queued");
-			expect(batch.entries[1].status).toBe("pending");
-			expect(batch.entries[2].status).toBe("pending");
+			expect(batch.entries[0]!.status).toBe("queued");
+			expect(batch.entries[1]!.status).toBe("pending");
+			expect(batch.entries[2]!.status).toBe("pending");
 		});
 
 		test("should only submit first URL (sequential processing)", async () => {
@@ -93,7 +94,7 @@ describe("BatchManager", () => {
 
 			// Only one job should have been submitted
 			expect(mockJobManager.mock.submittedJobs).toHaveLength(1);
-			expect(mockJobManager.mock.submittedJobs[0].url).toBe(
+			expect(mockJobManager.mock.submittedJobs[0]!.url).toBe(
 				"https://github.com/owner/repo1",
 			);
 		});
@@ -128,7 +129,7 @@ describe("BatchManager", () => {
 		test("should reject when rate limit insufficient", async () => {
 			const limitedRateLimiter = new DailyRateLimiter(2);
 			const limitedBatchManager = new BatchManager(
-				mockJobManager as any,
+				mockJobManager as unknown as JobManager,
 				limitedRateLimiter,
 			);
 
@@ -138,9 +139,9 @@ describe("BatchManager", () => {
 				"https://github.com/owner/repo3",
 			];
 
-			await expect(
-				limitedBatchManager.createBatch(urls),
-			).rejects.toThrow("Daily rate limit insufficient");
+			await expect(limitedBatchManager.createBatch(urls)).rejects.toThrow(
+				"Daily rate limit insufficient",
+			);
 		});
 
 		test("should increment rate limiter on job submission", async () => {
@@ -164,7 +165,7 @@ describe("BatchManager", () => {
 
 			// First job submitted
 			expect(mockJobManager.mock.submittedJobs).toHaveLength(1);
-			const firstJobId = batch.entries[0].jobId;
+			const firstJobId = batch.entries[0]!.jobId;
 
 			// Simulate first job completing
 			mockJobManager.mock.simulateJobFinished(firstJobId, "completed");
@@ -174,7 +175,7 @@ describe("BatchManager", () => {
 
 			// Second job should now be submitted
 			expect(mockJobManager.mock.submittedJobs).toHaveLength(2);
-			expect(mockJobManager.mock.submittedJobs[1].url).toBe(
+			expect(mockJobManager.mock.submittedJobs[1]!.url).toBe(
 				"https://github.com/owner/repo2",
 			);
 		});
@@ -186,7 +187,7 @@ describe("BatchManager", () => {
 			];
 
 			const batch = await batchManager.createBatch(urls);
-			const firstJobId = batch.entries[0].jobId;
+			const firstJobId = batch.entries[0]!.jobId;
 
 			// Simulate first job failing
 			mockJobManager.mock.simulateJobFinished(firstJobId, "failed");
@@ -209,7 +210,7 @@ describe("BatchManager", () => {
 
 			// Process all three sequentially
 			for (let i = 0; i < 3; i++) {
-				const jobId = batch.entries[i].jobId;
+				const jobId = batch.entries[i]!.jobId;
 				mockJobManager.mock.simulateJobFinished(jobId, "completed");
 				await new Promise((resolve) => setTimeout(resolve, 10));
 			}
@@ -244,7 +245,7 @@ describe("BatchManager", () => {
 			const urls = ["https://github.com/owner/repo1"];
 
 			const batch = await batchManager.createBatch(urls);
-			const firstJobId = batch.entries[0].jobId;
+			const firstJobId = batch.entries[0]!.jobId;
 
 			// Complete the only job
 			mockJobManager.mock.simulateJobFinished(firstJobId, "completed");
@@ -265,12 +266,12 @@ describe("BatchManager", () => {
 
 			// Fail first, complete second
 			mockJobManager.mock.simulateJobFinished(
-				batch.entries[0].jobId,
+				batch.entries[0]!.jobId,
 				"failed",
 			);
 			await new Promise((resolve) => setTimeout(resolve, 10));
 			mockJobManager.mock.simulateJobFinished(
-				batch.entries[1].jobId,
+				batch.entries[1]!.jobId,
 				"completed",
 			);
 			await new Promise((resolve) => setTimeout(resolve, 10));

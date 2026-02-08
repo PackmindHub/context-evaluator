@@ -33,6 +33,7 @@ interface IUseEvaluationApiReturn {
 		evaluatorFilter?: EvaluatorFilter,
 		timeout?: number,
 		concurrency?: number,
+		selectedEvaluators?: string[],
 	) => Promise<IBatchEvaluateResponse>;
 	getBatchStatus: (batchId: string) => Promise<IBatchStatusResponse>;
 	getJobStatus: (jobId: string) => Promise<IJobStatusResponse>;
@@ -160,6 +161,7 @@ export function useEvaluationApi(): IUseEvaluationApiReturn {
 			evaluatorFilter?: EvaluatorFilter,
 			timeout?: number,
 			concurrency?: number,
+			selectedEvaluators?: string[],
 		): Promise<IBatchEvaluateResponse> => {
 			setIsLoading(true);
 			setError(null);
@@ -176,15 +178,14 @@ export function useEvaluationApi(): IUseEvaluationApiReturn {
 							...(evaluatorFilter ? { evaluatorFilter } : {}),
 							...(timeout ? { timeout } : {}),
 							...(concurrency ? { concurrency } : {}),
+							...(selectedEvaluators ? { selectedEvaluators } : {}),
 						},
 					}),
 				});
 
 				if (!response.ok) {
 					const errorData = await response.json().catch(() => ({}));
-					throw new Error(
-						errorData.error || `HTTP error ${response.status}`,
-					);
+					throw new Error(errorData.error || `HTTP error ${response.status}`);
 				}
 
 				return (await response.json()) as IBatchEvaluateResponse;
@@ -212,17 +213,13 @@ export function useEvaluationApi(): IUseEvaluationApiReturn {
 
 				if (!response.ok) {
 					const errorData = await response.json().catch(() => ({}));
-					throw new Error(
-						errorData.error || `HTTP error ${response.status}`,
-					);
+					throw new Error(errorData.error || `HTTP error ${response.status}`);
 				}
 
 				return (await response.json()) as IBatchStatusResponse;
 			} catch (err) {
 				const message =
-					err instanceof Error
-						? err.message
-						: "Failed to get batch status";
+					err instanceof Error ? err.message : "Failed to get batch status";
 				setError(message);
 				throw err;
 			}

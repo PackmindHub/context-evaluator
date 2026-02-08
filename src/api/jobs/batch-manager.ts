@@ -1,6 +1,6 @@
+import { isValidGitUrl } from "@shared/file-system/git-url-validation";
 import type { BatchEntryStatus, IBatchStatusResponse } from "@shared/types/api";
 import type { IEvaluationOptions } from "@shared/types/evaluation";
-import { isValidGitUrl } from "@shared/file-system/git-url-validation";
 import type { DailyRateLimiter } from "../rate-limiter";
 import type { JobManager } from "./job-manager";
 
@@ -133,10 +133,7 @@ export class BatchManager {
 
 		// Sync entry statuses from JobManager for submitted entries
 		for (const entry of batch.entries) {
-			if (
-				entry.status === "queued" ||
-				entry.status === "running"
-			) {
+			if (entry.status === "queued" || entry.status === "running") {
 				const job = this.jobManager.getJob(entry.jobId);
 				if (job) {
 					entry.status = job.status as BatchEntryStatus;
@@ -200,7 +197,7 @@ export class BatchManager {
 
 			// Increment rate limiter
 			this.rateLimiter.increment();
-		} catch (err) {
+		} catch (_err) {
 			// Mark entry as failed if submission fails (e.g., queue full)
 			nextEntry.status = "failed";
 			// Try to submit the next one
@@ -212,10 +209,7 @@ export class BatchManager {
 	 * Called when a job completes or fails.
 	 * Updates the batch entry status and submits the next URL.
 	 */
-	private onJobFinished(
-		jobId: string,
-		status: "completed" | "failed",
-	): void {
+	private onJobFinished(jobId: string, status: "completed" | "failed"): void {
 		const batchId = this.jobToBatch.get(jobId);
 		if (!batchId) return; // Not a batch job
 

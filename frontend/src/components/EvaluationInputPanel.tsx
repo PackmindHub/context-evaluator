@@ -10,6 +10,7 @@ interface IEvaluationInputPanelProps {
 		provider: ProviderName,
 		evaluatorFilter: EvaluatorFilter,
 		concurrency: number,
+		selectedEvaluators?: string[],
 	) => Promise<void>;
 	onBatchSubmit?: (
 		urls: string[],
@@ -17,6 +18,7 @@ interface IEvaluationInputPanelProps {
 		provider: ProviderName,
 		evaluatorFilter: EvaluatorFilter,
 		concurrency: number,
+		selectedEvaluators?: string[],
 	) => Promise<void>;
 	isLoading: boolean;
 	urlError?: string | null;

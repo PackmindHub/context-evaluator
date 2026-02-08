@@ -662,6 +662,7 @@ function AppContent() {
 			provider?: "claude" | "opencode" | "cursor" | "github-copilot",
 			evaluatorFilter?: EvaluatorFilter,
 			concurrency?: number,
+			selectedEvaluators?: string[],
 		) => {
 			setApiError(null);
 			try {
@@ -672,6 +673,7 @@ function AppContent() {
 					evaluatorFilter,
 					undefined,
 					concurrency,
+					selectedEvaluators,
 				);
 				navigate(`/batch/${response.batchId}`);
 			} catch (error) {

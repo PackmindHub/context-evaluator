@@ -461,10 +461,7 @@ export class JobManager {
 				try {
 					cb(jobId, terminalStatus);
 				} catch (callbackErr) {
-					jobManagerLogger.error(
-						`Error in jobFinished callback:`,
-						callbackErr,
-					);
+					jobManagerLogger.error(`Error in jobFinished callback:`, callbackErr);
 				}
 			}
 

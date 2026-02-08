@@ -176,10 +176,7 @@ export class APIServer {
 		if (path === "/api/evaluate/batch" && req.method === "POST") {
 			return this.evaluationRoutes.postBatch(req);
 		}
-		if (
-			path.match(/^\/api\/evaluate\/batch\/[^/]+$/) &&
-			req.method === "GET"
-		) {
+		if (path.match(/^\/api\/evaluate\/batch\/[^/]+$/) && req.method === "GET") {
 			const batchId = path.split("/").pop()!;
 			return this.evaluationRoutes.getBatchStatus(req, batchId);
 		}
