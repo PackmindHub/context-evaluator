@@ -530,7 +530,8 @@ export const RepositoryUrlInput: React.FC<IRepositoryUrlInputProps> = ({
 																		checked={allSuggestionsSelected}
 																		ref={(el) => {
 																			if (el)
-																				el.indeterminate = someSuggestionsSelected;
+																				el.indeterminate =
+																					someSuggestionsSelected;
 																		}}
 																		readOnly
 																		className="rounded border-slate-500 text-indigo-500 focus:ring-0 cursor-pointer"
