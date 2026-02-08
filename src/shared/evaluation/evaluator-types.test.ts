@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+	filterEvaluatorsByIds,
 	filterEvaluatorsByType,
 	getEvaluatorCountByType,
 	getEvaluatorFilterMetadata,
@@ -264,6 +265,61 @@ describe("Evaluator Types", () => {
 			expect(suggestionsFilter?.label).toBe("Suggestions Only");
 			expect(suggestionsFilter?.count).toBe(4);
 			expect(suggestionsFilter?.description).toContain("improvement");
+		});
+	});
+
+	describe("filterEvaluatorsByIds", () => {
+		test("should select specific evaluators by ID", () => {
+			const result = filterEvaluatorsByIds(EVALUATOR_FILES, [
+				"content-quality",
+				"security",
+			]);
+			expect(result).toHaveLength(2);
+			expect(result).toContain("content-quality.md");
+			expect(result).toContain("security.md");
+		});
+
+		test("should preserve original order", () => {
+			const result = filterEvaluatorsByIds(EVALUATOR_FILES, [
+				"security",
+				"content-quality",
+			]);
+			expect(result).toEqual(["content-quality.md", "security.md"]);
+		});
+
+		test("should return empty for empty selection", () => {
+			const result = filterEvaluatorsByIds(EVALUATOR_FILES, []);
+			expect(result).toHaveLength(0);
+		});
+
+		test("should ignore unknown IDs", () => {
+			const result = filterEvaluatorsByIds(EVALUATOR_FILES, [
+				"content-quality",
+				"nonexistent-evaluator",
+			]);
+			expect(result).toHaveLength(1);
+			expect(result[0]).toBe("content-quality.md");
+		});
+
+		test("should return all when all IDs are provided", () => {
+			const allIds = EVALUATOR_FILES.map((f) => f.replace(".md", ""));
+			const result = filterEvaluatorsByIds(EVALUATOR_FILES, [...allIds]);
+			expect(result).toHaveLength(EVALUATOR_FILES.length);
+		});
+
+		test("should handle empty evaluator files array", () => {
+			const result = filterEvaluatorsByIds([], ["content-quality"]);
+			expect(result).toHaveLength(0);
+		});
+
+		test("should select mix of error and suggestion evaluators", () => {
+			const result = filterEvaluatorsByIds(EVALUATOR_FILES, [
+				"content-quality",
+				"context-gaps",
+			]);
+			expect(result).toHaveLength(2);
+			expect(result).toContain("content-quality.md");
+			expect(result).toContain("context-gaps.md");
 		});
 	});
 });

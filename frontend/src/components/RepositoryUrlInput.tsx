@@ -1,10 +1,11 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useFeatureFlags } from "../contexts/FeatureFlagContext";
 import type { ProviderName } from "../hooks/useEvaluationApi";
 import { useEvaluatorsApi } from "../hooks/useEvaluatorsApi";
 import { useProviderDetection } from "../hooks/useProviderDetection";
 import { isValidGitUrl } from "../lib/url-validation";
 import type { EvaluatorFilter } from "../types/evaluation";
+import type { IEvaluator } from "../types/evaluator";
 
 interface IRepositoryUrlInputProps {
 	onSubmit: (
@@ -13,6 +14,7 @@ interface IRepositoryUrlInputProps {
 		provider: ProviderName,
 		evaluatorFilter: EvaluatorFilter,
 		concurrency: number,
+		selectedEvaluators?: string[],
 	) => Promise<void>;
 	isLoading: boolean;
 	error?: string | null;
@@ -44,22 +46,41 @@ export const RepositoryUrlInput: React.FC<IRepositoryUrlInputProps> = ({
 	const [url, setUrl] = useState("");
 	const [concurrency, setConcurrency] = useState<number>(3);
 	const [totalEvaluators, setTotalEvaluators] = useState<number>(17); // Default fallback
-	const [evaluatorFilter, setEvaluatorFilter] =
-		useState<EvaluatorFilter>("all");
+	const [evaluatorsList, setEvaluatorsList] = useState<IEvaluator[]>([]);
+	const [selectedEvaluatorIds, setSelectedEvaluatorIds] = useState<Set<string>>(
+		new Set(),
+	);
+	const [evaluatorDropdownOpen, setEvaluatorDropdownOpen] = useState(false);
+	const dropdownRef = useRef<HTMLDivElement>(null);
 	const [provider, setProvider] = useState<ProviderName>("claude");
 	const [validationError, setValidationError] = useState<string | null>(null);
 
-	// Fetch evaluators list on mount to get the total count
+	// Fetch evaluators list on mount to get the total count and details
 	useEffect(() => {
 		fetchEvaluatorsList()
 			.then((list) => {
-				const total = list.length;
-				setTotalEvaluators(total);
+				setTotalEvaluators(list.length);
+				setEvaluatorsList(list);
+				setSelectedEvaluatorIds(new Set(list.map((e) => e.id)));
 			})
 			.catch(() => {
 				// Keep the fallback default
 			});
 	}, [fetchEvaluatorsList]);
+
+	// Close dropdown on click outside
+	useEffect(() => {
+		const handleClickOutside = (event: MouseEvent) => {
+			if (
+				dropdownRef.current &&
+				!dropdownRef.current.contains(event.target as Node)
+			) {
+				setEvaluatorDropdownOpen(false);
+			}
+		};
+		document.addEventListener("mousedown", handleClickOutside);
+		return () => document.removeEventListener("mousedown", handleClickOutside);
+	}, []);
 
 	const validateUrl = useCallback((value: string): boolean => {
 		if (!value.trim()) {
@@ -89,13 +110,19 @@ export const RepositoryUrlInput: React.FC<IRepositoryUrlInputProps> = ({
 			try {
 				// In cloud mode, use "random" sentinel to let backend pick an available provider
 				const effectiveProvider = cloudMode ? "random" : provider;
-				const effectiveFilter = cloudMode ? "all" : evaluatorFilter;
+				const isAllSelected =
+					selectedEvaluatorIds.size === totalEvaluators ||
+					selectedEvaluatorIds.size === 0;
+				const selectedArray = isAllSelected
+					? undefined
+					: Array.from(selectedEvaluatorIds);
 				await onSubmit(
 					url.trim(),
-					totalEvaluators,
+					selectedArray ? selectedArray.length : totalEvaluators,
 					effectiveProvider,
-					effectiveFilter,
+					"all",
 					concurrency,
+					cloudMode ? undefined : selectedArray,
 				);
 			} catch {
 				// Error is handled by parent component
@@ -105,7 +132,7 @@ export const RepositoryUrlInput: React.FC<IRepositoryUrlInputProps> = ({
 			url,
 			totalEvaluators,
 			provider,
-			evaluatorFilter,
+			selectedEvaluatorIds,
 			concurrency,
 			validateUrl,
 			onSubmit,
@@ -246,7 +273,7 @@ export const RepositoryUrlInput: React.FC<IRepositoryUrlInputProps> = ({
 	return (
 		<div className="w-full">
 			<form onSubmit={handleSubmit}>
-				<div className="glass-card p-4 gradient-border-hover transition-all duration-300">
+				<div className="glass-card p-4 gradient-border-hover transition-all duration-300 overflow-visible">
 					<div className="flex flex-col items-center py-2">
 						{/* Text Content */}
 						<div className="text-center mb-3">
@@ -294,37 +321,258 @@ export const RepositoryUrlInput: React.FC<IRepositoryUrlInputProps> = ({
 							</div>
 						</div>
 
-						{/* Options Row: Evaluator Filter and Provider - hidden in cloud mode */}
+						{/* Options Row: Evaluator Selector, Provider, Concurrency - hidden in cloud mode */}
 						{!cloudMode && (
 							<div className="w-full max-w-lg px-4 mb-3">
 								<div className="flex flex-wrap items-center justify-center gap-4">
-									{/* Evaluator Filter Selector */}
-									<div className="flex items-center gap-2">
-										<label
-											htmlFor="filter"
-											className="text-sm text-slate-400 whitespace-nowrap"
-										>
+									{/* Evaluator Multi-Select Dropdown */}
+									<div
+										className="flex items-center gap-2 relative"
+										ref={dropdownRef}
+									>
+										<label className="text-sm text-slate-400 whitespace-nowrap">
 											Evaluators:
 										</label>
-										<select
-											id="filter"
-											value={evaluatorFilter}
-											onChange={(e) =>
-												setEvaluatorFilter(e.target.value as EvaluatorFilter)
+										<button
+											type="button"
+											onClick={() =>
+												setEvaluatorDropdownOpen(!evaluatorDropdownOpen)
 											}
-											disabled={disabled || isLoading}
+											disabled={
+												disabled || isLoading || evaluatorsList.length === 0
+											}
 											className="
 												px-3 py-2 bg-slate-800/60 border border-slate-600/60 rounded-lg
 												text-slate-200 text-sm
 												focus:outline-none focus:border-indigo-500/70
 												disabled:opacity-50 disabled:cursor-not-allowed
 												transition-all duration-200 cursor-pointer
+												flex items-center gap-1.5
 											"
 										>
-											<option value="all">All (17)</option>
-											<option value="errors">Errors Only (13)</option>
-											<option value="suggestions">Suggestions (4)</option>
-										</select>
+											<span>
+												{selectedEvaluatorIds.size}/{totalEvaluators}
+											</span>
+											<svg
+												className={`w-3.5 h-3.5 transition-transform ${evaluatorDropdownOpen ? "rotate-180" : ""}`}
+												fill="none"
+												stroke="currentColor"
+												viewBox="0 0 24 24"
+											>
+												<path
+													strokeLinecap="round"
+													strokeLinejoin="round"
+													strokeWidth={2}
+													d="M19 9l-7 7-7-7"
+												/>
+											</svg>
+										</button>
+										{evaluatorDropdownOpen && evaluatorsList.length > 0 && (
+											<div className="absolute top-full left-0 mt-1 z-50 w-72 bg-slate-800 border border-slate-600/60 rounded-lg shadow-xl overflow-hidden">
+												{/* Select All / Deselect All */}
+												<div className="flex items-center justify-between px-3 py-2 border-b border-slate-700/60">
+													<button
+														type="button"
+														onClick={() =>
+															setSelectedEvaluatorIds(
+																new Set(evaluatorsList.map((e) => e.id)),
+															)
+														}
+														className="text-xs text-indigo-400 hover:text-indigo-300"
+													>
+														Select All
+													</button>
+													<button
+														type="button"
+														onClick={() => {
+															// Keep at least the first evaluator
+															const first = evaluatorsList[0];
+															if (first) {
+																setSelectedEvaluatorIds(new Set([first.id]));
+															}
+														}}
+														className="text-xs text-slate-400 hover:text-slate-300"
+													>
+														Deselect All
+													</button>
+												</div>
+												<div className="max-h-64 overflow-y-auto">
+													{/* Errors group */}
+													{(() => {
+														const errorEvals = evaluatorsList.filter(
+															(e) => e.issueType === "error",
+														);
+														const allErrorsSelected = errorEvals.every((e) =>
+															selectedEvaluatorIds.has(e.id),
+														);
+														const someErrorsSelected =
+															!allErrorsSelected &&
+															errorEvals.some((e) =>
+																selectedEvaluatorIds.has(e.id),
+															);
+														return (
+															<>
+																<div
+																	className="flex items-center gap-2 px-3 py-1.5 bg-slate-750 border-b border-slate-700/40 cursor-pointer hover:bg-slate-700/50"
+																	onClick={() => {
+																		setSelectedEvaluatorIds((prev) => {
+																			const next = new Set(prev);
+																			if (allErrorsSelected) {
+																				// Deselect all errors, but ensure at least 1 evaluator remains
+																				for (const e of errorEvals) {
+																					next.delete(e.id);
+																				}
+																				if (next.size === 0) {
+																					// Keep first suggestion or first error
+																					const fallback =
+																						evaluatorsList.find(
+																							(e) =>
+																								e.issueType === "suggestion",
+																						) || errorEvals[0];
+																					if (fallback) next.add(fallback.id);
+																				}
+																			} else {
+																				for (const e of errorEvals) {
+																					next.add(e.id);
+																				}
+																			}
+																			return next;
+																		});
+																	}}
+																>
+																	<input
+																		type="checkbox"
+																		checked={allErrorsSelected}
+																		ref={(el) => {
+																			if (el)
+																				el.indeterminate = someErrorsSelected;
+																		}}
+																		readOnly
+																		className="rounded border-slate-500 text-indigo-500 focus:ring-0 cursor-pointer"
+																	/>
+																	<span className="text-xs font-semibold text-slate-300 uppercase tracking-wide">
+																		Errors ({errorEvals.length})
+																	</span>
+																</div>
+																{errorEvals.map((ev) => (
+																	<label
+																		key={ev.id}
+																		className="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-700/40 cursor-pointer"
+																	>
+																		<input
+																			type="checkbox"
+																			checked={selectedEvaluatorIds.has(ev.id)}
+																			onChange={() => {
+																				setSelectedEvaluatorIds((prev) => {
+																					const next = new Set(prev);
+																					if (next.has(ev.id)) {
+																						if (next.size > 1)
+																							next.delete(ev.id);
+																					} else {
+																						next.add(ev.id);
+																					}
+																					return next;
+																				});
+																			}}
+																			className="rounded border-slate-500 text-indigo-500 focus:ring-0 cursor-pointer"
+																		/>
+																		<span className="text-sm text-slate-300 truncate">
+																			{ev.name}
+																		</span>
+																	</label>
+																))}
+															</>
+														);
+													})()}
+													{/* Suggestions group */}
+													{(() => {
+														const suggestionEvals = evaluatorsList.filter(
+															(e) => e.issueType === "suggestion",
+														);
+														const allSuggestionsSelected =
+															suggestionEvals.every((e) =>
+																selectedEvaluatorIds.has(e.id),
+															);
+														const someSuggestionsSelected =
+															!allSuggestionsSelected &&
+															suggestionEvals.some((e) =>
+																selectedEvaluatorIds.has(e.id),
+															);
+														return (
+															<>
+																<div
+																	className="flex items-center gap-2 px-3 py-1.5 bg-slate-750 border-b border-t border-slate-700/40 cursor-pointer hover:bg-slate-700/50"
+																	onClick={() => {
+																		setSelectedEvaluatorIds((prev) => {
+																			const next = new Set(prev);
+																			if (allSuggestionsSelected) {
+																				for (const e of suggestionEvals) {
+																					next.delete(e.id);
+																				}
+																				if (next.size === 0) {
+																					const fallback =
+																						evaluatorsList.find(
+																							(e) => e.issueType === "error",
+																						) || suggestionEvals[0];
+																					if (fallback) next.add(fallback.id);
+																				}
+																			} else {
+																				for (const e of suggestionEvals) {
+																					next.add(e.id);
+																				}
+																			}
+																			return next;
+																		});
+																	}}
+																>
+																	<input
+																		type="checkbox"
+																		checked={allSuggestionsSelected}
+																		ref={(el) => {
+																			if (el)
+																				el.indeterminate =
+																					someSuggestionsSelected;
+																		}}
+																		readOnly
+																		className="rounded border-slate-500 text-indigo-500 focus:ring-0 cursor-pointer"
+																	/>
+																	<span className="text-xs font-semibold text-slate-300 uppercase tracking-wide">
+																		Suggestions ({suggestionEvals.length})
+																	</span>
+																</div>
+																{suggestionEvals.map((ev) => (
+																	<label
+																		key={ev.id}
+																		className="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-700/40 cursor-pointer"
+																	>
+																		<input
+																			type="checkbox"
+																			checked={selectedEvaluatorIds.has(ev.id)}
+																			onChange={() => {
+																				setSelectedEvaluatorIds((prev) => {
+																					const next = new Set(prev);
+																					if (next.has(ev.id)) {
+																						if (next.size > 1)
+																							next.delete(ev.id);
+																					} else {
+																						next.add(ev.id);
+																					}
+																					return next;
+																				});
+																			}}
+																			className="rounded border-slate-500 text-indigo-500 focus:ring-0 cursor-pointer"
+																		/>
+																		<span className="text-sm text-slate-300 truncate">
+																			{ev.name}
+																		</span>
+																	</label>
+																))}
+															</>
+														);
+													})()}
+												</div>
+											</div>
+										)}
 									</div>
 
 									{/* Provider Selector */}
