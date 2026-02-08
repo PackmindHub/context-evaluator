@@ -273,7 +273,7 @@ export const RepositoryUrlInput: React.FC<IRepositoryUrlInputProps> = ({
 	return (
 		<div className="w-full">
 			<form onSubmit={handleSubmit}>
-				<div className="glass-card p-4 gradient-border-hover transition-all duration-300">
+				<div className="glass-card p-4 gradient-border-hover transition-all duration-300 overflow-visible">
 					<div className="flex flex-col items-center py-2">
 						{/* Text Content */}
 						<div className="text-center mb-3">
