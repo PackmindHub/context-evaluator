@@ -634,3 +634,26 @@ export function getMaxCategoryGroupSeverity(groups: CategoryGroup[]): number {
 	if (groups.length === 0) return 0;
 	return Math.max(...groups.map((g) => g.maxSeverity));
 }
+
+// Aggregated issues types (cross-evaluation)
+export interface IAggregatedIssue {
+	issue: Issue;
+	evaluationId: string;
+	repositoryUrl: string;
+	evaluationDate: string;
+	evaluatorName: string;
+}
+
+export interface IAggregatedIssuesResponse {
+	issues: IAggregatedIssue[];
+	pagination: {
+		page: number;
+		pageSize: number;
+		totalItems: number;
+		totalPages: number;
+	};
+	availableFilters: {
+		evaluators: string[];
+		repositories: string[];
+	};
+}
