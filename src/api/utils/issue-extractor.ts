@@ -3,14 +3,8 @@
  * Mirrors the logic in frontend/src/lib/issue-processing.ts parseAllIssues()
  */
 
-import type {
-	EvaluationOutput,
-	Issue,
-} from "@shared/types/evaluation";
-import {
-	isIndependentFormat,
-	isUnifiedFormat,
-} from "@shared/types/evaluation";
+import type { EvaluationOutput, Issue } from "@shared/types/evaluation";
+import { isIndependentFormat, isUnifiedFormat } from "@shared/types/evaluation";
 
 /**
  * Parse evaluator result string to extract issues.
@@ -69,9 +63,7 @@ export function extractIssuesFromEvaluation(
 	if (isUnifiedFormat(data)) {
 		for (const result of data.results) {
 			if (result.output?.result) {
-				const parsedIssues = parseEvaluatorResultRobust(
-					result.output.result,
-				);
+				const parsedIssues = parseEvaluatorResultRobust(result.output.result);
 				for (const issue of parsedIssues) {
 					issues.push({ ...issue, evaluatorName: result.evaluator });
 				}

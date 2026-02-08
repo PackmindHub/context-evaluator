@@ -31,7 +31,13 @@ describe("extractIssuesFromEvaluation", () => {
 						]),
 						session_id: "s1",
 						total_cost_usd: 0.01,
-						usage: { input_tokens: 100, output_tokens: 50 },
+						usage: {
+							input_tokens: 100,
+							output_tokens: 50,
+							cache_creation_input_tokens: 0,
+							cache_read_input_tokens: 0,
+						},
+						uuid: "test-uuid-1",
 					},
 				},
 				{
@@ -53,7 +59,13 @@ describe("extractIssuesFromEvaluation", () => {
 						]),
 						session_id: "s2",
 						total_cost_usd: 0.01,
-						usage: { input_tokens: 100, output_tokens: 50 },
+						usage: {
+							input_tokens: 100,
+							output_tokens: 50,
+							cache_creation_input_tokens: 0,
+							cache_read_input_tokens: 0,
+						},
+						uuid: "test-uuid-2",
 					},
 				},
 			],
@@ -62,9 +74,9 @@ describe("extractIssuesFromEvaluation", () => {
 
 		const issues = extractIssuesFromEvaluation(data);
 		expect(issues).toHaveLength(2);
-		expect(issues[0].evaluatorName).toBe("content-quality");
-		expect(issues[0].description).toBe("Test issue");
-		expect(issues[1].evaluatorName).toBe("security");
+		expect(issues[0]!.evaluatorName).toBe("content-quality");
+		expect(issues[0]!.description).toBe("Test issue");
+		expect(issues[1]!.evaluatorName).toBe("security");
 	});
 
 	test("extracts cross-file issues from unified format", () => {
@@ -89,8 +101,8 @@ describe("extractIssuesFromEvaluation", () => {
 
 		const issues = extractIssuesFromEvaluation(data);
 		expect(issues).toHaveLength(1);
-		expect(issues[0].evaluatorName).toBe("cross-file");
-		expect(issues[0].description).toBe("Cross-file issue");
+		expect(issues[0]!.evaluatorName).toBe("cross-file");
+		expect(issues[0]!.description).toBe("Cross-file issue");
 	});
 
 	test("extracts issues from independent format with issues array", () => {
@@ -124,7 +136,7 @@ describe("extractIssuesFromEvaluation", () => {
 
 		const issues = extractIssuesFromEvaluation(data);
 		expect(issues).toHaveLength(1);
-		expect(issues[0].evaluatorName).toBe("command-completeness");
+		expect(issues[0]!.evaluatorName).toBe("command-completeness");
 	});
 
 	test("extracts issues from independent format with output.result string", () => {
@@ -160,7 +172,7 @@ describe("extractIssuesFromEvaluation", () => {
 
 		const issues = extractIssuesFromEvaluation(data);
 		expect(issues).toHaveLength(1);
-		expect(issues[0].evaluatorName).toBe("code-style");
+		expect(issues[0]!.evaluatorName).toBe("code-style");
 	});
 
 	test("handles object format result string (perFileIssues + crossFileIssues)", () => {
@@ -204,7 +216,13 @@ describe("extractIssuesFromEvaluation", () => {
 						}),
 						session_id: "s1",
 						total_cost_usd: 0.01,
-						usage: { input_tokens: 100, output_tokens: 50 },
+						usage: {
+							input_tokens: 100,
+							output_tokens: 50,
+							cache_creation_input_tokens: 0,
+							cache_read_input_tokens: 0,
+						},
+						uuid: "test-uuid-3",
 					},
 				},
 			],
@@ -213,8 +231,8 @@ describe("extractIssuesFromEvaluation", () => {
 
 		const issues = extractIssuesFromEvaluation(data);
 		expect(issues).toHaveLength(2);
-		expect(issues[0].description).toBe("Per-file issue");
-		expect(issues[1].description).toBe("Cross issue in result");
+		expect(issues[0]!.description).toBe("Per-file issue");
+		expect(issues[1]!.description).toBe("Cross issue in result");
 	});
 
 	test("handles empty evaluation data", () => {
@@ -253,7 +271,13 @@ describe("extractIssuesFromEvaluation", () => {
 						result: "This is not valid JSON at all",
 						session_id: "s1",
 						total_cost_usd: 0.01,
-						usage: { input_tokens: 100, output_tokens: 50 },
+						usage: {
+							input_tokens: 100,
+							output_tokens: 50,
+							cache_creation_input_tokens: 0,
+							cache_read_input_tokens: 0,
+						},
+						uuid: "test-uuid-4",
 					},
 				},
 			],

@@ -1,9 +1,5 @@
 // API request and response types
-import type {
-	EvaluationOutput,
-	IEvaluationOptions,
-	Issue,
-} from "./evaluation";
+import type { EvaluationOutput, IEvaluationOptions, Issue } from "./evaluation";
 
 // Job status types
 export type JobStatus = "queued" | "running" | "completed" | "failed";

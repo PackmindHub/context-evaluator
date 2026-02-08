@@ -1,13 +1,14 @@
-import React, { useCallback } from "react";
+import { useCallback } from "react";
 import {
-	useAggregatedIssues,
 	type IssuesPageFilters,
+	useAggregatedIssues,
 } from "../hooks/useAggregatedIssues";
 import { useEvaluationHistory } from "../hooks/useEvaluationHistory";
 import { extractRepoName, formatRelativeDate } from "../lib/formatters";
 import { AppHeader } from "./AppHeader";
 import { IssueCard } from "./IssueCard";
 
+// biome-ignore lint/suspicious/noEmptyBlockStatements: intentional no-op for unused callback
 const NO_OP_FEEDBACK = () => {};
 
 export function IssuesPage() {

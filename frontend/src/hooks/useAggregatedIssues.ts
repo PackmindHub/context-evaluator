@@ -87,9 +87,7 @@ export function useAggregatedIssues() {
 			setPagination(data.pagination);
 			setAvailableFilters(data.availableFilters);
 		} catch (err) {
-			setError(
-				err instanceof Error ? err.message : "Failed to fetch issues",
-			);
+			setError(err instanceof Error ? err.message : "Failed to fetch issues");
 		} finally {
 			setIsLoading(false);
 		}

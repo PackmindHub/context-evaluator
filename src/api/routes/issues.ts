@@ -29,14 +29,10 @@ export class IssuesRoutes {
 				100,
 				Math.max(1, parseInt(url.searchParams.get("pageSize") || "25", 10)),
 			);
-			const evaluatorFilter =
-				url.searchParams.get("evaluator") || undefined;
-			const severityFilter =
-				url.searchParams.get("severity") || undefined;
-			const repositoryFilter =
-				url.searchParams.get("repository") || undefined;
-			const issueTypeFilter =
-				url.searchParams.get("issueType") || undefined;
+			const evaluatorFilter = url.searchParams.get("evaluator") || undefined;
+			const severityFilter = url.searchParams.get("severity") || undefined;
+			const repositoryFilter = url.searchParams.get("repository") || undefined;
+			const issueTypeFilter = url.searchParams.get("issueType") || undefined;
 			const searchFilter = url.searchParams.get("search") || undefined;
 
 			// Load all completed evaluations with results
@@ -115,10 +111,7 @@ export class IssuesRoutes {
 			const totalItems = filtered.length;
 			const totalPages = Math.ceil(totalItems / pageSize);
 			const startIndex = (page - 1) * pageSize;
-			const paginatedIssues = filtered.slice(
-				startIndex,
-				startIndex + pageSize,
-			);
+			const paginatedIssues = filtered.slice(startIndex, startIndex + pageSize);
 
 			const response: IAggregatedIssuesResponse = {
 				issues: paginatedIssues,

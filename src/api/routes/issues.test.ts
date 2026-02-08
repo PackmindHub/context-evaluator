@@ -45,7 +45,7 @@ function createUnifiedResultJson(
 			evaluatorGroups[issue.evaluator] = [];
 		}
 		const { evaluator: _e, ...issueData } = issue;
-		evaluatorGroups[issue.evaluator].push({
+		evaluatorGroups[issue.evaluator]!.push({
 			...issueData,
 			location: { start: 1, end: 5 },
 		});
@@ -58,22 +58,20 @@ function createUnifiedResultJson(
 			evaluationMode: "unified",
 			totalFiles: 1,
 		},
-		results: Object.entries(evaluatorGroups).map(
-			([evaluator, evalIssues]) => ({
-				evaluator,
-				output: {
-					type: "text",
-					subtype: "",
-					is_error: false,
-					duration_ms: 100,
-					num_turns: 1,
-					result: JSON.stringify(evalIssues),
-					session_id: "s1",
-					total_cost_usd: 0.01,
-					usage: { input_tokens: 100, output_tokens: 50 },
-				},
-			}),
-		),
+		results: Object.entries(evaluatorGroups).map(([evaluator, evalIssues]) => ({
+			evaluator,
+			output: {
+				type: "text",
+				subtype: "",
+				is_error: false,
+				duration_ms: 100,
+				num_turns: 1,
+				result: JSON.stringify(evalIssues),
+				session_id: "s1",
+				total_cost_usd: 0.01,
+				usage: { input_tokens: 100, output_tokens: 50 },
+			},
+		})),
 		crossFileIssues: [],
 	});
 }
@@ -180,13 +178,9 @@ describe("IssuesRoutes", () => {
 		expect(data.issues).toHaveLength(2);
 		expect(data.pagination.totalItems).toBe(2);
 		expect(data.issues[0].evaluationId).toBe("eval-1");
-		expect(data.issues[0].repositoryUrl).toBe(
-			"https://github.com/owner/repo",
-		);
+		expect(data.issues[0].repositoryUrl).toBe("https://github.com/owner/repo");
 		expect(data.availableFilters.evaluators).toContain("content-quality");
-		expect(data.availableFilters.evaluators).toContain(
-			"command-completeness",
-		);
+		expect(data.availableFilters.evaluators).toContain("command-completeness");
 		expect(data.availableFilters.repositories).toContain(
 			"https://github.com/owner/repo",
 		);
@@ -323,9 +317,7 @@ describe("IssuesRoutes", () => {
 		const data = await res.json();
 
 		expect(data.issues).toHaveLength(1);
-		expect(data.issues[0].repositoryUrl).toBe(
-			"https://github.com/owner/repo1",
-		);
+		expect(data.issues[0].repositoryUrl).toBe("https://github.com/owner/repo1");
 	});
 
 	test("filters by issue type", async () => {
@@ -348,9 +340,7 @@ describe("IssuesRoutes", () => {
 
 		insertEvaluation("eval-1", "https://github.com/owner/repo", resultJson);
 
-		const req = new Request(
-			"http://localhost/api/issues?issueType=suggestion",
-		);
+		const req = new Request("http://localhost/api/issues?issueType=suggestion");
 		const res = await routes.list(req);
 		const data = await res.json();
 
@@ -378,9 +368,7 @@ describe("IssuesRoutes", () => {
 
 		insertEvaluation("eval-1", "https://github.com/owner/repo", resultJson);
 
-		const req = new Request(
-			"http://localhost/api/issues?search=documentation",
-		);
+		const req = new Request("http://localhost/api/issues?search=documentation");
 		const res = await routes.list(req);
 		const data = await res.json();
 
@@ -406,9 +394,7 @@ describe("IssuesRoutes", () => {
 		insertEvaluation("eval-1", "https://github.com/owner/repo", resultJson);
 
 		// Page 1
-		const req1 = new Request(
-			"http://localhost/api/issues?page=1&pageSize=10",
-		);
+		const req1 = new Request("http://localhost/api/issues?page=1&pageSize=10");
 		const res1 = await routes.list(req1);
 		const data1 = await res1.json();
 
@@ -419,9 +405,7 @@ describe("IssuesRoutes", () => {
 		expect(data1.pagination.totalPages).toBe(3);
 
 		// Page 3 (last page)
-		const req3 = new Request(
-			"http://localhost/api/issues?page=3&pageSize=10",
-		);
+		const req3 = new Request("http://localhost/api/issues?page=3&pageSize=10");
 		const res3 = await routes.list(req3);
 		const data3 = await res3.json();
 
@@ -442,9 +426,7 @@ describe("IssuesRoutes", () => {
 		insertEvaluation("eval-1", "https://github.com/owner/repo", resultJson);
 
 		// Page 0 should become 1
-		const req = new Request(
-			"http://localhost/api/issues?page=0&pageSize=200",
-		);
+		const req = new Request("http://localhost/api/issues?page=0&pageSize=200");
 		const res = await routes.list(req);
 		const data = await res.json();
 
