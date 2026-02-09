@@ -1783,6 +1783,45 @@ function AppContent() {
 								hasData={false}
 							/>
 						</div>
+
+						{/* Cloud Mode Notice */}
+						{cloudMode && (
+							<div className="max-w-2xl mx-auto">
+								<div className="info-section text-left">
+									<div className="flex items-start gap-2">
+										<svg
+											className="info-section-icon"
+											fill="none"
+											stroke="currentColor"
+											viewBox="0 0 24 24"
+										>
+											<path
+												strokeLinecap="round"
+												strokeLinejoin="round"
+												strokeWidth={2}
+												d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+											/>
+										</svg>
+										<div>
+											<p className="info-section-header">Public Instance</p>
+											<p className="info-section-content">
+												This is a public instance to illustrate
+												context-evaluator. You can submit git repository URLs
+												for analysis. All results are public and cannot be
+												removed. For any request, contact{" "}
+												<a
+													href="mailto:support@packmind.com"
+													className="text-blue-400 hover:text-blue-300 underline"
+												>
+													support@packmind.com
+												</a>
+												.
+											</p>
+										</div>
+									</div>
+								</div>
+							</div>
+						)}
 					</div>
 				) : isLoadingFromUrl ? (
 					<div className="card text-center py-12">

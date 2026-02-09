@@ -299,29 +299,6 @@ export const HowItWorksPage: React.FC = () => {
 					</div>
 				</div>
 			</div>
-
-			{/* CTA - Outside main container for proper spacing */}
-			<div className="max-w-4xl mx-auto px-6 py-12 text-center">
-				<a
-					href="/"
-					className="btn-primary inline-flex items-center gap-2 px-6 py-3 rounded-lg"
-				>
-					<span>Try It Now</span>
-					<svg
-						className="w-4 h-4"
-						fill="none"
-						stroke="currentColor"
-						viewBox="0 0 24 24"
-					>
-						<path
-							strokeLinecap="round"
-							strokeLinejoin="round"
-							strokeWidth={2}
-							d="M9 5l7 7-7 7"
-						/>
-					</svg>
-				</a>
-			</div>
 		</div>
 	);
 };

@@ -52,6 +52,18 @@ export const EmptyState: React.FC = () => {
 					</code>
 					, and referenced documentation files
 				</p>
+
+				<p className="text-xs text-slate-500 mt-2">
+					Powered by{" "}
+					<a
+						href="https://packmind.com?utm_source=context-evaluator"
+						target="_blank"
+						rel="noopener noreferrer"
+						className="text-slate-400 hover:text-slate-300 underline"
+					>
+						Packmind
+					</a>
+				</p>
 			</div>
 		</div>
 	);
