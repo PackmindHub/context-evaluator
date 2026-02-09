@@ -4,6 +4,7 @@ import {
 	BrowserRouter,
 	Route,
 	Routes,
+	useLocation,
 	useNavigate,
 	useParams,
 	useSearchParams,
@@ -853,13 +854,6 @@ function AppContent() {
 	const allIssues = useMemo(() => {
 		if (!evaluationData) return [];
 
-		console.log("[DEBUG] evaluationData:", evaluationData);
-		console.log("[DEBUG] isUnifiedFormat:", isUnifiedFormat(evaluationData));
-		console.log(
-			"[DEBUG] isIndependentFormat:",
-			isIndependentFormat(evaluationData),
-		);
-
 		const issues: Array<Issue & { evaluatorName?: string }> = [];
 
 		if (isUnifiedFormat(evaluationData)) {
@@ -886,54 +880,27 @@ function AppContent() {
 		} else if (isIndependentFormat(evaluationData)) {
 			// Independent format: files object
 			const independentData = evaluationData as IndependentEvaluationOutput;
-			console.log("[DEBUG] independentData.files:", independentData.files);
-			for (const [filePath, fileResult] of Object.entries(
+			for (const [_filePath, fileResult] of Object.entries(
 				independentData.files,
 			)) {
-				console.log(
-					"[DEBUG] Processing file:",
-					filePath,
-					"evaluations:",
-					fileResult.evaluations?.length,
-				);
 				for (const evaluation of fileResult.evaluations) {
 					const evalWithIssues = evaluation as {
 						issues?: Issue[];
 						evaluator: string;
 						output?: { result: string };
 					};
-					console.log(
-						"[DEBUG] Evaluation:",
-						evaluation.evaluator,
-						"has issues:",
-						"issues" in evaluation,
-						"issues count:",
-						evalWithIssues.issues?.length,
-					);
 					// Handle both formats:
 					// 1. Backend API format: issues array directly on evaluation
 					// 2. JSON file format: output.result as a string to parse
 					if ("issues" in evaluation && Array.isArray(evalWithIssues.issues)) {
 						// Backend API format - issues are already parsed
 						const evalIssues = evalWithIssues.issues;
-						console.log(
-							"[DEBUG] Found",
-							evalIssues.length,
-							"issues from",
-							evaluation.evaluator,
-						);
 						evalIssues.forEach((issue) => {
 							issues.push({ ...issue, evaluatorName: evaluation.evaluator });
 						});
 					} else if (evaluation.output && evaluation.output.result) {
 						// JSON file format - need to parse result string
 						const parsedIssues = parseEvaluatorResult(evaluation.output.result);
-						console.log(
-							"[DEBUG] Parsed",
-							parsedIssues.length,
-							"issues from output.result for",
-							evaluation.evaluator,
-						);
 						parsedIssues.forEach((issue) => {
 							issues.push({ ...issue, evaluatorName: evaluation.evaluator });
 						});
@@ -1890,11 +1857,22 @@ function AppContent() {
 	);
 }
 
+// Scrolls to top on every route change
+function ScrollToTop() {
+	const { pathname } = useLocation();
+	// biome-ignore lint/correctness/useExhaustiveDependencies: re-run scroll on route change
+	useEffect(() => {
+		window.scrollTo(0, 0);
+	}, [pathname]);
+	return null;
+}
+
 // Router wrapper component
 function App() {
 	return (
 		<FeatureFlagProvider>
 			<BrowserRouter>
+				<ScrollToTop />
 				<AppRoutes />
 			</BrowserRouter>
 		</FeatureFlagProvider>

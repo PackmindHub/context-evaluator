@@ -288,6 +288,93 @@ describe("extractIssuesFromEvaluation", () => {
 		expect(issues).toHaveLength(0);
 	});
 
+	test("extracts issues from unified format with zero-valued usage (cursor/codex providers)", () => {
+		const data: EvaluationOutput = {
+			metadata: {
+				generatedAt: "2026-01-01",
+				agent: "cursor",
+				evaluationMode: "unified",
+				totalFiles: 1,
+			},
+			results: [
+				{
+					evaluator: "content-quality",
+					output: {
+						type: "evaluation",
+						subtype: "unified",
+						is_error: false,
+						duration_ms: 5000,
+						num_turns: 1,
+						result: JSON.stringify({
+							perFileIssues: {
+								"AGENTS.md": [
+									{
+										issueType: "error",
+										severity: 8,
+										category: "Content Quality",
+										description: "Human-focused content detected",
+										location: { start: 1, end: 10 },
+									},
+								],
+							},
+							crossFileIssues: [],
+						}),
+						session_id: "",
+						total_cost_usd: 0,
+						usage: {
+							input_tokens: 0,
+							output_tokens: 0,
+							cache_creation_input_tokens: 0,
+							cache_read_input_tokens: 0,
+						},
+						uuid: "",
+					},
+				},
+				{
+					evaluator: "security",
+					output: {
+						type: "evaluation",
+						subtype: "unified",
+						is_error: false,
+						duration_ms: 3000,
+						num_turns: 1,
+						result: JSON.stringify({
+							perFileIssues: {
+								"AGENTS.md": [
+									{
+										issueType: "error",
+										severity: 9,
+										category: "Security",
+										description: "Exposed API key",
+										location: { start: 20, end: 25 },
+									},
+								],
+							},
+							crossFileIssues: [],
+						}),
+						session_id: "",
+						total_cost_usd: 0,
+						usage: {
+							input_tokens: 0,
+							output_tokens: 0,
+							cache_creation_input_tokens: 0,
+							cache_read_input_tokens: 0,
+						},
+						uuid: "",
+					},
+				},
+			],
+			crossFileIssues: [],
+		};
+
+		const issues = extractIssuesFromEvaluation(data);
+		expect(issues).toHaveLength(2);
+		expect(issues[0]!.evaluatorName).toBe("content-quality");
+		expect(issues[0]!.description).toBe("Human-focused content detected");
+		expect(issues[1]!.evaluatorName).toBe("security");
+		expect(issues[1]!.description).toBe("Exposed API key");
+	});
+
 	test("skips evaluators with no output", () => {
 		const data: EvaluationOutput = {
 			metadata: {

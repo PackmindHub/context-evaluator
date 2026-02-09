@@ -1483,7 +1483,7 @@ export class EvaluationEngine {
 			metadata,
 			results: filteredEvaluatorResults.map((r) => ({
 				evaluator: r.evaluator,
-				output: r.usage
+				output: !r.skipped
 					? {
 							type: "evaluation",
 							subtype: "unified",
@@ -1496,7 +1496,12 @@ export class EvaluationEngine {
 							}),
 							session_id: "",
 							total_cost_usd: r.cost_usd || 0,
-							usage: r.usage,
+							usage: r.usage || {
+								input_tokens: 0,
+								output_tokens: 0,
+								cache_creation_input_tokens: 0,
+								cache_read_input_tokens: 0,
+							},
 							uuid: "",
 						}
 					: undefined,
