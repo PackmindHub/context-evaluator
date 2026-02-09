@@ -1,6 +1,6 @@
 {
 	"name": "context-evaluator",
-	"version": "0.0.1",
+	"version": "0.2.0",
 	"description": "CLI tool and web app to evaluate AGENTS.md files using AI agents",
 	"module": "src/index.ts",
 	"type": "module",

@@ -80,6 +80,26 @@ You are detecting documentation that has become stale after codebase changes.
 
 ### 19.1 Non-Existent File/Directory Paths
 
+**⚠️ Fresh Clone Context:**
+
+Repositories are evaluated as **fresh clones** — no `npm install`, `bun install`, build steps, or code generation has been run. Directories and files that are created by build tools, package managers, or code generators will NOT exist on disk. You MUST account for this before flagging any path as missing.
+
+Before flagging a path as non-existent:
+
+1. **Check Technical Inventory "Gitignore Entries"**: If the path (or a parent pattern like `dist/`, `build/`, `node_modules/`) appears in the gitignore entries, it is almost certainly a generated path — do NOT flag it.
+2. **Check documentation context**: If the documentation itself describes the path as generated, built, compiled, or output (e.g., "build output in `dist/`", "generated files in `build/`"), do NOT flag it.
+3. **Check well-known generated patterns**: These directories are commonly generated and should NOT be flagged as missing:
+   - **Package manager**: `node_modules/`, `vendor/`, `.bundle/`, `__pypackages__/`, `.venv/`, `venv/`
+   - **Build output**: `dist/`, `build/`, `out/`, `.output/`, `target/`, `bin/`, `obj/`
+   - **Framework-specific**: `.next/`, `.nuxt/`, `.svelte-kit/`, `.angular/`, `.expo/`, `.dart_tool/`, `.gradle/`
+   - **Generated code**: `generated/`, `__generated__/`, `.graphql/`, `.prisma/client`
+   - **Coverage/reports**: `coverage/`, `.nyc_output/`, `htmlcov/`
+   - **Cache**: `.cache/`, `.turbo/`, `.parcel-cache/`, `.webpack/`
+   - **IDE/tool output**: `.tsbuildinfo`, `*.d.ts` output dirs
+
+**DO NOT flag:** Paths that match gitignore entries, are described as generated in docs, or match well-known generated patterns above.
+**DO flag:** Source code paths (`src/`, `lib/`, `app/`, config files, scripts) that genuinely do not exist and are not generated.
+
 **Detection Strategy:**
 
 1. **Extract paths from documentation:**
@@ -98,6 +118,8 @@ You are detecting documentation that has become stale after codebase changes.
    # List directory contents to verify structure
    ls -la src/ 2>/dev/null || echo "DIRECTORY NOT FOUND"
    ```
+
+3. **Before reporting MISSING paths, apply fresh-clone filter** (see Fresh Clone Context above)
 
 **Example of Bad:**
 ```markdown

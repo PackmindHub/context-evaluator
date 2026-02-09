@@ -146,6 +146,8 @@ export interface ITechnicalInventory {
 	testOrganization?: "co-located" | "separate" | "mixed";
 	// Architecture patterns (from evaluator 12 scanning)
 	detectedDirectoryLayers?: string[];
+	// Gitignore entries (for fresh-clone context awareness)
+	gitignoreEntries?: string[];
 }
 
 // Project context types

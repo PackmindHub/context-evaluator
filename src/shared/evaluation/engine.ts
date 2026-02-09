@@ -558,6 +558,21 @@ async function collectTechnicalInventory(
 		// Skip architecture detection errors
 	}
 
+	// 9. Read .gitignore entries (for fresh-clone context awareness)
+	try {
+		const gitignorePath = join(workingDir, ".gitignore");
+		const gitignoreContent = await readFile(gitignorePath, "utf-8");
+		const entries = gitignoreContent
+			.split("\n")
+			.map((line) => line.trim())
+			.filter((line) => line.length > 0 && !line.startsWith("#"));
+		if (entries.length > 0) {
+			inventory.gitignoreEntries = entries.slice(0, 100);
+		}
+	} catch {
+		// No .gitignore or read error — skip
+	}
+
 	if (verbose) {
 		const parts: string[] = [];
 		if (inventory.dependencies)
@@ -584,6 +599,8 @@ async function collectTechnicalInventory(
 			parts.push(`${inventory.mockUsageCount} mock usages`);
 		if (inventory.detectedDirectoryLayers)
 			parts.push(`${inventory.detectedDirectoryLayers.length} arch layers`);
+		if (inventory.gitignoreEntries)
+			parts.push(`${inventory.gitignoreEntries.length} gitignore entries`);
 		engineLogger.log(`Technical inventory collected: ${parts.join(", ")}`);
 	}
 

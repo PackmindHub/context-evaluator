@@ -386,6 +386,13 @@ function buildTechnicalInventorySection(
 		);
 	}
 
+	// Gitignore entries
+	if (inventory.gitignoreEntries && inventory.gitignoreEntries.length > 0) {
+		lines.push(
+			`**Gitignore Entries:** ${inventory.gitignoreEntries.join(", ")}`,
+		);
+	}
+
 	// Only return if we have at least one data line beyond the header
 	if (lines.length <= 2) {
 		return "";
