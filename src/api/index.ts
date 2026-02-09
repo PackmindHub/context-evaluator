@@ -2,6 +2,7 @@ import { apiServerLogger } from "@shared/utils/logger";
 import { dirname, resolve } from "path";
 import { fileURLToPath } from "url";
 import { hasEmbeddedAssets, hasEmbeddedPrompts } from "../embedded";
+import { BatchManager } from "./jobs/batch-manager";
 import { JobManager } from "./jobs/job-manager";
 import {
 	addCorsHeaders,
@@ -79,10 +80,14 @@ export class APIServer {
 			maxQueueSize: config.maxQueueSize ?? 20,
 		});
 		this.sseHandler = new SSEProgressHandler(this.jobManager);
+		const batchManager = cloudMode
+			? null
+			: new BatchManager(this.jobManager, this.rateLimiter);
 		this.evaluationRoutes = new EvaluationRoutes(
 			this.jobManager,
 			cloudMode,
 			this.rateLimiter,
+			batchManager,
 		);
 		this.feedbackRoutes = new FeedbackRoutes();
 		this.bookmarkRoutes = new BookmarkRoutes();
@@ -165,6 +170,15 @@ export class APIServer {
 		// Provider detection endpoint
 		if (path === "/api/providers/detect" && req.method === "GET") {
 			return this.providerRoutes.detect(req);
+		}
+
+		// Batch evaluation routes (must match before /api/evaluate/:id)
+		if (path === "/api/evaluate/batch" && req.method === "POST") {
+			return this.evaluationRoutes.postBatch(req);
+		}
+		if (path.match(/^\/api\/evaluate\/batch\/[^/]+$/) && req.method === "GET") {
+			const batchId = path.split("/").pop()!;
+			return this.evaluationRoutes.getBatchStatus(req, batchId);
 		}
 
 		// Evaluation routes

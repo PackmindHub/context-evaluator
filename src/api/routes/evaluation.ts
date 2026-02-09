@@ -1,5 +1,10 @@
-import type { IEvaluateRequest, IJobStatusResponse } from "@shared/types/api";
+import type {
+	IBatchEvaluateRequest,
+	IEvaluateRequest,
+	IJobStatusResponse,
+} from "@shared/types/api";
 import { evaluationRepository } from "../db/evaluation-repository";
+import type { BatchManager } from "../jobs/batch-manager";
 import type { JobManager } from "../jobs/job-manager";
 import type { DailyRateLimiter } from "../rate-limiter";
 
@@ -9,14 +14,17 @@ import type { DailyRateLimiter } from "../rate-limiter";
 export class EvaluationRoutes {
 	private cloudMode: boolean;
 	private rateLimiter: DailyRateLimiter;
+	private batchManager: BatchManager | null;
 
 	constructor(
 		private jobManager: JobManager,
 		cloudMode = false,
 		rateLimiter: DailyRateLimiter,
+		batchManager: BatchManager | null = null,
 	) {
 		this.cloudMode = cloudMode;
 		this.rateLimiter = rateLimiter;
+		this.batchManager = batchManager;
 	}
 
 	/**
@@ -484,5 +492,164 @@ export class EvaluationRoutes {
 				},
 			);
 		}
+	}
+
+	/**
+	 * POST /api/evaluate/batch - Start batch evaluation (sequential)
+	 */
+	async postBatch(req: Request): Promise<Response> {
+		console.log("[EvaluationRoutes] POST /api/evaluate/batch");
+
+		// Block in cloud mode
+		if (this.cloudMode) {
+			return new Response(
+				JSON.stringify({
+					error: "Batch evaluation is not available in cloud mode",
+					code: "CLOUD_MODE_RESTRICTED",
+				}),
+				{
+					status: 403,
+					headers: { "Content-Type": "application/json" },
+				},
+			);
+		}
+
+		if (!this.batchManager) {
+			return new Response(
+				JSON.stringify({
+					error: "Batch evaluation is not configured",
+					code: "BATCH_NOT_AVAILABLE",
+				}),
+				{
+					status: 500,
+					headers: { "Content-Type": "application/json" },
+				},
+			);
+		}
+
+		try {
+			const body = (await req.json()) as IBatchEvaluateRequest;
+			console.log(
+				"[EvaluationRoutes] Batch request:",
+				body.urls?.length,
+				"URLs",
+			);
+
+			// Validate urls field exists
+			if (!body.urls || !Array.isArray(body.urls)) {
+				return new Response(
+					JSON.stringify({
+						error: "urls array is required",
+						code: "INVALID_REQUEST",
+					}),
+					{
+						status: 400,
+						headers: { "Content-Type": "application/json" },
+					},
+				);
+			}
+
+			// Force standard API options
+			const options = {
+				...body.options,
+				verbose: true,
+				debug: true,
+				preserveDebugOutput: body.options?.preserveDebugOutput ?? false,
+				curation: {
+					enabled: true,
+					topN: body.options?.curation?.topN ?? 20,
+				},
+			};
+
+			// Create batch (BatchManager handles validation and rate limit checks)
+			const batch = await this.batchManager.createBatch(
+				body.urls.map((u) => u.trim()),
+				options,
+			);
+
+			return new Response(
+				JSON.stringify({
+					batchId: batch.id,
+					totalUrls: batch.entries.length,
+					jobs: batch.entries.map((e) => ({
+						url: e.url,
+						jobId: e.jobId,
+						status: e.status,
+					})),
+					createdAt: batch.createdAt.toISOString(),
+				}),
+				{
+					status: 202,
+					headers: { "Content-Type": "application/json" },
+				},
+			);
+		} catch (err: unknown) {
+			console.error(
+				"[EvaluationRoutes] Error in POST /api/evaluate/batch:",
+				err,
+			);
+			const error = err as Error;
+
+			// Determine appropriate status code
+			const isValidationError =
+				error.message?.includes("Invalid Git URLs") ||
+				error.message?.includes("At least one URL") ||
+				error.message?.includes("Maximum 50 URLs");
+			const isRateLimitError = error.message?.includes(
+				"Daily rate limit insufficient",
+			);
+
+			return new Response(
+				JSON.stringify({
+					error: error.message || "Internal server error",
+					code: isValidationError
+						? "INVALID_REQUEST"
+						: isRateLimitError
+							? "DAILY_LIMIT_EXCEEDED"
+							: "INTERNAL_ERROR",
+				}),
+				{
+					status: isValidationError ? 400 : isRateLimitError ? 429 : 500,
+					headers: { "Content-Type": "application/json" },
+				},
+			);
+		}
+	}
+
+	/**
+	 * GET /api/evaluate/batch/:batchId - Get batch status
+	 */
+	async getBatchStatus(_req: Request, batchId: string): Promise<Response> {
+		if (!this.batchManager) {
+			return new Response(
+				JSON.stringify({
+					error: "Batch evaluation is not configured",
+					code: "BATCH_NOT_AVAILABLE",
+				}),
+				{
+					status: 500,
+					headers: { "Content-Type": "application/json" },
+				},
+			);
+		}
+
+		const status = this.batchManager.getBatchStatus(batchId);
+		if (!status) {
+			return new Response(
+				JSON.stringify({
+					error: "Batch not found",
+					code: "BATCH_NOT_FOUND",
+				}),
+				{
+					status: 404,
+					headers: { "Content-Type": "application/json" },
+				},
+			);
+		}
+
+		return new Response(JSON.stringify(status), {
+			status: 200,
+			headers: { "Content-Type": "application/json" },
+		});
 	}
 }

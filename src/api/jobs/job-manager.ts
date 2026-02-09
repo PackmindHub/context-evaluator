@@ -129,11 +129,23 @@ export class JobManager {
 	private maxQueueSize: number;
 	private progressCallbacks = new Map<string, JobProgressCallback[]>();
 	private eventBuffer = new Map<string, ProgressEvent[]>();
+	private jobFinishedCallbacks: Array<
+		(jobId: string, status: "completed" | "failed") => void
+	> = [];
 
 	constructor(config: IJobManagerConfig = {}) {
 		this.store = new JobStore();
 		this.maxConcurrentJobs = config.maxConcurrentJobs ?? 2;
 		this.maxQueueSize = config.maxQueueSize ?? 20;
+	}
+
+	/**
+	 * Register a callback that fires when any job completes or fails
+	 */
+	onJobFinished(
+		callback: (jobId: string, status: "completed" | "failed") => void,
+	): void {
+		this.jobFinishedCallbacks.push(callback);
 	}
 
 	/**
@@ -316,6 +328,7 @@ export class JobManager {
 	 */
 	private async executeJob(job: IJob): Promise<void> {
 		const jobId = job.id;
+		let terminalStatus: "completed" | "failed" = "failed";
 
 		try {
 			// Mark as running
@@ -394,6 +407,8 @@ export class JobManager {
 				type: "job.completed",
 				data: { jobId, result, duration },
 			});
+
+			terminalStatus = "completed";
 		} catch (err: unknown) {
 			jobManagerLogger.error(`Job ${jobId} failed:`, err);
 			const error = err as Error & { code?: string };
@@ -440,6 +455,15 @@ export class JobManager {
 			// Cleanup callbacks and buffer
 			this.progressCallbacks.delete(jobId);
 			this.eventBuffer.delete(jobId);
+
+			// Notify job finished listeners (e.g., BatchManager)
+			for (const cb of this.jobFinishedCallbacks) {
+				try {
+					cb(jobId, terminalStatus);
+				} catch (callbackErr) {
+					jobManagerLogger.error(`Error in jobFinished callback:`, callbackErr);
+				}
+			}
 
 			// Process next job in queue
 			this.processQueue();

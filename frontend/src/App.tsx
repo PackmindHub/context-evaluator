@@ -10,6 +10,7 @@ import {
 } from "react-router-dom";
 import { AppHeader } from "./components/AppHeader";
 import { AssessmentPage } from "./components/AssessmentPage";
+import { BatchStatusPage } from "./components/BatchStatusPage";
 import { CostAnalysisPanel } from "./components/CostAnalysisPanel";
 import { EmptyState } from "./components/EmptyState";
 import { EvaluationInputPanel } from "./components/EvaluationInputPanel";
@@ -647,6 +648,39 @@ function AppContent() {
 					error instanceof Error
 						? error.message
 						: "Failed to submit evaluation job",
+				);
+			}
+		},
+		[api, navigate],
+	);
+
+	// Handle batch URL submission
+	const handleBatchSubmit = useCallback(
+		async (
+			urls: string[],
+			_evaluators: number,
+			provider?: "claude" | "opencode" | "cursor" | "github-copilot",
+			evaluatorFilter?: EvaluatorFilter,
+			concurrency?: number,
+			selectedEvaluators?: string[],
+		) => {
+			setApiError(null);
+			try {
+				const response = await api.submitBatch(
+					urls,
+					undefined,
+					provider,
+					evaluatorFilter,
+					undefined,
+					concurrency,
+					selectedEvaluators,
+				);
+				navigate(`/batch/${response.batchId}`);
+			} catch (error) {
+				setApiError(
+					error instanceof Error
+						? error.message
+						: "Failed to submit batch evaluation",
 				);
 			}
 		},
@@ -1776,6 +1810,7 @@ function AppContent() {
 						<div className="max-w-2xl mx-auto">
 							<EvaluationInputPanel
 								onUrlSubmit={handleUrlSubmit}
+								onBatchSubmit={!cloudMode ? handleBatchSubmit : undefined}
 								isLoading={api.isLoading}
 								urlError={apiError}
 								hasData={false}
@@ -1868,7 +1903,7 @@ function App() {
 
 // Routes component with feature flag access
 function AppRoutes() {
-	const { assessmentEnabled } = useFeatureFlags();
+	const { assessmentEnabled, cloudMode } = useFeatureFlags();
 
 	return (
 		<Routes>
@@ -1880,6 +1915,9 @@ function AppRoutes() {
 			<Route path="/how-it-works" element={<HowItWorksPage />} />
 			{assessmentEnabled && (
 				<Route path="/assessment" element={<AssessmentPage />} />
+			)}
+			{!cloudMode && (
+				<Route path="/batch/:batchId" element={<BatchStatusPage />} />
 			)}
 		</Routes>
 	);

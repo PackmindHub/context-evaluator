@@ -1,6 +1,11 @@
 import { useCallback, useState } from "react";
 import type { EvaluatorFilter } from "../types/evaluation";
-import type { IEvaluateResponse, IJobStatusResponse } from "../types/job";
+import type {
+	IBatchEvaluateResponse,
+	IBatchStatusResponse,
+	IEvaluateResponse,
+	IJobStatusResponse,
+} from "../types/job";
 
 /** Supported AI provider names */
 export type ProviderName =
@@ -21,6 +26,16 @@ interface IUseEvaluationApiReturn {
 		concurrency?: number,
 		selectedEvaluators?: string[],
 	) => Promise<IEvaluateResponse>;
+	submitBatch: (
+		urls: string[],
+		evaluators?: number,
+		provider?: ProviderName,
+		evaluatorFilter?: EvaluatorFilter,
+		timeout?: number,
+		concurrency?: number,
+		selectedEvaluators?: string[],
+	) => Promise<IBatchEvaluateResponse>;
+	getBatchStatus: (batchId: string) => Promise<IBatchStatusResponse>;
 	getJobStatus: (jobId: string) => Promise<IJobStatusResponse>;
 	cancelJob: (jobId: string) => Promise<void>;
 	isLoading: boolean;
@@ -138,12 +153,88 @@ export function useEvaluationApi(): IUseEvaluationApiReturn {
 		}
 	}, []);
 
+	const submitBatch = useCallback(
+		async (
+			urls: string[],
+			evaluators?: number,
+			provider?: ProviderName,
+			evaluatorFilter?: EvaluatorFilter,
+			timeout?: number,
+			concurrency?: number,
+			selectedEvaluators?: string[],
+		): Promise<IBatchEvaluateResponse> => {
+			setIsLoading(true);
+			setError(null);
+
+			try {
+				const response = await fetch("/api/evaluate/batch", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						urls,
+						options: {
+							...(evaluators ? { evaluators } : {}),
+							...(provider ? { provider } : {}),
+							...(evaluatorFilter ? { evaluatorFilter } : {}),
+							...(timeout ? { timeout } : {}),
+							...(concurrency ? { concurrency } : {}),
+							...(selectedEvaluators ? { selectedEvaluators } : {}),
+						},
+					}),
+				});
+
+				if (!response.ok) {
+					const errorData = await response.json().catch(() => ({}));
+					throw new Error(errorData.error || `HTTP error ${response.status}`);
+				}
+
+				return (await response.json()) as IBatchEvaluateResponse;
+			} catch (err) {
+				const message =
+					err instanceof Error
+						? err.message
+						: "Failed to submit batch evaluation";
+				setError(message);
+				throw err;
+			} finally {
+				setIsLoading(false);
+			}
+		},
+		[],
+	);
+
+	const getBatchStatus = useCallback(
+		async (batchId: string): Promise<IBatchStatusResponse> => {
+			try {
+				const response = await fetch(`/api/evaluate/batch/${batchId}`, {
+					method: "GET",
+					headers: { "Content-Type": "application/json" },
+				});
+
+				if (!response.ok) {
+					const errorData = await response.json().catch(() => ({}));
+					throw new Error(errorData.error || `HTTP error ${response.status}`);
+				}
+
+				return (await response.json()) as IBatchStatusResponse;
+			} catch (err) {
+				const message =
+					err instanceof Error ? err.message : "Failed to get batch status";
+				setError(message);
+				throw err;
+			}
+		},
+		[],
+	);
+
 	const clearError = useCallback(() => {
 		setError(null);
 	}, []);
 
 	return {
 		submitJob,
+		submitBatch,
+		getBatchStatus,
 		getJobStatus,
 		cancelJob,
 		isLoading,

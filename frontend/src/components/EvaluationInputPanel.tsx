@@ -10,6 +10,15 @@ interface IEvaluationInputPanelProps {
 		provider: ProviderName,
 		evaluatorFilter: EvaluatorFilter,
 		concurrency: number,
+		selectedEvaluators?: string[],
+	) => Promise<void>;
+	onBatchSubmit?: (
+		urls: string[],
+		evaluators: number,
+		provider: ProviderName,
+		evaluatorFilter: EvaluatorFilter,
+		concurrency: number,
+		selectedEvaluators?: string[],
 	) => Promise<void>;
 	isLoading: boolean;
 	urlError?: string | null;
@@ -18,6 +27,7 @@ interface IEvaluationInputPanelProps {
 
 export const EvaluationInputPanel: React.FC<IEvaluationInputPanelProps> = ({
 	onUrlSubmit,
+	onBatchSubmit,
 	isLoading,
 	urlError,
 	hasData,
@@ -31,6 +41,7 @@ export const EvaluationInputPanel: React.FC<IEvaluationInputPanelProps> = ({
 		<div className="w-full">
 			<RepositoryUrlInput
 				onSubmit={onUrlSubmit}
+				onBatchSubmit={onBatchSubmit}
 				isLoading={isLoading}
 				error={urlError}
 			/>

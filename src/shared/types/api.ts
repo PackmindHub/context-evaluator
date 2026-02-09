@@ -154,6 +154,44 @@ export type SSEEvent =
 	| IJobCompletedEvent
 	| IJobFailedEvent;
 
+// Batch API types
+export type BatchEntryStatus =
+	| "pending"
+	| "queued"
+	| "running"
+	| "completed"
+	| "failed";
+
+export interface IBatchEvaluateRequest {
+	urls: string[]; // 1-50 public Git URLs
+	options?: IEvaluationOptions;
+}
+
+export interface IBatchEvaluateResponse {
+	batchId: string;
+	totalUrls: number;
+	jobs: Array<{ url: string; jobId: string; status: BatchEntryStatus }>;
+	createdAt: string;
+}
+
+export interface IBatchStatusResponse {
+	batchId: string;
+	totalUrls: number;
+	submitted: number;
+	completed: number;
+	failed: number;
+	running: number;
+	queued: number;
+	pending: number;
+	jobs: Array<{
+		url: string;
+		jobId: string;
+		status: BatchEntryStatus;
+	}>;
+	createdAt: string;
+	isFinished: boolean;
+}
+
 // Job internal types
 export interface IJob {
 	id: string;
