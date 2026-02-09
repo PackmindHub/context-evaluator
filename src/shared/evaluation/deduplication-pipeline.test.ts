@@ -394,6 +394,120 @@ describe("Deduplication Pipeline", () => {
 			expect(result.phase1!.removed).toBeGreaterThanOrEqual(1);
 		});
 
+		test("REGRESSION: unified mode cross-file issues copies must have _deduplicationId for dedup filtering", async () => {
+			/**
+			 * Bug: In unified mode, the runner creates copies of evaluator cross-file issues
+			 * BEFORE the engine assigns _deduplicationId. When allCrossFileIssues uses these
+			 * stale copies, they lack IDs. After dedup, createDeduplicationIdSet skips items
+			 * without IDs, causing the dedup filter to silently drop cross-file issues.
+			 * Fix: Rebuild allCrossFileIssues from originals AFTER ID assignment.
+			 */
+			// Simulate evaluator results with cross-file issues (originals)
+			const originalCrossFileIssues = [
+				createIssue({
+					problem: "Conflicting setup commands across files",
+					location: [
+						{ file: "AGENTS.md", start: 10, end: 15 },
+						{ file: "CLAUDE.md", start: 20, end: 25 },
+					],
+				}),
+			];
+
+			// Simulate per-file issues (originals, shared via reference)
+			const perFileIssues = [
+				createIssue({
+					problem: "Missing docs",
+					location: { file: "AGENTS.md", start: 1, end: 5 },
+				}),
+				createIssue({
+					problem: "Vague command",
+					location: { file: "AGENTS.md", start: 30, end: 35 },
+				}),
+			];
+
+			// Simulate consistency issues
+			const consistencyIssues = [
+				createIssue({
+					problem: "Conflicting AGENTS.md and CLAUDE.md",
+					location: [
+						{ file: "AGENTS.md", start: 1, end: 5 },
+						{ file: "CLAUDE.md", start: 1, end: 5 },
+					],
+				}),
+			];
+
+			// Step 1: Assign IDs to ALL originals (simulating engine lines 1281-1294)
+			let idx = 0;
+			for (const issue of perFileIssues)
+				issue._deduplicationId = `issue_${idx++}`;
+			for (const issue of originalCrossFileIssues)
+				issue._deduplicationId = `issue_${idx++}`;
+			for (const issue of consistencyIssues)
+				issue._deduplicationId = `issue_${idx++}`;
+
+			// Step 2: Build allCrossFileIssues from originals AFTER ID assignment (the FIX)
+			// This ensures copies inherit _deduplicationId via spread
+			const allCrossFileIssues = [
+				...originalCrossFileIssues.map((issue) => ({
+					...issue,
+					evaluatorName: "test-evaluator",
+				})),
+				...consistencyIssues,
+			];
+
+			const allPerFileIssues = perFileIssues.map((issue) => ({
+				...issue,
+				evaluatorName: "test-evaluator",
+			}));
+			const allIssues = [...allPerFileIssues, ...allCrossFileIssues];
+
+			// Step 3: Run dedup pipeline
+			const result = await executeDeduplicationPipeline(allIssues, {
+				aiEnabled: false,
+			});
+
+			// Step 4: Create ID set and filter
+			const deduplicatedIds = createDeduplicationIdSet(result.deduplicated);
+
+			// Step 5: Filter cross-file issues using dedup IDs (simulating engine line 1362-1364)
+			const filteredCrossFile = allCrossFileIssues.filter((issue) =>
+				deduplicatedIds.has(issue._deduplicationId!),
+			);
+
+			// ALL cross-file issues should survive (none were duplicates)
+			expect(filteredCrossFile.length).toBe(allCrossFileIssues.length);
+			expect(deduplicatedIds.size).toBe(result.deduplicated.length);
+		});
+
+		test("REGRESSION: copies made before ID assignment lose _deduplicationId", () => {
+			/**
+			 * Documents the root cause: if copies are made before IDs are assigned to originals,
+			 * the copies don't have _deduplicationId and filtering silently drops them.
+			 */
+			const original = createIssue({ problem: "Cross-file conflict" });
+
+			// Copy made BEFORE ID assignment (the bug scenario)
+			const copyBeforeId = { ...original };
+
+			// Assign ID to original
+			original._deduplicationId = "issue_0";
+
+			// Copy made AFTER ID assignment (the fix scenario)
+			const copyAfterId = { ...original };
+
+			// Verify: copy before has no ID, copy after has ID
+			expect(copyBeforeId._deduplicationId).toBeUndefined();
+			expect(copyAfterId._deduplicationId).toBe("issue_0");
+
+			// Verify: createDeduplicationIdSet skips undefined IDs
+			const idSet = createDeduplicationIdSet([
+				copyBeforeId as Issue,
+				copyAfterId,
+			]);
+			expect(idSet.size).toBe(1); // Only copyAfterId's ID is captured
+			expect(idSet.has("issue_0")).toBe(true);
+		});
+
 		test("should pass entity candidates through to Phase 2", async () => {
 			const issues = [
 				createIssue({

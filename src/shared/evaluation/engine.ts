@@ -1300,10 +1300,18 @@ export class EvaluationEngine {
 					e.issues.map((issue) => ({ ...issue, evaluatorName: e.evaluator })),
 				),
 		);
-		const allCrossFileIssues = [
-			...unifiedResult.crossFileIssues,
-			...consistencyIssues,
-		];
+		// Build from evaluatorResults originals (which have _deduplicationId assigned above)
+		// instead of unifiedResult.crossFileIssues (copies made before ID assignment)
+		const allCrossFileIssues: Issue[] = [];
+		for (const evalResult of unifiedResult.evaluatorResults) {
+			allCrossFileIssues.push(
+				...evalResult.crossFileIssues.map((issue) => ({
+					...issue,
+					evaluatorName: evalResult.evaluator,
+				})),
+			);
+		}
+		allCrossFileIssues.push(...consistencyIssues);
 		const allIssues = [...allPerFileIssues, ...allCrossFileIssues];
 
 		// Execute deduplication pipeline
@@ -1359,9 +1367,6 @@ export class EvaluationEngine {
 
 		// Filter output structures to only include deduplicated issues
 		const deduplicatedIds = createDeduplicationIdSet(deduplicatedIssues);
-		const filteredCrossFileIssues = allCrossFileIssues.filter((issue) =>
-			deduplicatedIds.has(issue._deduplicationId!),
-		);
 
 		// Update counts based on deduplicated issues
 		const finalPerFileIssues = deduplicatedIssues.filter(
@@ -1524,7 +1529,9 @@ export class EvaluationEngine {
 					: undefined,
 				error: r.error,
 			})),
-			crossFileIssues: filteredCrossFileIssues,
+			crossFileIssues: consistencyIssues.filter((issue) =>
+				deduplicatedIds.has(issue._deduplicationId!),
+			),
 			curation: curationOutput,
 			finalPrompts,
 		};

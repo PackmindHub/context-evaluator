@@ -11,7 +11,8 @@
 ## Fixed
 
 - GH Copilot CLI execution runtime issues were fixed
-- Evaluators now have as context the .gitignore to ensure they won't raise issues regarding folders and files ignored 
+- Evaluators now have as context the .gitignore to ensure they won't raise issues regarding folders and files ignored
+- Evaluator cross-file issues were silently dropped in unified mode due to stale copies missing deduplication IDs
 
 # [0.0.1] - 2026-02-26
 
