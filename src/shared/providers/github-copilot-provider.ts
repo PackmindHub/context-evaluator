@@ -13,6 +13,13 @@ import type {
 } from "./types";
 
 /**
+ * Maximum prompt size in bytes for CLI argument passing.
+ * macOS ARG_MAX is ~256KB, Linux is ~2MB. We use a conservative limit.
+ * Our evaluator prompts are typically 28-46KB so this is well within bounds.
+ */
+const MAX_PROMPT_ARG_BYTES = 200_000;
+
+/**
  * GitHub Copilot CLI provider implementation
  * Uses the `copilot` command with raw text output (no JSON support)
  */
@@ -36,9 +43,31 @@ export class GitHubCopilotProvider extends BaseProvider {
 	): Promise<IProviderResponse> {
 		const { verbose = false, timeout = DEFAULT_TIMEOUT_MS, cwd } = options;
 
-		// GitHub Copilot CLI command format: copilot -p --allow-all-tools
-		// Note: prompt is passed via stdin to avoid E2BIG errors on large prompts
-		const args = ["-p", "--allow-all-tools"];
+		// Guard against prompts that exceed OS argument size limits
+		const promptBytes = new TextEncoder().encode(prompt).length;
+		if (promptBytes > MAX_PROMPT_ARG_BYTES) {
+			throw new Error(
+				`Prompt too large for GitHub Copilot CLI argument (${(promptBytes / 1024).toFixed(0)} KB). ` +
+					`The Copilot CLI requires the prompt as a -p argument value, which is limited by OS ARG_MAX. ` +
+					`Maximum supported: ${(MAX_PROMPT_ARG_BYTES / 1024).toFixed(0)} KB. ` +
+					`Consider using --agent claude instead for large evaluations.`,
+			);
+		}
+
+		// GitHub Copilot CLI command format: copilot -p "<prompt>" -s --no-ask-user --no-custom-instructions --allow-all-tools
+		// -p <text>: Execute prompt in non-interactive mode (prompt MUST be the argument value)
+		// -s / --silent: Output only the agent response (no stats), cleaner for parsing
+		// --no-ask-user: Agent works autonomously without asking questions
+		// --no-custom-instructions: Prevent loading target repo's AGENTS.md (which could interfere with evaluator prompts)
+		// --allow-all-tools: Allow all tools without confirmation
+		const args = [
+			"-p",
+			prompt,
+			"-s",
+			"--no-ask-user",
+			"--no-custom-instructions",
+			"--allow-all-tools",
+		];
 
 		if (verbose) {
 			console.log(`\n[GitHub Copilot] Starting API call...`);
@@ -50,7 +79,7 @@ export class GitHubCopilotProvider extends BaseProvider {
 				console.log(`[GitHub Copilot] Working directory: ${cwd}`);
 			}
 			console.log(
-				`[GitHub Copilot] Command: copilot -p --allow-all-tools (prompt via stdin)`,
+				`[GitHub Copilot] Command: copilot -p <prompt> -s --no-ask-user --no-custom-instructions --allow-all-tools`,
 			);
 			console.log(`[GitHub Copilot] Spawning process...`);
 		}
@@ -58,7 +87,7 @@ export class GitHubCopilotProvider extends BaseProvider {
 		const startTime = Date.now();
 
 		const proc = Bun.spawn(["copilot", ...args], {
-			stdin: "pipe",
+			stdin: "ignore",
 			stdout: "pipe",
 			stderr: "pipe",
 			env: process.env,
@@ -67,14 +96,6 @@ export class GitHubCopilotProvider extends BaseProvider {
 
 		if (verbose) {
 			console.log(`[GitHub Copilot] Process spawned (PID: ${proc.pid})`);
-		}
-
-		// Write prompt to stdin and close the stream
-		proc.stdin.write(prompt);
-		await proc.stdin.end();
-
-		if (verbose) {
-			console.log(`[GitHub Copilot] Wrote ${prompt.length} chars to stdin`);
 			console.log(`[GitHub Copilot] Waiting for response...`);
 		}
 
