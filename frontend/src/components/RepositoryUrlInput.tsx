@@ -542,7 +542,7 @@ export const RepositoryUrlInput: React.FC<IRepositoryUrlInputProps> = ({
 											</svg>
 										</button>
 										{evaluatorDropdownOpen && evaluatorsList.length > 0 && (
-											<div className="absolute top-full left-0 mt-1 z-50 w-72 bg-slate-800 border border-slate-600/60 rounded-lg shadow-xl overflow-hidden">
+											<div className="absolute top-full left-0 mt-1 z-50 w-80 bg-slate-800 border border-slate-600/60 rounded-lg shadow-xl overflow-hidden">
 												{/* Select All / Deselect All */}
 												<div className="flex items-center justify-between px-3 py-2 border-b border-slate-700/60">
 													<button
@@ -570,7 +570,7 @@ export const RepositoryUrlInput: React.FC<IRepositoryUrlInputProps> = ({
 														Deselect All
 													</button>
 												</div>
-												<div className="max-h-64 overflow-y-auto">
+												<div className="max-h-80 overflow-y-auto custom-scrollbar">
 													{/* Errors group */}
 													{(() => {
 														const errorEvals = evaluatorsList.filter(
