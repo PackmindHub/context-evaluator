@@ -122,8 +122,12 @@ export class IssuesRoutes {
 					totalPages,
 				},
 				availableFilters: {
-					evaluators: Array.from(evaluatorSet).sort(),
-					repositories: Array.from(repositorySet).sort(),
+					evaluators: Array.from(evaluatorSet).sort((a, b) =>
+						a.localeCompare(b, undefined, { sensitivity: "base" }),
+					),
+					repositories: Array.from(repositorySet).sort((a, b) =>
+						a.localeCompare(b, undefined, { sensitivity: "base" }),
+					),
 				},
 			};
 
