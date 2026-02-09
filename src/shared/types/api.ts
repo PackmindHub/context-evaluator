@@ -234,3 +234,34 @@ export interface IAggregatedIssuesResponse {
 		repositories: string[];
 	};
 }
+
+// Evaluator stats types (cross-evaluation aggregation)
+export interface IEvaluatorStat {
+	evaluatorId: string; // e.g., "content-quality"
+	evaluatorName: string; // e.g., "Content Quality"
+	issueType: "error" | "suggestion";
+	repoCount: number; // unique repos with ≥1 issue
+	totalIssueCount: number; // total issues across all repos
+}
+
+export interface IEvaluatorStatsResponse {
+	evaluators: IEvaluatorStat[];
+	totalReposEvaluated: number;
+}
+
+// Cost stats types (cross-evaluation aggregation)
+export interface IRepoCostStat {
+	repositoryUrl: string;
+	totalCostUsd: number;
+	totalLOC: number | null;
+}
+
+export interface IAgentCostStat {
+	agent: string;
+	totalCostUsd: number;
+}
+
+export interface ICostStatsResponse {
+	topReposByCost: IRepoCostStat[];
+	costByAgent: IAgentCostStat[];
+}

@@ -1,4 +1,8 @@
-import type { IEvaluateRequest } from "@shared/types/api";
+import type {
+	IAgentCostStat,
+	IEvaluateRequest,
+	IRepoCostStat,
+} from "@shared/types/api";
 import type { EvaluationOutput } from "@shared/types/evaluation";
 import { getDatabase } from "./database";
 
@@ -321,6 +325,91 @@ export class EvaluationRepository {
 		);
 		const result = stmt.get();
 		return result?.count || 0;
+	}
+
+	/**
+	 * Get top repositories by total cost (summed across all evaluations)
+	 */
+	getTopReposByCost(limit = 10): IRepoCostStat[] {
+		const db = getDatabase();
+
+		// Get total cost per repo and the latest result_json for LOC extraction
+		const rows = db
+			.prepare<
+				{
+					repository_url: string;
+					total_cost: number;
+					latest_result_json: string | null;
+				},
+				number
+			>(
+				`SELECT
+					e.repository_url,
+					SUM(e.total_cost_usd) as total_cost,
+					(SELECT e2.result_json FROM evaluations e2
+					 WHERE e2.repository_url = e.repository_url
+					   AND e2.status = 'completed' AND e2.result_json IS NOT NULL
+					 ORDER BY e2.completed_at DESC LIMIT 1) as latest_result_json
+				FROM evaluations e
+				WHERE e.status = 'completed'
+				GROUP BY e.repository_url
+				HAVING total_cost > 0
+				ORDER BY total_cost DESC
+				LIMIT ?`,
+			)
+			.all(limit);
+
+		return rows.map((row) => {
+			let totalLOC: number | null = null;
+			if (row.latest_result_json) {
+				try {
+					const result = JSON.parse(row.latest_result_json);
+					totalLOC =
+						result?.metadata?.contextScore?.breakdown?.context?.totalLOC ??
+						null;
+				} catch {
+					// ignore parse errors
+				}
+			}
+			return {
+				repositoryUrl: row.repository_url,
+				totalCostUsd: row.total_cost,
+				totalLOC,
+			};
+		});
+	}
+
+	/**
+	 * Get total cost aggregated by AI agent
+	 */
+	getCostByAgent(): IAgentCostStat[] {
+		const db = getDatabase();
+
+		const rows = db
+			.prepare<{ total_cost_usd: number; result_json: string | null }, []>(
+				`SELECT total_cost_usd, result_json
+				FROM evaluations
+				WHERE status = 'completed' AND total_cost_usd > 0`,
+			)
+			.all();
+
+		const costMap = new Map<string, number>();
+		for (const row of rows) {
+			let agent = "unknown";
+			if (row.result_json) {
+				try {
+					const result = JSON.parse(row.result_json);
+					agent = result?.metadata?.agent || "unknown";
+				} catch {
+					// ignore parse errors
+				}
+			}
+			costMap.set(agent, (costMap.get(agent) || 0) + row.total_cost_usd);
+		}
+
+		return Array.from(costMap.entries())
+			.map(([agent, totalCostUsd]) => ({ agent, totalCostUsd }))
+			.sort((a, b) => b.totalCostUsd - a.totalCostUsd);
 	}
 
 	/**

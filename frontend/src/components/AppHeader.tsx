@@ -8,6 +8,7 @@ interface AppHeaderProps {
 		| "recent"
 		| "issues"
 		| "evaluators"
+		| "stats"
 		| "how-it-works"
 		| "assessment";
 	historyCount?: number; // Number of recent evaluations
@@ -230,6 +231,14 @@ export function AppHeader({
 							}`}
 						>
 							Evaluators
+						</a>
+						<a
+							href="/stats"
+							className={`btn-ghost px-4 py-2 rounded-lg transition-colors ${
+								isActive("stats") ? "bg-slate-700" : ""
+							}`}
+						>
+							Stats
 						</a>
 						<a
 							href="/how-it-works"

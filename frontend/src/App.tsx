@@ -26,6 +26,7 @@ import { IssuesPage } from "./components/IssuesPage";
 import { ProgressPanel } from "./components/ProgressPanel";
 import { RecentEvaluationsPage } from "./components/RecentEvaluationsPage";
 import { SelectionSummaryBar } from "./components/SelectionSummaryBar";
+import { StatsPage } from "./components/StatsPage";
 import { Summary } from "./components/Summary";
 import type { TabItem } from "./components/Tabs";
 import { TabPanel, Tabs } from "./components/Tabs";
@@ -1929,6 +1930,7 @@ function AppRoutes() {
 			<Route path="/recent" element={<RecentEvaluationsPage />} />
 			<Route path="/evaluators" element={<EvaluatorsPage />} />
 			<Route path="/issues" element={<IssuesPage />} />
+			<Route path="/stats" element={<StatsPage />} />
 			<Route path="/how-it-works" element={<HowItWorksPage />} />
 			{assessmentEnabled && (
 				<Route path="/assessment" element={<AssessmentPage />} />

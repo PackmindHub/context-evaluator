@@ -657,3 +657,34 @@ export interface IAggregatedIssuesResponse {
 		repositories: string[];
 	};
 }
+
+// Evaluator stats types
+export interface IEvaluatorStat {
+	evaluatorId: string;
+	evaluatorName: string;
+	issueType: "error" | "suggestion";
+	repoCount: number;
+	totalIssueCount: number;
+}
+
+export interface IEvaluatorStatsResponse {
+	evaluators: IEvaluatorStat[];
+	totalReposEvaluated: number;
+}
+
+// Cost stats types
+export interface IRepoCostStat {
+	repositoryUrl: string;
+	totalCostUsd: number;
+	totalLOC: number | null;
+}
+
+export interface IAgentCostStat {
+	agent: string;
+	totalCostUsd: number;
+}
+
+export interface ICostStatsResponse {
+	topReposByCost: IRepoCostStat[];
+	costByAgent: IAgentCostStat[];
+}
