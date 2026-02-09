@@ -6,6 +6,7 @@
 - Add "Batch mode" to process multiple git repositories
 - Add "Stats" page to see overall statistics from all evaluations, as well as insights regarding costs
 - When submitting one or multiple repositories to analyze, users can select errors and suggestions to check
+- Add sorting controls to Recent Evaluations page (by date, name, grade, or number of errors)
 
 ## Fixed
 

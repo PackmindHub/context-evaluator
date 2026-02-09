@@ -31,6 +31,12 @@ export function RecentEvaluationsPage() {
 		refresh: refreshActive,
 	} = useActiveJobs();
 	const [searchQuery, setSearchQuery] = React.useState("");
+	const [sortField, setSortField] = React.useState<
+		"date" | "name" | "grade" | "errors"
+	>("date");
+	const [sortDirection, setSortDirection] = React.useState<"asc" | "desc">(
+		"desc",
+	);
 
 	// Combined loading state
 	const isLoading = isLoadingHistory || isLoadingActive;
@@ -46,6 +52,86 @@ export function RecentEvaluationsPage() {
 		const repoName = extractRepoName(item.repositoryUrl).toLowerCase();
 		return repoName.includes(searchQuery.toLowerCase());
 	});
+
+	const handleSort = (field: "date" | "name" | "grade" | "errors") => {
+		if (sortField === field) {
+			setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
+		} else {
+			setSortField(field);
+			const defaults: Record<string, "asc" | "desc"> = {
+				date: "desc",
+				name: "asc",
+				grade: "desc",
+				errors: "desc",
+			};
+			setSortDirection(defaults[field]);
+		}
+	};
+
+	const sortedHistory = React.useMemo(() => {
+		const sorted = [...filteredHistory].sort((a, b) => {
+			const dir = sortDirection === "asc" ? 1 : -1;
+
+			if (sortField === "date") {
+				return (
+					dir *
+					(new Date(a.completedAt).getTime() -
+						new Date(b.completedAt).getTime())
+				);
+			}
+
+			if (sortField === "name") {
+				const nameA = extractRepoName(a.repositoryUrl).toLowerCase();
+				const nameB = extractRepoName(b.repositoryUrl).toLowerCase();
+				const cmp = nameA.localeCompare(nameB);
+				if (cmp !== 0) return dir * cmp;
+				// Secondary sort: newest first
+				return (
+					new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime()
+				);
+			}
+
+			if (sortField === "grade") {
+				// Failed evaluations and null scores always sort last
+				const scoreA =
+					a.status === "failed" || a.contextScore == null
+						? null
+						: a.contextScore;
+				const scoreB =
+					b.status === "failed" || b.contextScore == null
+						? null
+						: b.contextScore;
+				if (scoreA == null && scoreB == null)
+					return (
+						new Date(b.completedAt).getTime() -
+						new Date(a.completedAt).getTime()
+					);
+				if (scoreA == null) return 1;
+				if (scoreB == null) return -1;
+				const cmp = scoreA - scoreB;
+				if (cmp !== 0) return dir * cmp;
+				return (
+					new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime()
+				);
+			}
+
+			// errors
+			const isFailed = (item: IEvaluationHistoryItem) =>
+				item.status === "failed";
+			if (isFailed(a) && isFailed(b))
+				return (
+					new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime()
+				);
+			if (isFailed(a)) return 1;
+			if (isFailed(b)) return -1;
+			const cmp = a.totalIssues - b.totalIssues;
+			if (cmp !== 0) return dir * cmp;
+			return (
+				new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime()
+			);
+		});
+		return sorted;
+	}, [filteredHistory, sortField, sortDirection]);
 
 	const handleSelect = (item: IEvaluationHistoryItem) => {
 		if (item.status === "completed") {
@@ -114,6 +200,36 @@ export function RecentEvaluationsPage() {
 										onChange={(e) => setSearchQuery(e.target.value)}
 										className="pl-2 pr-3 py-1.5 bg-transparent text-sm text-slate-200 placeholder-slate-500 focus:outline-none w-56"
 									/>
+								</div>
+							)}
+							{/* Sort controls */}
+							{history.length > 0 && (
+								<div className="flex items-center gap-1">
+									{(
+										[
+											{ field: "date", label: "Date" },
+											{ field: "name", label: "Name" },
+											{ field: "grade", label: "Grade" },
+											{ field: "errors", label: "Errors" },
+										] as const
+									).map(({ field, label }) => (
+										<button
+											key={field}
+											onClick={() => handleSort(field)}
+											className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+												sortField === field
+													? "bg-indigo-600/80 text-white"
+													: "text-slate-400 hover:text-slate-200 hover:bg-slate-700"
+											}`}
+										>
+											{label}
+											{sortField === field && (
+												<span className="ml-1">
+													{sortDirection === "asc" ? "↑" : "↓"}
+												</span>
+											)}
+										</button>
+									))}
 								</div>
 							)}
 							{!cloudMode && history.length > 0 && (
@@ -248,7 +364,7 @@ export function RecentEvaluationsPage() {
 									Start New Evaluation
 								</button>
 							</div>
-						) : filteredHistory.length === 0 && searchQuery ? (
+						) : sortedHistory.length === 0 && searchQuery ? (
 							<div className="py-16 text-center text-slate-400">
 								<svg
 									className="w-16 h-16 mx-auto mb-4 opacity-50"
@@ -277,7 +393,7 @@ export function RecentEvaluationsPage() {
 						) : (
 							<>
 								{/* History section header - only show when there are active jobs */}
-								{activeJobs.length > 0 && filteredHistory.length > 0 && (
+								{activeJobs.length > 0 && sortedHistory.length > 0 && (
 									<div className="flex items-center gap-3 px-6 py-3 bg-slate-800/30 border-b border-slate-700/50">
 										<svg
 											className="w-4 h-4 text-slate-400"
@@ -298,7 +414,7 @@ export function RecentEvaluationsPage() {
 									</div>
 								)}
 								<ul className="divide-y divide-slate-700/50">
-									{filteredHistory.map((item) => (
+									{sortedHistory.map((item) => (
 										<li key={item.id}>
 											<div
 												role="button"
@@ -468,8 +584,6 @@ export function RecentEvaluationsPage() {
 							</div>
 						</div>
 						<div className="flex flex-wrap items-center justify-center gap-8 text-sm text-slate-300">
-							<span>Built for developers</span>
-							<span className="hidden md:inline text-slate-600">|</span>
 							<a
 								href="https://packmind.com?utm_source=context-evaluator"
 								target="_blank"
@@ -477,13 +591,6 @@ export function RecentEvaluationsPage() {
 								className="hover:text-slate-100 transition-colors font-medium text-slate-200"
 							>
 								Powered by Packmind
-							</a>
-							<span className="hidden md:inline text-slate-600">|</span>
-							<a
-								href="#"
-								className="hover:text-slate-100 transition-colors font-medium"
-							>
-								Documentation
 							</a>
 						</div>
 					</div>
