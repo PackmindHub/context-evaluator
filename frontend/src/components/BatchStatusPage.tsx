@@ -107,10 +107,16 @@ export function BatchStatusPage() {
 	const [loadError, setLoadError] = useState<string | null>(null);
 	const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+	// Store api.getBatchStatus in a ref to avoid re-creating fetchStatus on every render.
+	// useEvaluationApi() returns a new object reference each render, which would
+	// cause the useEffect to clear and recreate the interval continuously.
+	const getBatchStatusRef = useRef(api.getBatchStatus);
+	getBatchStatusRef.current = api.getBatchStatus;
+
 	const fetchStatus = useCallback(async () => {
 		if (!batchId) return;
 		try {
-			const status = await api.getBatchStatus(batchId);
+			const status = await getBatchStatusRef.current(batchId);
 			setBatchStatus(status);
 			setLoadError(null);
 
@@ -124,7 +130,7 @@ export function BatchStatusPage() {
 				err instanceof Error ? err.message : "Failed to load batch status",
 			);
 		}
-	}, [batchId, api]);
+	}, [batchId]);
 
 	// Initial fetch and polling
 	useEffect(() => {
