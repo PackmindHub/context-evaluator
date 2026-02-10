@@ -160,7 +160,9 @@ export class StatsRoutes {
 				const meta = result.metadata;
 				if (
 					meta.contextIdentificationInputTokens != null &&
-					meta.contextIdentificationOutputTokens != null
+					meta.contextIdentificationOutputTokens != null &&
+					(meta.contextIdentificationInputTokens > 0 ||
+						meta.contextIdentificationOutputTokens > 0)
 				) {
 					ctxTotalInput += meta.contextIdentificationInputTokens;
 					ctxTotalOutput += meta.contextIdentificationOutputTokens;
@@ -231,6 +233,9 @@ export class StatsRoutes {
 		if (isUnifiedFormat(result)) {
 			for (const entry of result.results) {
 				if (!entry.output?.usage) continue;
+				const inputTokens = entry.output.usage.input_tokens ?? 0;
+				const outputTokens = entry.output.usage.output_tokens ?? 0;
+				if (inputTokens === 0 && outputTokens === 0) continue;
 				const evaluatorId = entry.evaluator;
 				const existing = accum.get(evaluatorId) ?? {
 					totalInput: 0,
@@ -238,8 +243,8 @@ export class StatsRoutes {
 					totalCost: 0,
 					count: 0,
 				};
-				existing.totalInput += entry.output.usage.input_tokens ?? 0;
-				existing.totalOutput += entry.output.usage.output_tokens ?? 0;
+				existing.totalInput += inputTokens;
+				existing.totalOutput += outputTokens;
 				existing.totalCost += entry.output.total_cost_usd ?? 0;
 				existing.count++;
 				accum.set(evaluatorId, existing);
@@ -256,6 +261,9 @@ export class StatsRoutes {
 				if (!fileResult.evaluations) continue;
 				for (const evalEntry of fileResult.evaluations) {
 					if (!evalEntry.usage) continue;
+					const inputTokens = evalEntry.usage.input_tokens ?? 0;
+					const outputTokens = evalEntry.usage.output_tokens ?? 0;
+					if (inputTokens === 0 && outputTokens === 0) continue;
 					const evaluatorId = evalEntry.evaluator;
 					const existing = accum.get(evaluatorId) ?? {
 						totalInput: 0,
@@ -263,8 +271,8 @@ export class StatsRoutes {
 						totalCost: 0,
 						count: 0,
 					};
-					existing.totalInput += evalEntry.usage.input_tokens ?? 0;
-					existing.totalOutput += evalEntry.usage.output_tokens ?? 0;
+					existing.totalInput += inputTokens;
+					existing.totalOutput += outputTokens;
 					existing.totalCost += evalEntry.cost_usd ?? 0;
 					existing.count++;
 					accum.set(evaluatorId, existing);

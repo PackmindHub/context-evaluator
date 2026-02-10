@@ -643,6 +643,102 @@ describe("StatsRoutes", () => {
 			expect(data.evaluators[0].evaluatorId).toBe("content-quality");
 			expect(data.evaluators[1].evaluatorId).toBe("security");
 		});
+
+		test("excludes zero-token entries from evaluator averages", async () => {
+			// Evaluation 1: content-quality has real tokens, security has zero tokens
+			const result1 = createUnifiedResultJsonWithTokens([
+				{
+					evaluator: "content-quality",
+					inputTokens: 1000,
+					outputTokens: 200,
+					costUsd: 0.01,
+				},
+				{
+					evaluator: "security",
+					inputTokens: 0,
+					outputTokens: 0,
+					costUsd: 0,
+				},
+			]);
+			// Evaluation 2: content-quality has real tokens, security has real tokens
+			const result2 = createUnifiedResultJsonWithTokens([
+				{
+					evaluator: "content-quality",
+					inputTokens: 1200,
+					outputTokens: 300,
+					costUsd: 0.02,
+				},
+				{
+					evaluator: "security",
+					inputTokens: 800,
+					outputTokens: 150,
+					costUsd: 0.008,
+				},
+			]);
+
+			insertEvaluation("eval-1", "https://github.com/owner/repo1", result1);
+			insertEvaluation("eval-2", "https://github.com/owner/repo2", result2);
+
+			const req = new Request("http://localhost/api/stats/tokens");
+			const res = await routes.getTokenStats(req);
+			const data = await res.json();
+
+			// content-quality: averaged over 2 entries (both have real tokens)
+			const contentQuality = data.evaluators.find(
+				(e: { evaluatorId: string }) => e.evaluatorId === "content-quality",
+			);
+			expect(contentQuality.avgInputTokens).toBe(1100); // (1000+1200)/2
+			expect(contentQuality.avgOutputTokens).toBe(250); // (200+300)/2
+			expect(contentQuality.sampleCount).toBe(2);
+
+			// security: only 1 valid entry (zero-token entry excluded)
+			const security = data.evaluators.find(
+				(e: { evaluatorId: string }) => e.evaluatorId === "security",
+			);
+			expect(security.avgInputTokens).toBe(800);
+			expect(security.avgOutputTokens).toBe(150);
+			expect(security.sampleCount).toBe(1);
+		});
+
+		test("excludes zero-token context identification from averages", async () => {
+			// Evaluation 1: zero context identification tokens (e.g. from Cursor)
+			const result1 = createUnifiedResultJsonWithTokens(
+				[
+					{
+						evaluator: "content-quality",
+						inputTokens: 500,
+						outputTokens: 100,
+						costUsd: 0.01,
+					},
+				],
+				{ inputTokens: 0, outputTokens: 0, costUsd: 0 },
+			);
+			// Evaluation 2: real context identification tokens
+			const result2 = createUnifiedResultJsonWithTokens(
+				[
+					{
+						evaluator: "content-quality",
+						inputTokens: 600,
+						outputTokens: 120,
+						costUsd: 0.012,
+					},
+				],
+				{ inputTokens: 3000, outputTokens: 600, costUsd: 0.008 },
+			);
+
+			insertEvaluation("eval-1", "https://github.com/owner/repo1", result1);
+			insertEvaluation("eval-2", "https://github.com/owner/repo2", result2);
+
+			const req = new Request("http://localhost/api/stats/tokens");
+			const res = await routes.getTokenStats(req);
+			const data = await res.json();
+
+			// Only the real entry should be counted
+			expect(data.contextIdentification).not.toBeNull();
+			expect(data.contextIdentification.avgInputTokens).toBe(3000);
+			expect(data.contextIdentification.avgOutputTokens).toBe(600);
+			expect(data.contextIdentification.sampleCount).toBe(1);
+		});
 	});
 
 	// --- Cost stats tests ---
