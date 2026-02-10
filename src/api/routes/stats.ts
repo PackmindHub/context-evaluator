@@ -233,7 +233,10 @@ export class StatsRoutes {
 		if (isUnifiedFormat(result)) {
 			for (const entry of result.results) {
 				if (!entry.output?.usage) continue;
-				const inputTokens = entry.output.usage.input_tokens ?? 0;
+				const inputTokens =
+					(entry.output.usage.input_tokens ?? 0) +
+					(entry.output.usage.cache_read_input_tokens ?? 0) +
+					(entry.output.usage.cache_creation_input_tokens ?? 0);
 				const outputTokens = entry.output.usage.output_tokens ?? 0;
 				if (inputTokens === 0 && outputTokens === 0) continue;
 				const evaluatorId = entry.evaluator;
@@ -254,14 +257,22 @@ export class StatsRoutes {
 				const fileResult = fileData as {
 					evaluations?: Array<{
 						evaluator: string;
-						usage?: { input_tokens?: number; output_tokens?: number };
+						usage?: {
+							input_tokens?: number;
+							output_tokens?: number;
+							cache_read_input_tokens?: number;
+							cache_creation_input_tokens?: number;
+						};
 						cost_usd?: number;
 					}>;
 				};
 				if (!fileResult.evaluations) continue;
 				for (const evalEntry of fileResult.evaluations) {
 					if (!evalEntry.usage) continue;
-					const inputTokens = evalEntry.usage.input_tokens ?? 0;
+					const inputTokens =
+						(evalEntry.usage.input_tokens ?? 0) +
+						(evalEntry.usage.cache_read_input_tokens ?? 0) +
+						(evalEntry.usage.cache_creation_input_tokens ?? 0);
 					const outputTokens = evalEntry.usage.output_tokens ?? 0;
 					if (inputTokens === 0 && outputTokens === 0) continue;
 					const evaluatorId = evalEntry.evaluator;

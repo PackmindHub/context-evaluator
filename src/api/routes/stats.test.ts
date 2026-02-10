@@ -410,6 +410,8 @@ describe("StatsRoutes", () => {
 				inputTokens: number;
 				outputTokens: number;
 				costUsd: number;
+				cacheReadInputTokens?: number;
+				cacheCreationInputTokens?: number;
 			}>,
 			contextIdTokens?: {
 				inputTokens: number;
@@ -445,6 +447,12 @@ describe("StatsRoutes", () => {
 						usage: {
 							input_tokens: et.inputTokens,
 							output_tokens: et.outputTokens,
+							...(et.cacheReadInputTokens !== undefined && {
+								cache_read_input_tokens: et.cacheReadInputTokens,
+							}),
+							...(et.cacheCreationInputTokens !== undefined && {
+								cache_creation_input_tokens: et.cacheCreationInputTokens,
+							}),
 						},
 					},
 				})),
@@ -697,6 +705,60 @@ describe("StatsRoutes", () => {
 			);
 			expect(security.avgInputTokens).toBe(800);
 			expect(security.avgOutputTokens).toBe(150);
+			expect(security.sampleCount).toBe(1);
+		});
+
+		test("includes cache tokens in avg input token computation", async () => {
+			// With prompt caching, most input tokens come from cache_read_input_tokens
+			// input_tokens alone can be as low as 3
+			const result1 = createUnifiedResultJsonWithTokens([
+				{
+					evaluator: "content-quality",
+					inputTokens: 3,
+					outputTokens: 200,
+					costUsd: 0.01,
+					cacheReadInputTokens: 20000,
+					cacheCreationInputTokens: 5000,
+				},
+				{
+					evaluator: "security",
+					inputTokens: 5,
+					outputTokens: 150,
+					costUsd: 0.008,
+					cacheReadInputTokens: 15000,
+				},
+			]);
+			const result2 = createUnifiedResultJsonWithTokens([
+				{
+					evaluator: "content-quality",
+					inputTokens: 10,
+					outputTokens: 300,
+					costUsd: 0.02,
+					cacheReadInputTokens: 22000,
+					cacheCreationInputTokens: 0,
+				},
+			]);
+
+			insertEvaluation("eval-1", "https://github.com/owner/repo1", result1);
+			insertEvaluation("eval-2", "https://github.com/owner/repo2", result2);
+
+			const req = new Request("http://localhost/api/stats/tokens");
+			const res = await routes.getTokenStats(req);
+			const data = await res.json();
+
+			const contentQuality = data.evaluators.find(
+				(e: { evaluatorId: string }) => e.evaluatorId === "content-quality",
+			);
+			// eval1: 3 + 20000 + 5000 = 25003, eval2: 10 + 22000 + 0 = 22010
+			// avg = (25003 + 22010) / 2 = 23506.5 → 23507 (rounded)
+			expect(contentQuality.avgInputTokens).toBe(23507);
+			expect(contentQuality.sampleCount).toBe(2);
+
+			const security = data.evaluators.find(
+				(e: { evaluatorId: string }) => e.evaluatorId === "security",
+			);
+			// 5 + 15000 = 15005
+			expect(security.avgInputTokens).toBe(15005);
 			expect(security.sampleCount).toBe(1);
 		});
 
