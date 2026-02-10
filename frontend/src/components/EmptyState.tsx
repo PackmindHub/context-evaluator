@@ -1,5 +1,4 @@
 import React from "react";
-import { ExperimentalNotice } from "./ExperimentalNotice";
 
 export const EmptyState: React.FC = () => {
 	return (
@@ -17,9 +16,6 @@ export const EmptyState: React.FC = () => {
 			</div>
 
 			<div className="relative text-center max-w-2xl animate-fade-in">
-				{/* Experimental Notice */}
-				<ExperimentalNotice />
-
 				{/* Hero headline with gradient */}
 				<h2 className="hero-headline mb-4">
 					Analyze your{" "}

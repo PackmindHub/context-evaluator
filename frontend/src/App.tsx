@@ -18,6 +18,7 @@ import { EvaluationInputPanel } from "./components/EvaluationInputPanel";
 import { EvaluatorFailurePanel } from "./components/EvaluatorFailurePanel";
 import { EvaluatorsPage } from "./components/EvaluatorsPage";
 import { EvaluatorTemplatesPanel } from "./components/EvaluatorTemplatesPanel";
+import { ExperimentalNotice } from "./components/ExperimentalNotice";
 import type { FilterOptionCounts, FilterState } from "./components/FilterPanel";
 import { FilterPanel } from "./components/FilterPanel";
 import { HowItWorksPage } from "./components/HowItWorksPage";
@@ -1783,6 +1784,11 @@ function AppContent() {
 								urlError={apiError}
 								hasData={false}
 							/>
+						</div>
+
+						{/* Experimental Notice - Below form */}
+						<div className="max-w-2xl mx-auto">
+							<ExperimentalNotice />
 						</div>
 
 						{/* Cloud Mode Notice */}
