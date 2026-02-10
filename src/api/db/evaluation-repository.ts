@@ -219,10 +219,26 @@ export class EvaluationRepository {
 	/**
 	 * Get recent evaluations (metadata only, no result JSON)
 	 */
-	getRecentEvaluations(limit: number = 50): IEvaluationHistoryItem[] {
+	getRecentEvaluations(limit?: number): IEvaluationHistoryItem[] {
 		const db = getDatabase();
 
-		const stmt = db.prepare<EvaluationRow, number>(`
+		if (limit !== undefined) {
+			const stmt = db.prepare<EvaluationRow, number>(`
+        SELECT
+          id, repository_url, evaluation_mode, evaluators_count, status,
+          total_files, total_issues, critical_count, high_count, medium_count,
+          curated_count, total_cost_usd, total_duration_ms, total_input_tokens, total_output_tokens,
+          context_score, context_grade, failed_evaluator_count,
+          error_message, error_code, created_at, completed_at
+        FROM evaluations
+        ORDER BY completed_at DESC
+        LIMIT ?
+      `);
+			const rows = stmt.all(limit);
+			return rows.map((row) => this.rowToHistoryItem(row));
+		}
+
+		const stmt = db.prepare<EvaluationRow, []>(`
       SELECT
         id, repository_url, evaluation_mode, evaluators_count, status,
         total_files, total_issues, critical_count, high_count, medium_count,
@@ -231,10 +247,9 @@ export class EvaluationRepository {
         error_message, error_code, created_at, completed_at
       FROM evaluations
       ORDER BY completed_at DESC
-      LIMIT ?
     `);
 
-		const rows = stmt.all(limit);
+		const rows = stmt.all();
 		return rows.map((row) => this.rowToHistoryItem(row));
 	}
 

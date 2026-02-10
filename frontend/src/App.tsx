@@ -1872,8 +1872,6 @@ function AppContent() {
 							</div>
 						</div>
 						<div className="flex flex-wrap items-center justify-center gap-8 text-sm text-slate-300">
-							<span>Built for developers</span>
-							<span className="hidden md:inline text-slate-600">•</span>
 							<a
 								href="https://packmind.com?utm_source=context-evaluator"
 								target="_blank"
@@ -1881,13 +1879,6 @@ function AppContent() {
 								className="hover:text-slate-100 transition-colors font-medium text-slate-200"
 							>
 								Powered by Packmind
-							</a>
-							<span className="hidden md:inline text-slate-600">•</span>
-							<a
-								href="#"
-								className="hover:text-slate-100 transition-colors font-medium"
-							>
-								Documentation
 							</a>
 						</div>
 					</div>

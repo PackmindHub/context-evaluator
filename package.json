@@ -17,7 +17,7 @@
 		"start": "NODE_ENV=production bun run dist/index.js api",
 		"start:public": "NODE_ENV=production bun run dist/index.js api --host 0.0.0.0",
 		"evaluate": "bun run src/index.ts cli evaluate --claude",
-		"test": "bun test",
+		"test": "bun test src/",
 		"typecheck": "tsc --noEmit",
 		"lint": "biome check --error-on-warnings",
 		"lint:fix": "biome check --write",

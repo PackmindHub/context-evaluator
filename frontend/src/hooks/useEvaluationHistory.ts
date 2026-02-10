@@ -25,7 +25,7 @@ export function useEvaluationHistory(): IUseEvaluationHistoryReturn {
 		setError(null);
 
 		try {
-			const response = await fetch("/api/evaluations?limit=50", {
+			const response = await fetch("/api/evaluations", {
 				method: "GET",
 				headers: { "Content-Type": "application/json" },
 			});
