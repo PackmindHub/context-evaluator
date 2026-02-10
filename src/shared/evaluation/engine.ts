@@ -979,6 +979,10 @@ export class EvaluationEngine {
 						projectContext: contextResult?.context,
 						contextIdentificationDurationMs: contextResult?.duration_ms,
 						contextIdentificationCostUsd: contextResult?.cost_usd,
+						contextIdentificationInputTokens:
+							contextResult?.usage?.input_tokens,
+						contextIdentificationOutputTokens:
+							contextResult?.usage?.output_tokens,
 						contextScore: createNoFilesContextScore(),
 					},
 					files: {},
@@ -1447,6 +1451,8 @@ export class EvaluationEngine {
 			projectContext: contextResult?.context,
 			contextIdentificationDurationMs: contextResult?.duration_ms,
 			contextIdentificationCostUsd: contextResult?.cost_usd,
+			contextIdentificationInputTokens: contextResult?.usage?.input_tokens,
+			contextIdentificationOutputTokens: contextResult?.usage?.output_tokens,
 			// Curation metadata (from pipeline)
 			...curationMeta,
 			// Deduplication metadata (from pipeline)
@@ -1906,6 +1912,8 @@ export class EvaluationEngine {
 			projectContext: contextResult?.context,
 			contextIdentificationDurationMs: contextResult?.duration_ms,
 			contextIdentificationCostUsd: contextResult?.cost_usd,
+			contextIdentificationInputTokens: contextResult?.usage?.input_tokens,
+			contextIdentificationOutputTokens: contextResult?.usage?.output_tokens,
 			// Curation metadata (from pipeline)
 			...curationMeta,
 			// Deduplication metadata (from pipeline)

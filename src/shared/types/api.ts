@@ -265,3 +265,26 @@ export interface ICostStatsResponse {
 	topReposByCost: IRepoCostStat[];
 	costByAgent: IAgentCostStat[];
 }
+
+// Token consumption stats types (per-evaluator)
+export interface IEvaluatorTokenStat {
+	evaluatorId: string;
+	evaluatorName: string;
+	avgInputTokens: number;
+	avgOutputTokens: number;
+	avgCostUsd: number;
+	sampleCount: number;
+}
+
+export interface IContextIdentificationTokenStat {
+	avgInputTokens: number;
+	avgOutputTokens: number;
+	avgCostUsd: number;
+	sampleCount: number;
+}
+
+export interface ITokenStatsResponse {
+	evaluators: IEvaluatorTokenStat[];
+	contextIdentification: IContextIdentificationTokenStat | null;
+	totalEvaluationsAnalyzed: number;
+}

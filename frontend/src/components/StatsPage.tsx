@@ -32,6 +32,9 @@ export function StatsPage() {
 		totalReposEvaluated,
 		topReposByCost,
 		costByAgent,
+		tokenStats,
+		contextIdTokenStats,
+		totalEvaluationsForTokens,
 		isLoading,
 		error,
 	} = useStats();
@@ -42,6 +45,13 @@ export function StatsPage() {
 		!error &&
 		totalReposEvaluated > 0 &&
 		(topReposByCost.length > 0 || costByAgent.length > 0);
+
+	const showTokenSection =
+		!cloudMode &&
+		!isLoading &&
+		!error &&
+		totalEvaluationsForTokens > 0 &&
+		(tokenStats.length > 0 || contextIdTokenStats != null);
 
 	return (
 		<div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-slate-100 animate-fade-in">
@@ -199,6 +209,126 @@ export function StatsPage() {
 							)}
 					</div>
 				</div>
+
+				{/* Token Consumption */}
+				{showTokenSection && (
+					<div className="glass-card mt-6">
+						<div className="flex items-center justify-between px-6 py-4 border-b border-slate-700">
+							<div className="flex items-center gap-3">
+								<svg
+									className="w-5 h-5 text-slate-400"
+									fill="none"
+									stroke="currentColor"
+									viewBox="0 0 24 24"
+								>
+									<path
+										strokeLinecap="round"
+										strokeLinejoin="round"
+										strokeWidth={2}
+										d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"
+									/>
+								</svg>
+								<h2 className="text-heading">Token Consumption</h2>
+							</div>
+							<span className="text-body-muted">
+								Based on {totalEvaluationsForTokens} evaluation
+								{totalEvaluationsForTokens !== 1 ? "s" : ""}
+							</span>
+						</div>
+
+						<div className="p-6 space-y-8">
+							{/* Context Identification summary */}
+							{contextIdTokenStats && (
+								<div>
+									<h3 className="text-subheading mb-4">
+										Context Identification
+									</h3>
+									<p className="text-caption mb-3">
+										Based on {contextIdTokenStats.sampleCount} evaluation
+										{contextIdTokenStats.sampleCount !== 1 ? "s" : ""} with
+										token data
+									</p>
+									<div className="grid grid-cols-3 gap-4">
+										<div className="info-section">
+											<p className="text-label-upper">Avg Input Tokens</p>
+											<p className="text-stat mt-1">
+												{contextIdTokenStats.avgInputTokens.toLocaleString()}
+											</p>
+										</div>
+										<div className="info-section">
+											<p className="text-label-upper">Avg Output Tokens</p>
+											<p className="text-stat mt-1">
+												{contextIdTokenStats.avgOutputTokens.toLocaleString()}
+											</p>
+										</div>
+										<div className="info-section">
+											<p className="text-label-upper">Avg Cost</p>
+											<p className="text-stat mt-1">
+												{formatCost(contextIdTokenStats.avgCostUsd)}
+											</p>
+										</div>
+									</div>
+								</div>
+							)}
+
+							{/* Per-Evaluator table */}
+							{tokenStats.length > 0 && (
+								<div>
+									<h3 className="text-subheading mb-4">Per-Evaluator Usage</h3>
+									<div className="overflow-x-auto">
+										<table className="w-full text-left">
+											<thead>
+												<tr className="border-b border-slate-700">
+													<th className="text-label-upper py-3 px-4">
+														Evaluator
+													</th>
+													<th className="text-label-upper py-3 px-4 text-right">
+														Avg Input Tokens
+													</th>
+													<th className="text-label-upper py-3 px-4 text-right">
+														Avg Output Tokens
+													</th>
+													<th className="text-label-upper py-3 px-4 text-right">
+														Avg Cost
+													</th>
+													<th className="text-label-upper py-3 px-4 text-right">
+														Samples
+													</th>
+												</tr>
+											</thead>
+											<tbody>
+												{tokenStats.map((stat) => (
+													<tr
+														key={stat.evaluatorId}
+														className="border-b border-slate-700/50 hover:bg-slate-800/50 transition-colors"
+													>
+														<td className="py-3 px-4">
+															<span className="text-body text-slate-200">
+																{stat.evaluatorName}
+															</span>
+														</td>
+														<td className="py-3 px-4 text-right text-body text-slate-200">
+															{stat.avgInputTokens.toLocaleString()}
+														</td>
+														<td className="py-3 px-4 text-right text-body text-slate-200">
+															{stat.avgOutputTokens.toLocaleString()}
+														</td>
+														<td className="py-3 px-4 text-right text-body text-slate-200">
+															{formatCost(stat.avgCostUsd)}
+														</td>
+														<td className="py-3 px-4 text-right text-body text-slate-200">
+															{stat.sampleCount}
+														</td>
+													</tr>
+												))}
+											</tbody>
+										</table>
+									</div>
+								</div>
+							)}
+						</div>
+					</div>
+				)}
 
 				{/* Cost Overview */}
 				{showCostSection && (

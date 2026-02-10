@@ -401,6 +401,250 @@ describe("StatsRoutes", () => {
 		expect(contextGaps.issueType).toBe("suggestion");
 	});
 
+	// --- Token stats tests ---
+
+	describe("GET /api/stats/tokens", () => {
+		function createUnifiedResultJsonWithTokens(
+			evaluatorTokens: Array<{
+				evaluator: string;
+				inputTokens: number;
+				outputTokens: number;
+				costUsd: number;
+			}>,
+			contextIdTokens?: {
+				inputTokens: number;
+				outputTokens: number;
+				costUsd: number;
+			},
+		): string {
+			const metadata: Record<string, unknown> = {
+				generatedAt: "2026-01-01",
+				agent: "claude",
+				evaluationMode: "unified",
+				totalFiles: 1,
+			};
+			if (contextIdTokens) {
+				metadata.contextIdentificationInputTokens = contextIdTokens.inputTokens;
+				metadata.contextIdentificationOutputTokens =
+					contextIdTokens.outputTokens;
+				metadata.contextIdentificationCostUsd = contextIdTokens.costUsd;
+			}
+			return JSON.stringify({
+				metadata,
+				results: evaluatorTokens.map((et) => ({
+					evaluator: et.evaluator,
+					output: {
+						type: "text",
+						subtype: "",
+						is_error: false,
+						duration_ms: 100,
+						num_turns: 1,
+						result: "[]",
+						session_id: "s1",
+						total_cost_usd: et.costUsd,
+						usage: {
+							input_tokens: et.inputTokens,
+							output_tokens: et.outputTokens,
+						},
+					},
+				})),
+				crossFileIssues: [],
+			});
+		}
+
+		test("returns empty stats when no evaluations exist", async () => {
+			const req = new Request("http://localhost/api/stats/tokens");
+			const res = await routes.getTokenStats(req);
+			const data = await res.json();
+
+			expect(res.status).toBe(200);
+			expect(data.evaluators).toEqual([]);
+			expect(data.contextIdentification).toBeNull();
+			expect(data.totalEvaluationsAnalyzed).toBe(0);
+		});
+
+		test("computes correct averages across evaluations", async () => {
+			const result1 = createUnifiedResultJsonWithTokens([
+				{
+					evaluator: "content-quality",
+					inputTokens: 1000,
+					outputTokens: 200,
+					costUsd: 0.01,
+				},
+				{
+					evaluator: "security",
+					inputTokens: 800,
+					outputTokens: 150,
+					costUsd: 0.008,
+				},
+			]);
+			const result2 = createUnifiedResultJsonWithTokens([
+				{
+					evaluator: "content-quality",
+					inputTokens: 1200,
+					outputTokens: 300,
+					costUsd: 0.02,
+				},
+			]);
+
+			insertEvaluation("eval-1", "https://github.com/owner/repo1", result1);
+			insertEvaluation("eval-2", "https://github.com/owner/repo2", result2);
+
+			const req = new Request("http://localhost/api/stats/tokens");
+			const res = await routes.getTokenStats(req);
+			const data = await res.json();
+
+			expect(data.totalEvaluationsAnalyzed).toBe(2);
+
+			const contentQuality = data.evaluators.find(
+				(e: { evaluatorId: string }) => e.evaluatorId === "content-quality",
+			);
+			expect(contentQuality).toBeDefined();
+			expect(contentQuality.avgInputTokens).toBe(1100); // (1000+1200)/2
+			expect(contentQuality.avgOutputTokens).toBe(250); // (200+300)/2
+			expect(contentQuality.avgCostUsd).toBeCloseTo(0.015, 5);
+			expect(contentQuality.sampleCount).toBe(2);
+
+			const security = data.evaluators.find(
+				(e: { evaluatorId: string }) => e.evaluatorId === "security",
+			);
+			expect(security).toBeDefined();
+			expect(security.avgInputTokens).toBe(800);
+			expect(security.avgOutputTokens).toBe(150);
+			expect(security.sampleCount).toBe(1);
+		});
+
+		test("handles missing usage data gracefully", async () => {
+			// Create a result where one evaluator has no output (skipped/failed)
+			const resultJson = JSON.stringify({
+				metadata: {
+					generatedAt: "2026-01-01",
+					agent: "claude",
+					evaluationMode: "unified",
+					totalFiles: 1,
+				},
+				results: [
+					{
+						evaluator: "content-quality",
+						output: {
+							type: "text",
+							subtype: "",
+							is_error: false,
+							duration_ms: 100,
+							num_turns: 1,
+							result: "[]",
+							session_id: "s1",
+							total_cost_usd: 0.01,
+							usage: { input_tokens: 500, output_tokens: 100 },
+						},
+					},
+					{
+						evaluator: "security",
+						error: "Provider timeout",
+						// No output field
+					},
+				],
+				crossFileIssues: [],
+			});
+
+			insertEvaluation("eval-1", "https://github.com/owner/repo1", resultJson);
+
+			const req = new Request("http://localhost/api/stats/tokens");
+			const res = await routes.getTokenStats(req);
+			const data = await res.json();
+
+			// Only content-quality should appear (security has no usage)
+			expect(data.evaluators).toHaveLength(1);
+			expect(data.evaluators[0].evaluatorId).toBe("content-quality");
+		});
+
+		test("aggregates context identification tokens", async () => {
+			const result1 = createUnifiedResultJsonWithTokens(
+				[
+					{
+						evaluator: "content-quality",
+						inputTokens: 500,
+						outputTokens: 100,
+						costUsd: 0.01,
+					},
+				],
+				{ inputTokens: 2000, outputTokens: 400, costUsd: 0.005 },
+			);
+			const result2 = createUnifiedResultJsonWithTokens(
+				[
+					{
+						evaluator: "content-quality",
+						inputTokens: 600,
+						outputTokens: 120,
+						costUsd: 0.012,
+					},
+				],
+				{ inputTokens: 3000, outputTokens: 600, costUsd: 0.008 },
+			);
+
+			insertEvaluation("eval-1", "https://github.com/owner/repo1", result1);
+			insertEvaluation("eval-2", "https://github.com/owner/repo2", result2);
+
+			const req = new Request("http://localhost/api/stats/tokens");
+			const res = await routes.getTokenStats(req);
+			const data = await res.json();
+
+			expect(data.contextIdentification).not.toBeNull();
+			expect(data.contextIdentification.avgInputTokens).toBe(2500); // (2000+3000)/2
+			expect(data.contextIdentification.avgOutputTokens).toBe(500); // (400+600)/2
+			expect(data.contextIdentification.avgCostUsd).toBeCloseTo(0.0065, 5);
+			expect(data.contextIdentification.sampleCount).toBe(2);
+		});
+
+		test("context identification is null when no evaluations have token data", async () => {
+			// Result without context identification tokens
+			const result = createUnifiedResultJsonWithTokens([
+				{
+					evaluator: "content-quality",
+					inputTokens: 500,
+					outputTokens: 100,
+					costUsd: 0.01,
+				},
+			]);
+
+			insertEvaluation("eval-1", "https://github.com/owner/repo1", result);
+
+			const req = new Request("http://localhost/api/stats/tokens");
+			const res = await routes.getTokenStats(req);
+			const data = await res.json();
+
+			expect(data.contextIdentification).toBeNull();
+		});
+
+		test("sorted by total tokens descending", async () => {
+			const result = createUnifiedResultJsonWithTokens([
+				{
+					evaluator: "security",
+					inputTokens: 500,
+					outputTokens: 100,
+					costUsd: 0.005,
+				},
+				{
+					evaluator: "content-quality",
+					inputTokens: 2000,
+					outputTokens: 500,
+					costUsd: 0.02,
+				},
+			]);
+
+			insertEvaluation("eval-1", "https://github.com/owner/repo1", result);
+
+			const req = new Request("http://localhost/api/stats/tokens");
+			const res = await routes.getTokenStats(req);
+			const data = await res.json();
+
+			expect(data.evaluators).toHaveLength(2);
+			// content-quality (2500 total) should be before security (600 total)
+			expect(data.evaluators[0].evaluatorId).toBe("content-quality");
+			expect(data.evaluators[1].evaluatorId).toBe("security");
+		});
+	});
+
 	// --- Cost stats tests ---
 
 	describe("GET /api/stats/costs", () => {

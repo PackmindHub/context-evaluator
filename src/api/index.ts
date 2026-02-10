@@ -263,6 +263,9 @@ export class APIServer {
 		}
 
 		// Evaluator stats routes
+		if (path === "/api/stats/tokens" && req.method === "GET") {
+			return this.statsRoutes.getTokenStats(req);
+		}
 		if (path === "/api/stats/costs" && req.method === "GET") {
 			return this.statsRoutes.getCosts(req);
 		}

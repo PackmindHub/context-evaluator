@@ -406,6 +406,8 @@ export interface Metadata {
 	projectContext?: IProjectContext;
 	contextIdentificationDurationMs?: number;
 	contextIdentificationCostUsd?: number;
+	contextIdentificationInputTokens?: number;
+	contextIdentificationOutputTokens?: number;
 	// Curation metadata
 	curationEnabled?: boolean;
 	curatedCount?: number;

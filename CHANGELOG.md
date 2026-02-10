@@ -7,6 +7,7 @@
 - Add "Stats" page to see overall statistics from all evaluations, as well as insights regarding costs
 - When submitting one or multiple repositories to analyze, users can select errors and suggestions to check
 - Add sorting controls to Recent Evaluations page (by date, name, grade, or number of errors)
+- Add per-evaluator token consumption stats and context identification token tracking to the Stats page
 
 ## Fixed
 

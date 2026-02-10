@@ -2,10 +2,13 @@ import { useCallback, useEffect, useState } from "react";
 import { useFeatureFlags } from "../contexts/FeatureFlagContext";
 import type {
 	IAgentCostStat,
+	IContextIdentificationTokenStat,
 	ICostStatsResponse,
 	IEvaluatorStat,
 	IEvaluatorStatsResponse,
+	IEvaluatorTokenStat,
 	IRepoCostStat,
+	ITokenStatsResponse,
 } from "../types/evaluation";
 
 interface UseStatsReturn {
@@ -13,6 +16,9 @@ interface UseStatsReturn {
 	totalReposEvaluated: number;
 	topReposByCost: IRepoCostStat[];
 	costByAgent: IAgentCostStat[];
+	tokenStats: IEvaluatorTokenStat[];
+	contextIdTokenStats: IContextIdentificationTokenStat | null;
+	totalEvaluationsForTokens: number;
 	isLoading: boolean;
 	error: string | null;
 	refresh: () => void;
@@ -24,6 +30,10 @@ export function useStats(): UseStatsReturn {
 	const [totalReposEvaluated, setTotalReposEvaluated] = useState(0);
 	const [topReposByCost, setTopReposByCost] = useState<IRepoCostStat[]>([]);
 	const [costByAgent, setCostByAgent] = useState<IAgentCostStat[]>([]);
+	const [tokenStats, setTokenStats] = useState<IEvaluatorTokenStat[]>([]);
+	const [contextIdTokenStats, setContextIdTokenStats] =
+		useState<IContextIdentificationTokenStat | null>(null);
+	const [totalEvaluationsForTokens, setTotalEvaluationsForTokens] = useState(0);
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 
@@ -46,17 +56,30 @@ export function useStats(): UseStatsReturn {
 			setEvaluators(data.evaluators);
 			setTotalReposEvaluated(data.totalReposEvaluated);
 
-			// Fetch cost stats only in non-cloud mode
+			// Fetch cost and token stats only in non-cloud mode
 			if (!cloudMode) {
-				const costResponse = await fetch("/api/stats/costs", {
-					method: "GET",
-					headers: { "Content-Type": "application/json" },
-				});
+				const [costResponse, tokenResponse] = await Promise.all([
+					fetch("/api/stats/costs", {
+						method: "GET",
+						headers: { "Content-Type": "application/json" },
+					}),
+					fetch("/api/stats/tokens", {
+						method: "GET",
+						headers: { "Content-Type": "application/json" },
+					}),
+				]);
 
 				if (costResponse.ok) {
 					const costData: ICostStatsResponse = await costResponse.json();
 					setTopReposByCost(costData.topReposByCost);
 					setCostByAgent(costData.costByAgent);
+				}
+
+				if (tokenResponse.ok) {
+					const tokenData: ITokenStatsResponse = await tokenResponse.json();
+					setTokenStats(tokenData.evaluators);
+					setContextIdTokenStats(tokenData.contextIdentification);
+					setTotalEvaluationsForTokens(tokenData.totalEvaluationsAnalyzed);
 				}
 			}
 		} catch (err) {
@@ -75,6 +98,9 @@ export function useStats(): UseStatsReturn {
 		totalReposEvaluated,
 		topReposByCost,
 		costByAgent,
+		tokenStats,
+		contextIdTokenStats,
+		totalEvaluationsForTokens,
 		isLoading,
 		error,
 		refresh: fetchStats,
