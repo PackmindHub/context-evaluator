@@ -14,7 +14,26 @@ This tool evaluates your AI agent instruction files using 17 specialized evaluat
 
 Visit **[https://context-evaluator.ai](https://context-evaluator.ai)** and paste your repository URL.
 
-### Option 2: Local
+### Option 2: Binary Release (No Dependencies)
+
+Download a standalone executable from [GitHub Releases](https://github.com/PackmindHub/context-evaluator/releases). No runtime dependencies needed.
+
+Available platforms: macOS (Apple Silicon), macOS (Intel), Linux (x64), Windows (x64).
+
+```bash
+# Make executable (macOS/Linux)
+chmod +x ./context-evaluator-<platform>
+
+# Start the web UI
+./context-evaluator-<platform> api
+
+# Or run a CLI evaluation
+./context-evaluator-<platform> cli evaluate --url https://github.com/user/repo
+```
+
+Then open **http://localhost:3000** in your browser.
+
+### Option 3: From Source (requires Node 22+ and [Bun](https://bun.sh))
 
 ```bash
 # Clone and install
