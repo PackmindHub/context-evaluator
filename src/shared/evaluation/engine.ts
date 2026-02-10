@@ -31,7 +31,6 @@ import type {
 	ProgressCallback,
 	StructuredError,
 } from "@shared/types/evaluation";
-import { getIssueSeverity } from "@shared/types/evaluation";
 import { engineLogger } from "@shared/utils/logger";
 import { mkdir, readFile } from "fs/promises";
 import { join, resolve } from "path";
@@ -941,14 +940,14 @@ export class EvaluationEngine {
 			// Step 3: Handle case where no context files were found
 
 			if (agentsFiles.length === 0) {
-				// Return minimal result with score = 1 and standard message
+				// Run suggestion evaluators (those with executeIfNoFile: true) to provide
+				// actionable suggestions about what documentation to create
 				if (verbose) {
 					engineLogger.log(
-						`No AGENTS.md or CLAUDE.md files found - returning minimal result with score = 1`,
+						`No AGENTS.md or CLAUDE.md files found - running suggestion evaluators in no-file mode`,
 					);
 				}
 
-				// Emit job completed event with no-files result
 				if (progressCallback) {
 					progressCallback({
 						type: "job.started",
@@ -959,22 +958,150 @@ export class EvaluationEngine {
 					});
 				}
 
+				// Create a virtual file path for the evaluators
+				const virtualFilePath = join(workingDir, "AGENTS.md");
+				const virtualRelativePath = "AGENTS.md";
+
+				// Build project context (same as runIndependentMode)
+				const projectContext = contextResult?.context
+					? buildEnhancedProjectContext(contextResult.context)
+					: undefined;
+
+				// Progress callback wrapper
+				const onProgress = (
+					evaluator: string,
+					index: number,
+					total: number,
+				) => {
+					if (progressCallback) {
+						progressCallback({
+							type: "evaluator.progress",
+							data: {
+								evaluatorName: evaluator,
+								evaluatorIndex: index,
+								totalEvaluators: total,
+								currentFile: virtualRelativePath,
+							},
+						});
+					}
+				};
+
+				// Retry callback wrapper
+				const onRetry = (
+					evaluator: string,
+					attempt: number,
+					maxRetries: number,
+					error: string,
+				) => {
+					if (progressCallback) {
+						progressCallback({
+							type: "evaluator.retry",
+							data: {
+								evaluatorName: evaluator,
+								attempt,
+								maxRetries,
+								error,
+								currentFile: virtualRelativePath,
+							},
+						});
+					}
+				};
+
+				// Timeout callback wrapper
+				const onTimeout = (
+					evaluator: string,
+					elapsedMs: number,
+					timeoutMs: number,
+				) => {
+					if (progressCallback) {
+						progressCallback({
+							type: "evaluator.timeout",
+							data: {
+								evaluatorName: evaluator,
+								elapsedMs,
+								timeoutMs,
+								currentFile: virtualRelativePath,
+							},
+						});
+					}
+				};
+
+				const startTime = Date.now();
+
+				// Run evaluators in no-file mode (only executeIfNoFile evaluators will run)
+				const evaluations = await runAllEvaluators(virtualFilePath, {
+					verbose,
+					debug: options.debug,
+					concurrency: options.concurrency ?? 3,
+					evaluators: options.evaluators ?? 12,
+					baseDir: workingDir,
+					projectContext,
+					onProgress,
+					onRetry,
+					onTimeout,
+					provider,
+					evaluatorFilter: options.evaluatorFilter,
+					selectedEvaluators: options.selectedEvaluators,
+					timeout: options.timeout,
+					noFileMode: true,
+				});
+
+				const totalDuration = Date.now() - startTime;
+				const fileResult = createFileResult(
+					virtualFilePath,
+					virtualRelativePath,
+					evaluations,
+				);
+
+				// Collect all issues for counting
+				const allIssues = fileResult.evaluations.flatMap((e) => e.issues);
+				const allIssuesWithCross = [...allIssues, ...consistencyIssues];
+				const counts = countBySeverity(allIssuesWithCross);
+
+				// Collect errors from evaluator results
+				const allErrors: StructuredError[] = [];
+				for (const evaluation of fileResult.evaluations) {
+					if (evaluation.errors && evaluation.errors.length > 0) {
+						allErrors.push(...evaluation.errors);
+					}
+				}
+
+				// Aggregate token usage
+				let totalInputTokens = 0;
+				let totalOutputTokens = 0;
+				let totalCacheCreation = 0;
+				let totalCacheRead = 0;
+				let totalCost = 0;
+
+				if (fileResult.totalUsage) {
+					totalInputTokens = fileResult.totalUsage.input_tokens;
+					totalOutputTokens = fileResult.totalUsage.output_tokens;
+					totalCacheCreation =
+						fileResult.totalUsage.cache_creation_input_tokens || 0;
+					totalCacheRead = fileResult.totalUsage.cache_read_input_tokens || 0;
+				}
+				if (fileResult.totalCost) {
+					totalCost = fileResult.totalCost;
+				}
+
 				const noFilesResult: IndependentEvaluationOutput = {
 					metadata: {
 						generatedAt: new Date().toISOString(),
 						agent: provider.name,
 						evaluationMode: "independent",
 						totalFiles: 0,
-						totalIssues: consistencyIssues.length,
-						perFileIssues: 0,
+						totalIssues: allIssuesWithCross.length,
+						perFileIssues: allIssues.length,
 						crossFileIssues: consistencyIssues.length,
-						highCount: consistencyIssues.filter((i) => getIssueSeverity(i) >= 8)
-							.length,
-						mediumCount: consistencyIssues.filter(
-							(i) => getIssueSeverity(i) >= 6 && getIssueSeverity(i) < 8,
-						).length,
-						lowCount: consistencyIssues.filter((i) => getIssueSeverity(i) < 6)
-							.length,
+						highCount: counts.high,
+						mediumCount: counts.medium,
+						lowCount: counts.low,
+						totalInputTokens,
+						totalOutputTokens,
+						totalCacheCreationTokens: totalCacheCreation,
+						totalCacheReadTokens: totalCacheRead,
+						totalCostUsd: totalCost,
+						totalDurationMs: totalDuration,
 						filesEvaluated: [],
 						projectContext: contextResult?.context,
 						contextIdentificationDurationMs: contextResult?.duration_ms,
@@ -984,8 +1111,26 @@ export class EvaluationEngine {
 						contextIdentificationOutputTokens:
 							contextResult?.usage?.output_tokens,
 						contextScore: createNoFilesContextScore(),
+						noFileMode: true,
+						// Error tracking
+						hasErrors: allErrors.some((e) => e.severity === "fatal"),
+						hasPartialFailures: allErrors.some((e) => e.severity === "partial"),
+						failedEvaluators:
+							allErrors.filter((e) => e.evaluatorName).length > 0
+								? allErrors
+										.filter((e) => e.evaluatorName)
+										.map((e) => ({
+											evaluatorName: e.evaluatorName!,
+											error: e,
+											filePath: e.filePath,
+										}))
+								: undefined,
+						warnings:
+							allErrors.filter((e) => e.severity === "warning").length > 0
+								? allErrors.filter((e) => e.severity === "warning")
+								: undefined,
 					},
-					files: {},
+					files: { [virtualRelativePath]: fileResult },
 					crossFileIssues: consistencyIssues,
 				};
 

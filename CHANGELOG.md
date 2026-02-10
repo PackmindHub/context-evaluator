@@ -2,6 +2,12 @@
 
 ## Added
 
+- Run suggestion evaluators (context-gaps, test-patterns-coverage, database-patterns-coverage) when no AGENTS.md or CLAUDE.md files are found, providing actionable suggestions about what documentation to create
+
+# [0.2.0] - 2026-02-10
+
+## Added
+
 - Add "Issues" module that centralize all issues from all evaluations
 - Add "Batch mode" to process multiple git repositories
 - Add "Stats" page to see overall statistics from all evaluations, as well as insights regarding costs
@@ -15,7 +21,7 @@
 - Evaluators now have as context the .gitignore to ensure they won't raise issues regarding folders and files ignored
 - Evaluator cross-file issues were silently dropped in unified mode due to stale copies missing deduplication IDs
 
-# [0.0.1] - 2026-02-26
+# [0.0.1] - 2026-02-06
 
 ## Added
 

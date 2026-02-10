@@ -340,7 +340,9 @@ export async function runAllEvaluators(
 
 				try {
 					evaluatorPrompt = await loadEvaluatorPrompt(evaluatorPath);
-					agentsContent = await readFile(agentsFilePath, "utf-8");
+					agentsContent = noFileMode
+						? ""
+						: await readFile(agentsFilePath, "utf-8");
 				} catch (error) {
 					const errorMessage =
 						error instanceof Error ? error.message : String(error);

@@ -446,6 +446,8 @@ export interface Metadata {
 		filePath?: string;
 	}>;
 	warnings?: StructuredError[];
+	/** Whether the evaluation ran in no-file mode (no AGENTS.md found, suggestion-only) */
+	noFileMode?: boolean;
 }
 
 // Independent evaluation mode format

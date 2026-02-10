@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import type { ErrorIssue, SuggestionIssue } from "@shared/types/evaluation";
-import { filterEvaluatorsByType } from "./evaluator-types";
+import {
+	EVALUATOR_CONFIGS,
+	filterEvaluatorsByType,
+	shouldExecuteIfNoFile,
+} from "./evaluator-types";
 import { countBySeverity, EVALUATOR_FILES } from "./runner";
 
 describe("Runner - Evaluator Filter Integration", () => {
@@ -312,6 +316,71 @@ describe("Runner - Evaluator Filter Integration", () => {
 			// After fix: counts.high is 1 (High impact maps to severity 9, which is high)
 			expect(counts.high).toBe(1);
 			expect(counts.high).toBeGreaterThan(0);
+		});
+	});
+
+	describe("noFileMode", () => {
+		test("only evaluators with executeIfNoFile: true should run in no-file mode", () => {
+			// These are the 3 evaluators that should run when no AGENTS.md exists
+			const noFileEvaluators = Object.entries(EVALUATOR_CONFIGS)
+				.filter(([_, config]) => config.executeIfNoFile)
+				.map(([name]) => name);
+
+			expect(noFileEvaluators).toEqual([
+				"context-gaps.md",
+				"test-patterns-coverage.md",
+				"database-patterns-coverage.md",
+			]);
+			expect(noFileEvaluators.length).toBe(3);
+		});
+
+		test("shouldExecuteIfNoFile returns true only for suggestion scanners", () => {
+			// Should return true for the 3 codebase-scanning suggestion evaluators
+			expect(shouldExecuteIfNoFile("context-gaps.md")).toBe(true);
+			expect(shouldExecuteIfNoFile("test-patterns-coverage.md")).toBe(true);
+			expect(shouldExecuteIfNoFile("database-patterns-coverage.md")).toBe(true);
+
+			// Should return false for error evaluators
+			expect(shouldExecuteIfNoFile("content-quality.md")).toBe(false);
+			expect(shouldExecuteIfNoFile("command-completeness.md")).toBe(false);
+			expect(shouldExecuteIfNoFile("outdated-documentation.md")).toBe(false);
+
+			// Should return false for subdirectory-coverage (needs existing file)
+			expect(shouldExecuteIfNoFile("subdirectory-coverage.md")).toBe(false);
+		});
+
+		test("shouldExecuteIfNoFile handles numeric-prefixed filenames", () => {
+			// Evaluator files may have numeric prefixes stripped
+			expect(shouldExecuteIfNoFile("12-context-gaps.md")).toBe(true);
+			expect(shouldExecuteIfNoFile("14-test-patterns-coverage.md")).toBe(true);
+			expect(shouldExecuteIfNoFile("15-database-patterns-coverage.md")).toBe(
+				true,
+			);
+			expect(shouldExecuteIfNoFile("01-content-quality.md")).toBe(false);
+		});
+
+		test("all noFileMode evaluators are suggestion type", () => {
+			const noFileEvaluators = Object.entries(EVALUATOR_CONFIGS).filter(
+				([_, config]) => config.executeIfNoFile,
+			);
+
+			for (const [_name, config] of noFileEvaluators) {
+				expect(config.issueType).toBe("suggestion");
+			}
+		});
+
+		test("evaluatorFilter 'errors' should filter out all noFileMode evaluators", () => {
+			// When filter is 'errors', all 3 noFileMode evaluators (which are suggestions)
+			// should be filtered out, resulting in zero evaluators running
+			const noFileEvaluatorNames = Object.entries(EVALUATOR_CONFIGS)
+				.filter(([_, config]) => config.executeIfNoFile)
+				.map(([name]) => name);
+
+			const errorFiltered = filterEvaluatorsByType(
+				noFileEvaluatorNames,
+				"errors",
+			);
+			expect(errorFiltered.length).toBe(0);
 		});
 	});
 });
