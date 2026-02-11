@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import type { EvaluatorFilter } from "../types/evaluation";
+import type { EvaluatorFilter, Issue } from "../types/evaluation";
 import type {
 	IBatchEvaluateResponse,
 	IBatchStatusResponse,
@@ -15,6 +15,13 @@ export type ProviderName =
 	| "cursor"
 	| "github-copilot"
 	| "random";
+
+export interface RemediationPromptsResponse {
+	errorFixPrompt: string;
+	suggestionEnrichPrompt: string;
+	errorCount: number;
+	suggestionCount: number;
+}
 
 interface IUseEvaluationApiReturn {
 	submitJob: (
@@ -38,6 +45,11 @@ interface IUseEvaluationApiReturn {
 	getBatchStatus: (batchId: string) => Promise<IBatchStatusResponse>;
 	getJobStatus: (jobId: string) => Promise<IJobStatusResponse>;
 	cancelJob: (jobId: string) => Promise<void>;
+	generateRemediationPrompts: (
+		evaluationId: string,
+		issues: Issue[],
+		targetFileType: "AGENTS.md" | "CLAUDE.md",
+	) => Promise<RemediationPromptsResponse>;
 	isLoading: boolean;
 	error: string | null;
 	clearError: () => void;
@@ -227,6 +239,41 @@ export function useEvaluationApi(): IUseEvaluationApiReturn {
 		[],
 	);
 
+	const generateRemediationPrompts = useCallback(
+		async (
+			evaluationId: string,
+			issues: Issue[],
+			targetFileType: "AGENTS.md" | "CLAUDE.md",
+		): Promise<RemediationPromptsResponse> => {
+			try {
+				const response = await fetch("/api/remediation/generate-prompts", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						evaluationId,
+						issues,
+						targetFileType,
+					}),
+				});
+
+				if (!response.ok) {
+					const errorData = await response.json().catch(() => ({}));
+					throw new Error(errorData.error || `HTTP error ${response.status}`);
+				}
+
+				return (await response.json()) as RemediationPromptsResponse;
+			} catch (err) {
+				const message =
+					err instanceof Error
+						? err.message
+						: "Failed to generate remediation prompts";
+				setError(message);
+				throw err;
+			}
+		},
+		[],
+	);
+
 	const clearError = useCallback(() => {
 		setError(null);
 	}, []);
@@ -237,6 +284,7 @@ export function useEvaluationApi(): IUseEvaluationApiReturn {
 		getBatchStatus,
 		getJobStatus,
 		cancelJob,
+		generateRemediationPrompts,
 		isLoading,
 		error,
 		clearError,

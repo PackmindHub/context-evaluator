@@ -17,6 +17,7 @@ import { FeedbackRoutes } from "./routes/feedback";
 import { HealthRoutes } from "./routes/health";
 import { IssuesRoutes } from "./routes/issues";
 import { ProviderRoutes } from "./routes/providers";
+import { RemediationRoutes } from "./routes/remediation";
 import { StatsRoutes } from "./routes/stats";
 import { SSEProgressHandler } from "./sse/progress-handler";
 import { serveStaticFile } from "./static/static-file-server";
@@ -71,6 +72,7 @@ export class APIServer {
 	private statsRoutes: StatsRoutes;
 	private configRoutes: ConfigRoutes;
 	private providerRoutes: ProviderRoutes;
+	private remediationRoutes: RemediationRoutes;
 	private rateLimiter: DailyRateLimiter;
 	private server?: ReturnType<typeof Bun.serve>;
 
@@ -103,6 +105,7 @@ export class APIServer {
 			this.rateLimiter,
 		);
 		this.providerRoutes = new ProviderRoutes(cloudMode);
+		this.remediationRoutes = new RemediationRoutes(this.jobManager);
 	}
 
 	/**
@@ -271,6 +274,11 @@ export class APIServer {
 		}
 		if (path === "/api/stats" && req.method === "GET") {
 			return this.statsRoutes.get(req);
+		}
+
+		// Remediation routes
+		if (path === "/api/remediation/generate-prompts" && req.method === "POST") {
+			return this.remediationRoutes.generatePrompts(req);
 		}
 
 		// Bookmark routes

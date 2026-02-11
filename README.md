@@ -130,6 +130,7 @@ The tool supports multiple AI providers:
 | Cursor Agent | `--agent cursor` | [cursor.com](https://cursor.com) |
 | OpenCode | `--agent opencode` | [github.com/opencode-ai/opencode](https://github.com/opencode-ai/opencode) |
 | GitHub Copilot | `--agent github-copilot` | [docs.github.com/copilot](https://docs.github.com/en/copilot) |
+| OpenAI Codex | `--agent codex` | [docs.openai.com/codex](https://docs.openai.com/codex) |
 
 ---
 
@@ -154,7 +155,7 @@ bun run evaluate --path /path/to/project
 |--------|-------------|---------|
 | `--url <github-url>` | GitHub repository URL to clone and evaluate | - |
 | `--path <directory>` | Local directory path (absolute or relative) | Current directory |
-| `--agent <name>` | AI provider: `claude`, `cursor`, `opencode`, `github-copilot` | `claude` |
+| `--agent <name>` | AI provider: `claude`, `cursor`, `opencode`, `github-copilot`, `codex` | `claude` |
 | `-o, --output <file>` | Output file path for results | `evaluator-results.json` |
 | `--report <mode>` | Output format: `terminal`, `raw`, `json` | `terminal` |
 
@@ -163,8 +164,9 @@ bun run evaluate --path /path/to/project
 | Option | Description | Default |
 |--------|-------------|---------|
 | `--evaluators <number>` | Number of evaluators to run | `12` |
-| `--evaluator-filter <type>` | Filter: `all` (19), `errors` (14), `suggestions` (5) | `all` |
+| `--evaluator-filter <type>` | Filter: `all` (17), `errors` (13), `suggestions` (4) | `all` |
 | `--depth <integer>` | Limit directory depth for context file search (0 = root only) | Unlimited |
+| `--concurrency <number>` | Number of evaluators to run concurrently | `3` |
 
 **Evaluation Mode:**
 
@@ -188,6 +190,14 @@ bun run evaluate --path /path/to/project
 | `-v, --verbose` | Enable verbose output |
 | `--debug` | Save prompts/responses to `debug-output/` directory |
 | `--preserve-debug-output` | Keep debug files after successful evaluation |
+
+**Advanced:**
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--timeout <ms>` | Timeout per evaluator in milliseconds | `600000` |
+| `--linked-docs-concurrency <number>` | Parallel AI calls for linked doc summarization | `3` |
+| `--enable-assessment-features` | Enable assessment features (feedback, selection basket) | Disabled |
 
 ### Examples
 

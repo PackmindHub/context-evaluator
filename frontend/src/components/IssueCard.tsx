@@ -192,7 +192,7 @@ export const IssueCard: React.FC<IssueCardProps> = ({
 				</div>
 
 				{/* Add/Select button */}
-				{assessmentEnabled && onToggleSelection && (
+				{onToggleSelection && (
 					<button
 						onClick={() => onToggleSelection(issueKey, issue)}
 						className={`flex-shrink-0 ${

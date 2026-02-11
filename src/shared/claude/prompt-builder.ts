@@ -300,7 +300,7 @@ ${docLines}
  * Formats pre-computed codebase data so evaluators can reference it
  * instead of running redundant scanning commands.
  */
-function buildTechnicalInventorySection(
+export function buildTechnicalInventorySection(
 	inventory?: ITechnicalInventory,
 ): string {
 	if (!inventory) {

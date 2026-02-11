@@ -62,7 +62,7 @@ program
 	)
 	.option(
 		"--evaluator-filter <type>",
-		"Filter evaluators by type: all (19), errors (14), suggestions (5) (default: all)",
+		"Filter evaluators by type: all (17), errors (13), suggestions (4) (default: all)",
 		"all",
 	)
 	.option(

@@ -26,6 +26,7 @@ import { IssuesList } from "./components/IssuesList";
 import { IssuesPage } from "./components/IssuesPage";
 import { ProgressPanel } from "./components/ProgressPanel";
 import { RecentEvaluationsPage } from "./components/RecentEvaluationsPage";
+import { RemediateTab } from "./components/RemediateTab";
 import { SelectionSummaryBar } from "./components/SelectionSummaryBar";
 import { StatsPage } from "./components/StatsPage";
 import { Summary } from "./components/Summary";
@@ -1474,16 +1475,32 @@ function AppContent() {
 	}, []);
 
 	const handleReviewSelected = useCallback(() => {
-		// Placeholder for remediation workflow
-		const selectedIssues = Array.from(selectedIssueKeys)
-			.map((key) => issueKeyMap.get(key))
-			.filter((issue): issue is Issue => issue !== undefined);
+		handleTabChange("remediate");
+	}, [handleTabChange]);
 
-		console.log("Review selected issues:", selectedIssues);
-		alert(
-			`Remediation workflow coming soon!\n\nSelected ${selectedIssues.length} issue(s) for review.`,
-		);
-	}, [selectedIssueKeys, issueKeyMap]);
+	const handleAddAllToRemediation = useCallback(
+		(issues: (Issue & { evaluatorName?: string })[]) => {
+			setSelectedIssueKeys((prev) => {
+				const newSet = new Set(prev);
+				for (const issue of issues) {
+					const globalIndex = allIssues.indexOf(issue);
+					if (globalIndex >= 0) {
+						newSet.add(generateIssueKey(issue, globalIndex));
+					}
+				}
+				return newSet;
+			});
+		},
+		[allIssues],
+	);
+
+	const handleRemoveIssueFromRemediation = useCallback((key: string) => {
+		setSelectedIssueKeys((prev) => {
+			const newSet = new Set(prev);
+			newSet.delete(key);
+			return newSet;
+		});
+	}, []);
 
 	// Tab configuration
 	const tabs: TabItem[] = useMemo(() => {
@@ -1547,6 +1564,26 @@ function AppContent() {
 				),
 				count: filteredSuggestionsCount,
 			},
+			{
+				id: "remediate",
+				label: "Remediate",
+				icon: (
+					<svg
+						className="w-4 h-4"
+						fill="none"
+						stroke="currentColor"
+						viewBox="0 0 24 24"
+					>
+						<path
+							strokeLinecap="round"
+							strokeLinejoin="round"
+							strokeWidth={2}
+							d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+						/>
+					</svg>
+				),
+				count: selectedIssueKeys.size > 0 ? selectedIssueKeys.size : undefined,
+			},
 		];
 
 		// Only show Debugging and Cost Analysis tabs in non-cloud mode
@@ -1594,7 +1631,12 @@ function AppContent() {
 		}
 
 		return baseTabs;
-	}, [filteredErrorsCount, filteredSuggestionsCount, cloudMode]);
+	}, [
+		filteredErrorsCount,
+		filteredSuggestionsCount,
+		cloudMode,
+		selectedIssueKeys.size,
+	]);
 
 	return (
 		<div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-slate-100 animate-fade-in">
@@ -1606,13 +1648,11 @@ function AppContent() {
 			/>
 
 			{/* Selection Summary Bar */}
-			{assessmentEnabled && (
-				<SelectionSummaryBar
-					selectedCount={selectedIssueKeys.size}
-					onClearSelection={handleClearSelection}
-					onReviewSelected={handleReviewSelected}
-				/>
-			)}
+			<SelectionSummaryBar
+				selectedCount={selectedIssueKeys.size}
+				onClearSelection={handleClearSelection}
+				onReviewSelected={handleReviewSelected}
+			/>
 
 			{/* Main Content */}
 			<main
@@ -1674,6 +1714,14 @@ function AppContent() {
 									</div>
 								</div>
 								<div className="lg:col-span-4">
+									<div className="flex items-center justify-end mb-3">
+										<button
+											onClick={() => handleAddAllToRemediation(errorIssues)}
+											className="btn-secondary text-sm"
+										>
+											Add all to remediation ({errorIssues.length})
+										</button>
+									</div>
 									<IssuesList
 										issues={filteredIssues}
 										groupedByFile={
@@ -1721,6 +1769,16 @@ function AppContent() {
 									</div>
 								</div>
 								<div className="lg:col-span-4">
+									<div className="flex items-center justify-end mb-3">
+										<button
+											onClick={() =>
+												handleAddAllToRemediation(suggestionIssues)
+											}
+											className="btn-secondary text-sm"
+										>
+											Add all to remediation ({suggestionIssues.length})
+										</button>
+									</div>
 									<IssuesList
 										issues={filteredIssues}
 										groupedByFile={
@@ -1749,6 +1807,18 @@ function AppContent() {
 									/>
 								</div>
 							</div>
+						</TabPanel>
+
+						{/* Remediate Tab */}
+						<TabPanel id="remediate" activeTab={activeTab}>
+							<RemediateTab
+								evaluationId={currentEvaluationId}
+								evaluationData={evaluationData}
+								selectedIssueKeys={selectedIssueKeys}
+								issueKeyMap={issueKeyMap}
+								onRemoveIssue={handleRemoveIssueFromRemediation}
+								onClearAll={handleClearSelection}
+							/>
 						</TabPanel>
 
 						{/* Debugging Tab */}
