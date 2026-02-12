@@ -1,0 +1,87 @@
+Implement the following plan:
+
+# Plan: Detect `@` file references and suppress false positive conflicts
+
+## Context
+
+When a repository has both `AGENTS.md` and `CLAUDE.md` in the same directory, but one contains only a file reference annotation (e.g., `@CLAUDE.md` or `@AGENTS.md`), the system currently reports a **false positive** severity-9 conflict. The `@` annotation is a convention used by coding agents that only support one file type — it points to the companion file. This is not a real conflict and should be handled gracefully.
+
+Two subsystems are affected:
+1. **File Consistency Validator** reports a conflict because content differs
+2. **File Deduplication** keeps both files, causing the pointer file to be evaluated separately
+
+## Changes
+
+### 1. New file: `src/shared/file-system/file-reference-detector.ts`
+
+Shared utility with two functions:
+- **`isFileReference(content)`** — checks if trimmed content matches `@CLAUDE.md`, `@AGENTS.md`, `@./CLAUDE.md`, or `@./AGENTS.md` (case-insensitive). Returns `{ isReference, referencedFile }`.
+- **`detectCrossReference(agentsContent, claudeContent)`** — checks if one file in a colocated pair is a reference to the other (not self-referential). Returns `{ hasReference, referenceFile, contentFile }`.
+
+Conservative matching: only the `@` reference, nothing else in the file (after trimming whitespace).
+
+### 2. Modify: `src/shared/evaluation/file-consistency-validator.ts`
+
+- Import `detectCrossReference`
+- After reading both file contents (line ~100), before Packmind stripping, add:
+  - Call `detectCrossReference(agentsContent, claudeContent)`
+  - If `hasReference`, `continue` (skip the pair — no conflict)
+  - Log in verbose mode
+
+### 3. Modify: `src/shared/file-system/file-finder.ts`
+
+- Import `detectCrossReference`
+- In `deduplicateContextFiles`, in the `else` branch (line ~321, where content differs):
+  - Call `detectCrossReference(agentsContent, claudeContent)`
+  - If `hasReference`, keep only the content file (the one being referenced), drop the pointer
+  - Otherwise, keep both (existing behavior)
+
+### 4. New file: `src/shared/file-system/file-reference-detector.test.ts`
+
+Unit tests for **`isFileReference`**:
+- `@CLAUDE.md` → detected as reference to `CLAUDE.md`
+- `@AGENTS.md` → detected as reference to `AGENTS.md`
+- `@./CLAUDE.md` → detected (relative path prefix)
+- `@./AGENTS.md` → detected (relative path prefix)
+- `  @CLAUDE.md  \n` → detected (leading/trailing whitespace)
+- `@AGENTS.md\n\n` → detected (trailing newlines)
+- `@claude.md` → detected (case-insensitive)
+- `@CLAUDE.md\nSome extra content` → NOT detected (additional text after reference)
+- `# Title\n\n@CLAUDE.md` → NOT detected (content before reference)
+- `@README.md` → NOT detected (unknown context file)
+- `""` → NOT detected (empty)
+- `"   \n\n  "` → NOT detected (whitespace-only)
+- `@CLAUDE` → NOT detected (no `.md` extension)
+- `@../CLAUDE.md` → NOT detected (parent path reference)
+- `@subdir/CLAUDE.md` → NOT detected (subdirectory path reference)
+
+Unit tests for **`detectCrossReference`**:
+- AGENTS.md=`@CLAUDE.md`, CLAUDE.md=real content → `referenceFile: "agents"`, `contentFile: "claude"`
+- AGENTS.md=real content, CLAUDE.md=`@AGENTS.md` → `referenceFile: "claude"`, `contentFile: "agents"`
+- Both have real content → `hasReference: false`
+- AGENTS.md=`@AGENTS.md` (self-reference), CLAUDE.md=real → `hasReference: false`
+- CLAUDE.md=`@CLAUDE.md` (self-reference), AGENTS.md=real → `hasReference: false`
+- Both are references to each other → handle gracefully (first match wins: AGENTS.md reference takes priority)
+
+### 5. Add tests to: `src/shared/evaluation/file-consistency-validator.test.ts`
+
+- AGENTS.md=`@CLAUDE.md\n`, CLAUDE.md=real content → no conflict reported
+- CLAUDE.md=`@AGENTS.md\n`, AGENTS.md=real content → no conflict reported
+- AGENTS.md=`@./CLAUDE.md`, CLAUDE.md=real content → no conflict reported (dotslash variant)
+- AGENTS.md=`@CLAUDE.md\n\n# Also some extra content\n`, CLAUDE.md=real → **conflict still reported** (reference + extra content is not a pure reference)
+
+### 6. Add tests to: `src/shared/file-system/file-finder.test.ts`
+
+- AGENTS.md=`@CLAUDE.md\n`, CLAUDE.md=real → returns only CLAUDE.md (1 file)
+- CLAUDE.md=`@AGENTS.md\n`, AGENTS.md=real → returns only AGENTS.md (1 file)
+- AGENTS.md=`@./CLAUDE.md`, CLAUDE.md=real → returns only CLAUDE.md (dotslash variant)
+- AGENTS.md=`@CLAUDE.md\n# Extra content`, CLAUDE.md=different → returns both files (not a pure reference)
+
+## Verification
+
+1. `bun run test` — all existing + new tests pass
+2. `bun run lint` — no lint errors
+3. `bun run typecheck` — no type errors
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl

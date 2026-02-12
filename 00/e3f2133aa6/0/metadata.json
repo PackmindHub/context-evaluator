@@ -1,0 +1,35 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "00e3f2133aa6",
+  "session_id": "00acd976-784c-4077-95cd-19aa1b51739b",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-12T10:17:36.941325Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "CHANGELOG.md",
+    "src/shared/evaluation/file-consistency-validator.test.ts",
+    "src/shared/evaluation/file-consistency-validator.ts",
+    "src/shared/file-system/file-finder.test.ts",
+    "src/shared/file-system/file-finder.ts",
+    "src/shared/file-system/file-reference-detector.test.ts",
+    "src/shared/file-system/file-reference-detector.ts"
+  ],
+  "agent": "Claude Code",
+  "token_usage": {
+    "input_tokens": 33,
+    "cache_creation_tokens": 77556,
+    "cache_read_tokens": 2173179,
+    "output_tokens": 3778,
+    "api_call_count": 31
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-12T10:17:36.907007Z",
+    "agent_lines": 0,
+    "human_added": 436,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 436,
+    "agent_percentage": 0
+  }
+}
