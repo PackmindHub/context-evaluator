@@ -1,0 +1,46 @@
+Implement the following plan:
+
+# Plan: Add Confirmation Modal Before Remediation Execution
+
+## Context
+When users click "Execute Remediation", the action starts immediately. Since remediation triggers AI provider calls (which cost money and modify files), a confirmation step helps prevent accidental execution. We'll add a modal that summarizes what will happen and asks the user to confirm.
+
+## Changes
+
+### File: `frontend/src/components/RemediateTab.tsx`
+
+1. **Import the Modal component**
+   - Add `import { Modal } from "./shared/Modal"` to existing imports
+
+2. **Add confirmation modal state**
+   - Add `const [showConfirmModal, setShowConfirmModal] = useState(false)` alongside other state declarations (~line 60)
+
+3. **Change the "Execute Remediation" button handler**
+   - Change `onClick={handleExecute}` (line 673) to `onClick={() => setShowConfirmModal(true)}`
+   - The button label, disabled logic, and styling remain unchanged
+
+4. **Add the confirmation modal JSX** (inside the config phase render, after the action buttons section around line 711)
+   - Uses the existing `Modal` component (`frontend/src/components/shared/Modal.tsx`)
+   - Modal content:
+     - Summary: number of errors and suggestions selected
+     - Target file type (AGENTS.md / CLAUDE.md)
+     - Selected AI provider
+     - Two buttons: "Cancel" (closes modal) and "Confirm" (closes modal + calls `handleExecute()`)
+
+No new files, no new dependencies, no backend changes.
+
+## Verification
+- Run `bun run test` to check for regressions
+- Run `bun run lint` to verify code style
+- Manual: open the app, select issues, go to Remediate tab, click "Execute Remediation" — modal should appear with summary and confirm/cancel buttons
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+commit this
+
+---
+
+[Request interrupted by user]
