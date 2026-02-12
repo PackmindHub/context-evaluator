@@ -1,0 +1,76 @@
+Implement the following plan:
+
+# Plan: Batch Remediation Prompts (max 10 issues per prompt)
+
+## Context
+
+Currently, the remediation engine sends ALL errors in one prompt and ALL suggestions in one prompt to the AI provider. With many issues, this can overwhelm the context window or produce worse results. This change chunks errors and suggestions into batches of 10, executing each batch sequentially (cumulative on the filesystem), then capturing a single diff at the end.
+
+## Changes
+
+### 1. Add batch size constant
+**File: `src/shared/types/remediation.ts`**
+- Add `export const REMEDIATION_BATCH_SIZE = 10;`
+
+### 2. Update engine to batch execution
+**File: `src/shared/remediation/engine.ts`** (core change)
+
+Add a `chunkArray<T>(arr: T[], size: number): T[][]` utility function.
+
+Replace the single error fix prompt execution (lines 189-207) with a loop over error batches:
+- Chunk `errors` into batches of `REMEDIATION_BATCH_SIZE`
+- For each batch, call `generateRemediationPrompts()` with that batch only (empty suggestions)
+- Execute via provider, collect response text and stats
+- Emit progress with batch metadata: `{ batchNumber, totalBatches }`
+
+Same pattern for suggestion batches (lines 209-230).
+
+Update action summary parsing (lines 243-278):
+- Parse each batch's response text separately
+- Remap `issueIndex` by adding `batchIdx * REMEDIATION_BATCH_SIZE` offset to get global indices
+- Merge all actions into the existing `IRemediationSummary` structure
+
+Aggregate stats across batches into the existing `errorFixStats`/`suggestionEnrichStats` fields (sum durations, costs, tokens). Use `"[N batches]"` as the prompt field for aggregates.
+
+Update `emitStep()` to accept optional `batchInfo?: { batchNumber: number; totalBatches: number }` and spread it into the event `data`.
+
+### 3. Update frontend progress types
+**File: `frontend/src/types/remediation.ts`**
+- Add `batchInfo?: { batchNumber: number; totalBatches: number }` to `IRemediationProgressState`
+
+### 4. Update SSE handler in RemediateTab
+**File: `frontend/src/components/RemediateTab.tsx`**
+- In `handleSSEMessage`, extract `batchNumber`/`totalBatches` from `event.data` for step events
+- Store in `progressState.batchInfo`
+- Include batch label in log messages (e.g., "Step started: executing_error_fix (batch 1/3)")
+- Pass `batchInfo` to `<RemediationProgress>`
+
+### 5. Update progress display
+**File: `frontend/src/components/RemediationProgress.tsx`**
+- Accept `batchInfo` prop
+- When `totalBatches > 1` and step is `executing_error_fix` or `executing_suggestion_enrich`, append "(batch N/M)" to the step label
+
+### No changes needed
+- `src/shared/remediation/prompt-generator.ts` - already handles variable-size arrays
+- `src/api/routes/remediation.ts` - API just submits jobs
+- `src/api/jobs/remediation-job-manager.ts` - delegates to `executeRemediation()`
+- `src/api/sse/remediation-sse-handler.ts` - forwards flexible `data` payloads
+- `src/api/db/remediation-repository.ts` - stores aggregate stats (unchanged shape)
+
+## Key Design Decisions
+- **Batch metadata via event `data`, not new step types** - backward compatible
+- **Index remapping in engine** - parser stays simple, engine applies `batchIdx * BATCH_SIZE` offset
+- **Aggregate stats preserve existing shape** - no breaking changes to DB, frontend results, or API
+
+## Verification
+1. `bun run test` - all existing tests pass
+2. `bun run lint` - no lint errors
+3. Manual test: select >10 errors in the UI, execute remediation, verify progress shows batch numbers and results aggregate correctly
+4. Manual test: select <=10 issues, verify behavior is identical to current (single batch, no batch label shown)
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+and push
