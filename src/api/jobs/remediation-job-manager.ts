@@ -48,7 +48,13 @@ export class RemediationJobManager {
 		this.jobs.set(jobId, job);
 		this.queue.push(jobId);
 
-		console.log(`[RemediationJobManager] Job ${jobId} queued`);
+		const errorCount = request.issues.filter(
+			(i) => i.issueType === "error",
+		).length;
+		const suggestionCount = request.issues.length - errorCount;
+		console.log(
+			`[RemediationJobManager] Job ${jobId} queued: ${request.issues.length} issues (${errorCount} errors, ${suggestionCount} suggestions), provider: ${request.provider}, target: ${request.targetFileType}`,
+		);
 
 		// Start processing
 		this.processQueue().catch((err) => {
@@ -100,6 +106,8 @@ export class RemediationJobManager {
 		job.status = "running";
 		job.startedAt = new Date();
 
+		console.log(`[RemediationJobManager] Job ${jobId} started`);
+
 		this.emitProgress(jobId, {
 			type: "remediation.started",
 			data: { jobId },
@@ -136,7 +144,13 @@ export class RemediationJobManager {
 				data: { jobId, result },
 			});
 
-			console.log(`[RemediationJobManager] Job ${jobId} completed`);
+			const durationSec = (
+				(job.completedAt!.getTime() - job.startedAt!.getTime()) /
+				1000
+			).toFixed(1);
+			console.log(
+				`[RemediationJobManager] Job ${jobId} completed: ${durationSec}s, ${result.filesChanged} files changed, +${result.totalAdditions}/-${result.totalDeletions} lines`,
+			);
 		} catch (err: unknown) {
 			const message = err instanceof Error ? err.message : String(err);
 			job.status = "failed";

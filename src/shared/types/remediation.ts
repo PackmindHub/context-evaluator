@@ -95,6 +95,7 @@ export interface IRemediationRequest {
 export interface RemediationProgressEvent {
 	type:
 		| "remediation.started"
+		| "remediation.progress"
 		| "remediation.step.started"
 		| "remediation.step.completed"
 		| "remediation.completed"

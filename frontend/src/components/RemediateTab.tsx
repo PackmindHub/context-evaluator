@@ -148,6 +148,41 @@ export function RemediateTab({
 					}));
 					break;
 
+				case "remediation.progress": {
+					const d = event.data ?? {};
+					setProgressState((prev) => ({
+						...prev,
+						...(d.errorCount !== undefined && {
+							errorCount: d.errorCount as number,
+						}),
+						...(d.suggestionCount !== undefined && {
+							suggestionCount: d.suggestionCount as number,
+						}),
+						...(d.totalBatches !== undefined && {
+							totalBatches: d.totalBatches as number,
+						}),
+						...(d.completedBatches !== undefined && {
+							completedBatches: d.completedBatches as number,
+						}),
+						...(d.phase !== undefined && {
+							currentPhase: d.phase as "errors" | "suggestions",
+						}),
+						...(d.runningTotalCostUsd !== undefined && {
+							runningTotalCostUsd: d.runningTotalCostUsd as number,
+						}),
+						...(d.runningTotalDurationMs !== undefined && {
+							runningTotalDurationMs: d.runningTotalDurationMs as number,
+						}),
+						...(d.runningTotalInputTokens !== undefined && {
+							runningTotalInputTokens: d.runningTotalInputTokens as number,
+						}),
+						...(d.runningTotalOutputTokens !== undefined && {
+							runningTotalOutputTokens: d.runningTotalOutputTokens as number,
+						}),
+					}));
+					break;
+				}
+
 				case "remediation.step.started": {
 					const bi = event.data?.batchInfo as
 						| { batchNumber: number; totalBatches: number }
@@ -155,10 +190,14 @@ export function RemediateTab({
 					const batchLabel = bi
 						? ` (batch ${bi.batchNumber}/${bi.totalBatches})`
 						: "";
+					const issueSummaries = event.data?.issuesSummary as
+						| string[]
+						| undefined;
 					setProgressState((prev) => ({
 						...prev,
 						currentStep: event.data?.step,
 						batchInfo: bi,
+						...(issueSummaries && { currentBatchIssues: issueSummaries }),
 						logs: [
 							...prev.logs,
 							{
@@ -177,16 +216,45 @@ export function RemediateTab({
 					const batchLabel2 = bi2
 						? ` (batch ${bi2.batchNumber}/${bi2.totalBatches})`
 						: "";
+					const step = event.data?.step as string | undefined;
+					const batchDurationMs = event.data?.batchDurationMs as
+						| number
+						| undefined;
+					const batchCostUsd = event.data?.batchCostUsd as number | undefined;
+					const batchInputTokens = event.data?.batchInputTokens as
+						| number
+						| undefined;
+					const batchOutputTokens = event.data?.batchOutputTokens as
+						| number
+						| undefined;
+
+					const hasBatchStats =
+						batchDurationMs !== undefined && batchCostUsd !== undefined;
+					let logMessage = `Step completed: ${step}${batchLabel2}`;
+					if (hasBatchStats) {
+						const phaseName =
+							step === "executing_error_fix"
+								? "Error fix"
+								: "Suggestion enrich";
+						const label = bi2
+							? `${phaseName} batch ${bi2.batchNumber}/${bi2.totalBatches}`
+							: phaseName;
+						logMessage = `${label} completed: ${Math.round(batchDurationMs / 1000)}s, $${batchCostUsd.toFixed(4)}`;
+					}
+
 					setProgressState((prev) => ({
 						...prev,
 						batchInfo: undefined,
-						logs: [
-							...prev.logs,
-							{
-								timestamp,
-								message: `Step completed: ${event.data?.step}${batchLabel2}`,
+						currentBatchIssues: undefined,
+						...(hasBatchStats && {
+							lastBatchStats: {
+								durationMs: batchDurationMs!,
+								costUsd: batchCostUsd!,
+								inputTokens: batchInputTokens ?? 0,
+								outputTokens: batchOutputTokens ?? 0,
 							},
-						],
+						}),
+						logs: [...prev.logs, { timestamp, message: logMessage }],
 					}));
 					break;
 				}
@@ -382,6 +450,16 @@ export function RemediateTab({
 					currentStep={progressState.currentStep}
 					batchInfo={progressState.batchInfo}
 					logs={progressState.logs}
+					errorCount={progressState.errorCount}
+					suggestionCount={progressState.suggestionCount}
+					totalBatches={progressState.totalBatches}
+					completedBatches={progressState.completedBatches}
+					currentPhase={progressState.currentPhase}
+					runningTotalCostUsd={progressState.runningTotalCostUsd}
+					runningTotalDurationMs={progressState.runningTotalDurationMs}
+					runningTotalInputTokens={progressState.runningTotalInputTokens}
+					runningTotalOutputTokens={progressState.runningTotalOutputTokens}
+					currentBatchIssues={progressState.currentBatchIssues}
 				/>
 			</div>
 		);

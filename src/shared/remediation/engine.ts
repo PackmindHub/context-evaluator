@@ -49,13 +49,18 @@ function emitStep(
 	step: RemediationStep,
 	status: "started" | "completed",
 	batchInfo?: { batchNumber: number; totalBatches: number },
+	extraData?: Record<string, unknown>,
 ) {
 	onProgress?.({
 		type:
 			status === "started"
 				? "remediation.step.started"
 				: "remediation.step.completed",
-		data: { step, ...(batchInfo && { batchInfo }) },
+		data: {
+			step,
+			...(batchInfo && { batchInfo }),
+			...(extraData && extraData),
+		},
 	});
 }
 
@@ -101,6 +106,11 @@ function enrichActionsWithIssueTitles(
 	}
 }
 
+/** Build brief issue summaries for a batch (evaluatorName: category). */
+function buildBatchIssueSummaries(batch: RemediationIssue[]): string[] {
+	return batch.map((issue) => `${issue.evaluatorName}: ${issue.category}`);
+}
+
 /**
  * Execute remediation: run prompts via a CLI provider, capture diff, reset.
  */
@@ -140,6 +150,10 @@ export async function executeRemediation(
 		);
 	}
 
+	console.log(
+		`[Remediation] Working directory: ${workDir} (${isClone ? "clone" : "local"})`,
+	);
+
 	try {
 		// 2. Check git status (local paths only; clones are always clean)
 		if (!isClone) {
@@ -165,6 +179,10 @@ export async function executeRemediation(
 				errors.push(remIssue);
 			}
 		}
+
+		console.log(
+			`[Remediation] Issues: ${errors.length} errors, ${suggestions.length} suggestions`,
+		);
 
 		const technicalInventorySection = buildTechnicalInventorySection(
 			evaluationData.metadata?.projectContext?.technicalInventory,
@@ -196,9 +214,48 @@ export async function executeRemediation(
 		const errorFixResponseTexts: string[] = [];
 		const suggestionEnrichResponseTexts: string[] = [];
 
+		// Compute batch counts for the plan event
+		const errorBatches =
+			errors.length > 0 ? chunkArray(errors, REMEDIATION_BATCH_SIZE) : [];
+		const suggestionBatches =
+			suggestions.length > 0
+				? chunkArray(suggestions, REMEDIATION_BATCH_SIZE)
+				: [];
+		const totalGlobalBatches = errorBatches.length + suggestionBatches.length;
+
+		console.log(
+			`[Remediation] Plan: ${errorBatches.length} error batch(es) + ${suggestionBatches.length} suggestion batch(es), provider: ${request.provider}`,
+		);
+
+		// Emit initial plan event
+		onProgress?.({
+			type: "remediation.progress",
+			data: {
+				errorCount: errors.length,
+				suggestionCount: suggestions.length,
+				errorBatchCount: errorBatches.length,
+				suggestionBatchCount: suggestionBatches.length,
+				totalBatches: totalGlobalBatches,
+				completedBatches: 0,
+				provider: request.provider,
+				targetFileType: request.targetFileType,
+				phase: errors.length > 0 ? "errors" : "suggestions",
+				runningTotalDurationMs: 0,
+				runningTotalCostUsd: 0,
+				runningTotalInputTokens: 0,
+				runningTotalOutputTokens: 0,
+			},
+		});
+
+		// Global running totals across all batches
+		let globalCompletedBatches = 0;
+		let globalTotalDurationMs = 0;
+		let globalTotalCostUsd = 0;
+		let globalTotalInputTokens = 0;
+		let globalTotalOutputTokens = 0;
+
 		// Execute error fix prompts in batches
 		if (errors.length > 0) {
-			const errorBatches = chunkArray(errors, REMEDIATION_BATCH_SIZE);
 			const totalBatches = errorBatches.length;
 			let totalDurationMs = 0;
 			let totalCostUsd = 0;
@@ -221,7 +278,16 @@ export async function executeRemediation(
 				const batchPrompts = generateRemediationPrompts(batchInput);
 
 				if (batchPrompts.errorFixPrompt) {
-					emitStep(onProgress, "executing_error_fix", "started", batchInfo);
+					const issueSummaries = buildBatchIssueSummaries(batch);
+
+					console.log(
+						`[Remediation] Invoking ${request.provider} for error fix batch ${batchIdx + 1}/${totalBatches} (${batch.length} issues)`,
+					);
+
+					emitStep(onProgress, "executing_error_fix", "started", batchInfo, {
+						issuesSummary: issueSummaries,
+						batchIssueCount: batch.length,
+					});
 					const fixStart = Date.now();
 					const response = await provider.invokeWithRetry(
 						batchPrompts.errorFixPrompt,
@@ -232,15 +298,49 @@ export async function executeRemediation(
 						},
 					);
 					const durationMs = Date.now() - fixStart;
+					const batchCostUsd = response.cost_usd ?? 0;
+					const batchInputTokens = response.usage?.input_tokens ?? 0;
+					const batchOutputTokens = response.usage?.output_tokens ?? 0;
+
 					totalDurationMs += durationMs;
-					totalCostUsd += response.cost_usd ?? 0;
-					totalInputTokens += response.usage?.input_tokens ?? 0;
-					totalOutputTokens += response.usage?.output_tokens ?? 0;
+					totalCostUsd += batchCostUsd;
+					totalInputTokens += batchInputTokens;
+					totalOutputTokens += batchOutputTokens;
+
+					// Update global running totals
+					globalCompletedBatches++;
+					globalTotalDurationMs += durationMs;
+					globalTotalCostUsd += batchCostUsd;
+					globalTotalInputTokens += batchInputTokens;
+					globalTotalOutputTokens += batchOutputTokens;
+
+					console.log(
+						`[Remediation] Batch ${batchIdx + 1}/${totalBatches} completed: ${durationMs}ms, $${batchCostUsd.toFixed(4)}, ${batchInputTokens} in / ${batchOutputTokens} out`,
+					);
 
 					if (response.result) {
 						errorFixResponseTexts.push(response.result);
 					}
-					emitStep(onProgress, "executing_error_fix", "completed", batchInfo);
+					emitStep(onProgress, "executing_error_fix", "completed", batchInfo, {
+						batchDurationMs: durationMs,
+						batchCostUsd,
+						batchInputTokens,
+						batchOutputTokens,
+					});
+
+					// Emit running totals
+					onProgress?.({
+						type: "remediation.progress",
+						data: {
+							completedBatches: globalCompletedBatches,
+							totalBatches: totalGlobalBatches,
+							phase: "errors",
+							runningTotalDurationMs: globalTotalDurationMs,
+							runningTotalCostUsd: globalTotalCostUsd,
+							runningTotalInputTokens: globalTotalInputTokens,
+							runningTotalOutputTokens: globalTotalOutputTokens,
+						},
+					});
 				}
 			}
 
@@ -258,7 +358,6 @@ export async function executeRemediation(
 
 		// Execute suggestion enrich prompts in batches (cumulative on top of error fixes)
 		if (suggestions.length > 0) {
-			const suggestionBatches = chunkArray(suggestions, REMEDIATION_BATCH_SIZE);
 			const totalBatches = suggestionBatches.length;
 			let totalDurationMs = 0;
 			let totalCostUsd = 0;
@@ -281,11 +380,21 @@ export async function executeRemediation(
 				const batchPrompts = generateRemediationPrompts(batchInput);
 
 				if (batchPrompts.suggestionEnrichPrompt) {
+					const issueSummaries = buildBatchIssueSummaries(batch);
+
+					console.log(
+						`[Remediation] Invoking ${request.provider} for suggestion enrich batch ${batchIdx + 1}/${totalBatches} (${batch.length} issues)`,
+					);
+
 					emitStep(
 						onProgress,
 						"executing_suggestion_enrich",
 						"started",
 						batchInfo,
+						{
+							issuesSummary: issueSummaries,
+							batchIssueCount: batch.length,
+						},
 					);
 					const enrichStart = Date.now();
 					const response = await provider.invokeWithRetry(
@@ -297,10 +406,25 @@ export async function executeRemediation(
 						},
 					);
 					const durationMs = Date.now() - enrichStart;
+					const batchCostUsd = response.cost_usd ?? 0;
+					const batchInputTokens = response.usage?.input_tokens ?? 0;
+					const batchOutputTokens = response.usage?.output_tokens ?? 0;
+
 					totalDurationMs += durationMs;
-					totalCostUsd += response.cost_usd ?? 0;
-					totalInputTokens += response.usage?.input_tokens ?? 0;
-					totalOutputTokens += response.usage?.output_tokens ?? 0;
+					totalCostUsd += batchCostUsd;
+					totalInputTokens += batchInputTokens;
+					totalOutputTokens += batchOutputTokens;
+
+					// Update global running totals
+					globalCompletedBatches++;
+					globalTotalDurationMs += durationMs;
+					globalTotalCostUsd += batchCostUsd;
+					globalTotalInputTokens += batchInputTokens;
+					globalTotalOutputTokens += batchOutputTokens;
+
+					console.log(
+						`[Remediation] Batch ${batchIdx + 1}/${totalBatches} completed: ${durationMs}ms, $${batchCostUsd.toFixed(4)}, ${batchInputTokens} in / ${batchOutputTokens} out`,
+					);
 
 					if (response.result) {
 						suggestionEnrichResponseTexts.push(response.result);
@@ -310,7 +434,27 @@ export async function executeRemediation(
 						"executing_suggestion_enrich",
 						"completed",
 						batchInfo,
+						{
+							batchDurationMs: durationMs,
+							batchCostUsd,
+							batchInputTokens,
+							batchOutputTokens,
+						},
 					);
+
+					// Emit running totals
+					onProgress?.({
+						type: "remediation.progress",
+						data: {
+							completedBatches: globalCompletedBatches,
+							totalBatches: totalGlobalBatches,
+							phase: "suggestions",
+							runningTotalDurationMs: globalTotalDurationMs,
+							runningTotalCostUsd: globalTotalCostUsd,
+							runningTotalInputTokens: globalTotalInputTokens,
+							runningTotalOutputTokens: globalTotalOutputTokens,
+						},
+					});
 				}
 			}
 
@@ -332,10 +476,19 @@ export async function executeRemediation(
 		const fileChanges = parseUnifiedDiff(fullPatch);
 		emitStep(onProgress, "capturing_diff", "completed");
 
+		const totalAdditions = fileChanges.reduce((s, f) => s + f.additions, 0);
+		const totalDeletions = fileChanges.reduce((s, f) => s + f.deletions, 0);
+
+		console.log(
+			`[Remediation] Diff: ${fileChanges.length} files changed, +${totalAdditions}/-${totalDeletions} lines`,
+		);
+
 		// 6. Reset working directory
 		emitStep(onProgress, "resetting", "started");
 		await resetWorkingDirectory(workDir);
 		emitStep(onProgress, "resetting", "completed");
+
+		console.log("[Remediation] Working directory reset");
 
 		// 7. Parse action summaries from AI responses (per-batch) and remap indices
 		// Sort arrays the same way the prompt generator does to match issueIndex
@@ -409,9 +562,11 @@ export async function executeRemediation(
 			parsed: anyErrorParsed || anySuggestionParsed,
 		};
 
+		console.log(
+			`[Remediation] Summary: ${summary.addressedCount} addressed, ${summary.skippedCount} skipped, parsed=${summary.parsed}`,
+		);
+
 		// 8. Build result
-		const totalAdditions = fileChanges.reduce((s, f) => s + f.additions, 0);
-		const totalDeletions = fileChanges.reduce((s, f) => s + f.deletions, 0);
 		const totalCostUsd =
 			(errorFixStats?.costUsd ?? 0) + (suggestionEnrichStats?.costUsd ?? 0);
 		const totalInputTokens =
@@ -420,6 +575,11 @@ export async function executeRemediation(
 		const totalOutputTokens =
 			(errorFixStats?.outputTokens ?? 0) +
 			(suggestionEnrichStats?.outputTokens ?? 0);
+		const totalDurationMs = Date.now() - startTime;
+
+		console.log(
+			`[Remediation] Complete: ${fileChanges.length} files, +${totalAdditions}/-${totalDeletions} lines, ${totalDurationMs}ms total, $${totalCostUsd.toFixed(4)}`,
+		);
 
 		return {
 			errorFixStats,
@@ -429,7 +589,7 @@ export async function executeRemediation(
 			totalAdditions,
 			totalDeletions,
 			filesChanged: fileChanges.length,
-			totalDurationMs: Date.now() - startTime,
+			totalDurationMs,
 			totalCostUsd,
 			totalInputTokens,
 			totalOutputTokens,

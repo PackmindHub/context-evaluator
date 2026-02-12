@@ -57,6 +57,23 @@ export interface IRemediationProgressState {
 	logs: Array<{ timestamp: string; message: string }>;
 	result?: RemediationResult;
 	error?: { message: string };
+	// Enriched progress tracking
+	errorCount?: number;
+	suggestionCount?: number;
+	totalBatches?: number;
+	completedBatches?: number;
+	currentPhase?: "errors" | "suggestions";
+	runningTotalCostUsd?: number;
+	runningTotalDurationMs?: number;
+	runningTotalInputTokens?: number;
+	runningTotalOutputTokens?: number;
+	currentBatchIssues?: string[];
+	lastBatchStats?: {
+		durationMs: number;
+		costUsd: number;
+		inputTokens: number;
+		outputTokens: number;
+	};
 }
 
 export interface DiffLine {
