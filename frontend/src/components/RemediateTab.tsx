@@ -28,6 +28,7 @@ import { FileChangeCard } from "./FileChangeCard";
 import { PatchDownload } from "./PatchDownload";
 import { RemediationProgress } from "./RemediationProgress";
 import { CopyButton } from "./shared/CopyButton";
+import { Modal } from "./shared/Modal";
 
 type Phase = "config" | "progress" | "results";
 
@@ -58,6 +59,7 @@ export function RemediateTab({
 	const [selectedProvider, setSelectedProvider] =
 		useState<ProviderName>("claude");
 	const [isExecuting, setIsExecuting] = useState(false);
+	const [showConfirmModal, setShowConfirmModal] = useState(false);
 	const [executeError, setExecuteError] = useState<string | null>(null);
 
 	// SSE state
@@ -670,7 +672,7 @@ export function RemediateTab({
 				{/* Action Buttons */}
 				<div className="flex flex-wrap gap-3">
 					<button
-						onClick={handleExecute}
+						onClick={() => setShowConfirmModal(true)}
 						disabled={isExecuting || isGenerating}
 						className="btn-primary"
 					>
@@ -717,6 +719,62 @@ export function RemediateTab({
 					<p className="text-sm text-red-400 mt-2">{generateError}</p>
 				)}
 			</div>
+
+			{/* Confirmation Modal */}
+			<Modal
+				isOpen={showConfirmModal}
+				onClose={() => setShowConfirmModal(false)}
+				title="Confirm Remediation"
+				maxWidth="max-w-md"
+			>
+				<div className="space-y-4">
+					<p className="text-sm text-slate-300">
+						This will run the AI provider to remediate the selected issues.
+						Please confirm the details below.
+					</p>
+					<div className="bg-slate-800/50 rounded-lg border border-slate-700/50 p-3 space-y-2 text-sm">
+						{errorEntries.length > 0 && (
+							<div className="flex justify-between text-slate-300">
+								<span>Errors</span>
+								<span className="font-semibold">{errorEntries.length}</span>
+							</div>
+						)}
+						{suggestionEntries.length > 0 && (
+							<div className="flex justify-between text-slate-300">
+								<span>Suggestions</span>
+								<span className="font-semibold">
+									{suggestionEntries.length}
+								</span>
+							</div>
+						)}
+						<div className="flex justify-between text-slate-300">
+							<span>Target file</span>
+							<span className="font-semibold">{targetFileType}</span>
+						</div>
+						<div className="flex justify-between text-slate-300">
+							<span>Provider</span>
+							<span className="font-semibold">{selectedProvider}</span>
+						</div>
+					</div>
+					<div className="flex justify-end gap-3 pt-2">
+						<button
+							onClick={() => setShowConfirmModal(false)}
+							className="btn-secondary"
+						>
+							Cancel
+						</button>
+						<button
+							onClick={() => {
+								setShowConfirmModal(false);
+								handleExecute();
+							}}
+							className="btn-primary"
+						>
+							Confirm
+						</button>
+					</div>
+				</div>
+			</Modal>
 
 			{/* Generated Prompts (legacy mode) */}
 			{prompts && (
