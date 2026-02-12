@@ -132,12 +132,15 @@ export async function executeRemediation(
 		throw new Error("Evaluation not found or has no results");
 	}
 
-	const repoUrl = evaluationData.metadata?.repositoryUrl;
-	const localPath = evaluationData.metadata?.localPath;
+	const repoUrl = evaluationData.repositoryUrl;
+	const localPath = evaluationData.localPath;
 
 	if (repoUrl && (repoUrl.startsWith("http") || repoUrl.startsWith("git"))) {
 		emitStep(onProgress, "cloning", "started");
-		const cloneResult = await cloneRepository(repoUrl);
+		const cloneResult = await cloneRepository(repoUrl, {
+			branch: evaluationData.gitBranch,
+			commitSha: evaluationData.gitCommitSha,
+		});
 		workDir = cloneResult.path;
 		cleanup = cloneResult.cleanup;
 		isClone = true;
@@ -185,10 +188,10 @@ export async function executeRemediation(
 		);
 
 		const technicalInventorySection = buildTechnicalInventorySection(
-			evaluationData.metadata?.projectContext?.technicalInventory,
+			evaluationData.result?.metadata?.projectContext?.technicalInventory,
 		);
 
-		const pc = evaluationData.metadata?.projectContext;
+		const pc = evaluationData.result?.metadata?.projectContext;
 		const contextFilePaths = pc?.agentsFilePaths ?? [];
 		const projectSummary = {
 			languages: pc?.languages,
@@ -612,16 +615,48 @@ export async function executeRemediation(
 	}
 }
 
+interface EvaluationData {
+	// biome-ignore lint/suspicious/noExplicitAny: EvaluationOutput shape varies
+	result: any;
+	repositoryUrl?: string;
+	localPath?: string;
+	gitBranch?: string;
+	gitCommitSha?: string;
+}
+
 /**
  * Look up evaluation data from in-memory job store or database.
+ * Returns structured data with git metadata for remediation re-cloning.
  */
-// biome-ignore lint/suspicious/noExplicitAny: EvaluationOutput shape varies
-function getEvaluationData(evaluationId: string, jobManager: JobManager): any {
+function getEvaluationData(
+	evaluationId: string,
+	jobManager: JobManager,
+): EvaluationData | null {
+	// Check in-memory job store first
 	const job = jobManager.getJob(evaluationId);
-	if (job?.result) return job.result;
+	if (job?.result) {
+		const metadata = job.result.metadata;
+		return {
+			result: job.result,
+			repositoryUrl: metadata?.repositoryUrl || job.request?.repositoryUrl,
+			localPath: metadata?.localPath || job.request?.localPath,
+			gitBranch: metadata?.gitBranch,
+			gitCommitSha: metadata?.gitCommitSha,
+		};
+	}
 
+	// Fallback to database (handles old evaluations)
 	const record = evaluationRepository.getEvaluationById(evaluationId);
-	if (record?.result) return record.result;
+	if (record?.result) {
+		const metadata = record.result.metadata;
+		return {
+			result: record.result,
+			repositoryUrl: metadata?.repositoryUrl || record.repositoryUrl,
+			localPath: metadata?.localPath,
+			gitBranch: metadata?.gitBranch || record.gitBranch,
+			gitCommitSha: metadata?.gitCommitSha || record.gitCommitSha,
+		};
+	}
 
 	return null;
 }

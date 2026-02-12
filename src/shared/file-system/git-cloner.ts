@@ -11,6 +11,10 @@ export interface CloneResult {
 export interface CloneOptions {
 	verbose?: boolean;
 	progressCallback?: ProgressCallback;
+	/** Clone a specific branch */
+	branch?: string;
+	/** After cloning, checkout a specific commit SHA */
+	commitSha?: string;
 }
 
 /**
@@ -60,7 +64,7 @@ export async function cloneRepository(
 	repositoryUrl: string,
 	options: CloneOptions = {},
 ): Promise<CloneResult> {
-	const { verbose = false, progressCallback } = options;
+	const { verbose = false, progressCallback, branch, commitSha } = options;
 
 	// Normalize the URL to repository root
 	const normalizedUrl = normalizeGitUrl(repositoryUrl);
@@ -88,9 +92,13 @@ export async function cloneRepository(
 		});
 	}
 
-	return new Promise((resolve, reject) => {
+	return new Promise((resolveClone, reject) => {
 		// Use git clone with --depth 1 for shallow clone
-		const args = ["clone", "--depth", "1", normalizedUrl, tempDir];
+		const args = ["clone", "--depth", "1"];
+		if (branch && branch !== "HEAD") {
+			args.push("--branch", branch);
+		}
+		args.push(normalizedUrl, tempDir);
 
 		const child = spawn("git", args, {
 			stdio: verbose ? "inherit" : "pipe",
@@ -104,7 +112,7 @@ export async function cloneRepository(
 			});
 		}
 
-		child.on("close", (code) => {
+		child.on("close", async (code) => {
 			if (code !== 0) {
 				// Cleanup temp directory on failure
 				rm(tempDir, { recursive: true, force: true }).catch(() => {
@@ -122,6 +130,34 @@ export async function cloneRepository(
 				console.log(`[Git] Successfully cloned to ${tempDir}`);
 			}
 
+			// If a specific commit SHA is requested, fetch and checkout it
+			if (commitSha) {
+				try {
+					const fetchProc = Bun.spawn(
+						["git", "fetch", "--depth", "1", "origin", commitSha],
+						{ cwd: tempDir, stdout: "pipe", stderr: "pipe" },
+					);
+					await fetchProc.exited;
+
+					const checkoutProc = Bun.spawn(["git", "checkout", commitSha], {
+						cwd: tempDir,
+						stdout: "pipe",
+						stderr: "pipe",
+					});
+					await checkoutProc.exited;
+
+					if (verbose) {
+						console.log(`[Git] Checked out commit ${commitSha}`);
+					}
+				} catch {
+					if (verbose) {
+						console.log(
+							`[Git] Warning: Could not checkout commit ${commitSha}, continuing with branch HEAD`,
+						);
+					}
+				}
+			}
+
 			// Emit clone.completed event
 			if (progressCallback) {
 				progressCallback({
@@ -131,7 +167,7 @@ export async function cloneRepository(
 			}
 
 			// Return path and cleanup function
-			resolve({
+			resolveClone({
 				path: tempDir,
 				cleanup: async () => {
 					if (verbose) {

@@ -19,6 +19,7 @@ import { HealthRoutes } from "./routes/health";
 import { IssuesRoutes } from "./routes/issues";
 import { ProviderRoutes } from "./routes/providers";
 import { RemediationRoutes } from "./routes/remediation";
+import { SelectionRoutes } from "./routes/selection";
 import { StatsRoutes } from "./routes/stats";
 import { SSEProgressHandler } from "./sse/progress-handler";
 import { RemediationSSEHandler } from "./sse/remediation-sse-handler";
@@ -71,6 +72,7 @@ export class APIServer {
 	private evaluationRoutes: EvaluationRoutes;
 	private feedbackRoutes: FeedbackRoutes;
 	private bookmarkRoutes: BookmarkRoutes;
+	private selectionRoutes: SelectionRoutes;
 	private healthRoutes: HealthRoutes;
 	private issuesRoutes: IssuesRoutes;
 	private statsRoutes: StatsRoutes;
@@ -103,6 +105,7 @@ export class APIServer {
 		);
 		this.feedbackRoutes = new FeedbackRoutes();
 		this.bookmarkRoutes = new BookmarkRoutes();
+		this.selectionRoutes = new SelectionRoutes();
 		this.issuesRoutes = new IssuesRoutes();
 		this.statsRoutes = new StatsRoutes(EVALUATORS_DIR);
 		this.healthRoutes = new HealthRoutes(this.jobManager);
@@ -296,6 +299,16 @@ export class APIServer {
 			return this.remediationRoutes.execute(req);
 		}
 		if (
+			path.match(/^\/api\/remediation\/for-evaluation\/[^/]+$/) &&
+			req.method === "GET"
+		) {
+			const evaluationId = path.split("/").pop()!;
+			return this.remediationRoutes.getRemediationForEvaluation(
+				req,
+				evaluationId,
+			);
+		}
+		if (
 			path.match(/^\/api\/remediation\/[^/]+\/progress$/) &&
 			req.method === "GET"
 		) {
@@ -324,6 +337,21 @@ export class APIServer {
 		if (path.match(/^\/api\/bookmarks\/evaluation\/[^/]+$/)) {
 			const evaluationId = path.split("/").pop()!;
 			return this.bookmarkRoutes.getForEvaluation(req, evaluationId);
+		}
+
+		// Selection routes (remediation picks)
+		if (path === "/api/selections" && req.method === "POST") {
+			return this.selectionRoutes.post(req);
+		}
+		if (path === "/api/selections" && req.method === "DELETE") {
+			return this.selectionRoutes.delete(req);
+		}
+		if (path.match(/^\/api\/selections\/evaluation\/[^/]+$/)) {
+			const evaluationId = path.split("/").pop()!;
+			if (req.method === "DELETE") {
+				return this.selectionRoutes.clearForEvaluation(req, evaluationId);
+			}
+			return this.selectionRoutes.getForEvaluation(req, evaluationId);
 		}
 
 		return notFoundResponse("Not found");

@@ -208,6 +208,49 @@ export class RemediationRoutes {
 	}
 
 	/**
+	 * GET /api/remediation/for-evaluation/:evaluationId — Get latest remediation for an evaluation
+	 */
+	async getRemediationForEvaluation(
+		_req: Request,
+		evaluationId: string,
+	): Promise<Response> {
+		try {
+			// Check in-memory jobs first (running/queued)
+			if (this.remediationJobManager) {
+				const job =
+					this.remediationJobManager.getJobByEvaluationId(evaluationId);
+				if (job) {
+					return okResponse({
+						id: job.id,
+						status: job.status,
+						currentStep: job.currentStep,
+						result: job.result,
+						error: job.error,
+						createdAt: job.createdAt.toISOString(),
+						startedAt: job.startedAt?.toISOString(),
+						completedAt: job.completedAt?.toISOString(),
+					});
+				}
+			}
+
+			// Fallback to database
+			const record =
+				remediationRepository.getRemediationByEvaluationId(evaluationId);
+			if (record) {
+				return okResponse(record);
+			}
+
+			return notFoundResponse("No remediation found for this evaluation");
+		} catch (err: unknown) {
+			console.error(
+				"[RemediationRoutes] Error getting remediation for evaluation:",
+				err,
+			);
+			return internalErrorResponse("Failed to get remediation for evaluation");
+		}
+	}
+
+	/**
 	 * GET /api/remediation/:id — Get remediation status/result
 	 */
 	async getRemediation(

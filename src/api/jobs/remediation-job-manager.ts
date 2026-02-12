@@ -68,6 +68,15 @@ export class RemediationJobManager {
 		return this.jobs.get(jobId);
 	}
 
+	getJobByEvaluationId(evaluationId: string): IRemediationJob | undefined {
+		for (const job of this.jobs.values()) {
+			if (job.request.evaluationId === evaluationId) {
+				return job;
+			}
+		}
+		return undefined;
+	}
+
 	onProgress(jobId: string, callback: RemediationProgressCallback): void {
 		const callbacks = this.progressCallbacks.get(jobId) ?? [];
 		callbacks.push(callback);

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
 	ProviderName,
+	RemediationForEvaluationResponse,
 	RemediationPromptsResponse,
 } from "../hooks/useEvaluationApi";
 import { useEvaluationApi } from "../hooks/useEvaluationApi";
@@ -29,6 +30,39 @@ import { PatchDownload } from "./PatchDownload";
 import { RemediationProgress } from "./RemediationProgress";
 import { CopyButton } from "./shared/CopyButton";
 import { Modal } from "./shared/Modal";
+
+/**
+ * Transform a remediation API response (which may be an in-memory job or DB record)
+ * into the frontend RemediationResult shape.
+ */
+function toRemediationResult(
+	data: RemediationForEvaluationResponse,
+): RemediationResult | null {
+	// In-memory job wraps result under `result`
+	if (data.result) {
+		return data.result;
+	}
+
+	// DB record has flat fields
+	if (data.fileChanges !== undefined) {
+		return {
+			fullPatch: data.fullPatch ?? "",
+			fileChanges: data.fileChanges ?? [],
+			totalAdditions: data.totalAdditions ?? 0,
+			totalDeletions: data.totalDeletions ?? 0,
+			filesChanged: data.filesChanged ?? 0,
+			totalDurationMs: data.totalDurationMs ?? 0,
+			totalCostUsd: data.totalCostUsd ?? 0,
+			totalInputTokens: data.totalInputTokens ?? 0,
+			totalOutputTokens: data.totalOutputTokens ?? 0,
+			summary: data.summary ?? undefined,
+			errorFixStats: data.promptStats?.errorFixStats,
+			suggestionEnrichStats: data.promptStats?.suggestionEnrichStats,
+		};
+	}
+
+	return null;
+}
 
 type Phase = "config" | "progress" | "results";
 
@@ -88,6 +122,44 @@ export function RemediateTab({
 			providerDetection.detectProviders();
 		}
 	}, [providerDetection]);
+
+	// Restore existing remediation on mount / evaluationId change
+	useEffect(() => {
+		if (!evaluationId) return;
+
+		let cancelled = false;
+
+		async function loadExistingRemediation() {
+			const data = await api.getRemediationForEvaluation(evaluationId!);
+			if (cancelled || !data) return;
+
+			if (data.status === "completed") {
+				const restoredResult = toRemediationResult(data);
+				if (restoredResult) {
+					setRemediationId(data.id);
+					setResult(restoredResult);
+					setPhase("results");
+				}
+			} else if (data.status === "running" || data.status === "queued") {
+				setRemediationId(data.id);
+				setSseUrl(
+					`${window.location.origin}/api/remediation/${data.id}/progress`,
+				);
+				setProgressState({
+					status: data.status as "queued" | "running",
+					logs: [],
+				});
+				setPhase("progress");
+			}
+			// "failed" or anything else: stay in config phase
+		}
+
+		loadExistingRemediation();
+
+		return () => {
+			cancelled = true;
+		};
+	}, [evaluationId, api]);
 
 	// Available providers for the selector
 	const availableProviders = useMemo(() => {

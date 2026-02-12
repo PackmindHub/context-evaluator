@@ -36,6 +36,8 @@ export interface IEvaluationHistoryItem {
 	contextScore?: number;
 	contextGrade?: ContextScoreGrade;
 	failedEvaluatorCount: number;
+	gitBranch?: string;
+	gitCommitSha?: string;
 	errorMessage?: string;
 	errorCode?: string;
 	createdAt: string;
@@ -72,6 +74,8 @@ interface EvaluationRow {
 	context_score: number | null;
 	context_grade: string | null;
 	failed_evaluator_count: number;
+	git_branch: string | null;
+	git_commit_sha: string | null;
 	result_json: string | null;
 	final_prompts_json: string | null;
 	error_message: string | null;
@@ -103,12 +107,14 @@ export class EvaluationRepository {
         total_files, total_issues, critical_count, high_count, medium_count,
         curated_count, total_cost_usd, total_duration_ms, total_input_tokens, total_output_tokens,
         context_score, context_grade, failed_evaluator_count,
+        git_branch, git_commit_sha,
         result_json, final_prompts_json, error_message, error_code, created_at, completed_at
       ) VALUES (
         $id, $repositoryUrl, $evaluationMode, $evaluatorsCount, $status,
         $totalFiles, $totalIssues, $criticalCount, $highCount, $mediumCount,
         $curatedCount, $totalCostUsd, $totalDurationMs, $totalInputTokens, $totalOutputTokens,
         $contextScore, $contextGrade, $failedEvaluatorCount,
+        $gitBranch, $gitCommitSha,
         $resultJson, $finalPromptsJson, $errorMessage, $errorCode, $createdAt, $completedAt
       )
     `);
@@ -136,6 +142,8 @@ export class EvaluationRepository {
 			$contextScore: metadata.contextScore?.score ?? null,
 			$contextGrade: metadata.contextScore?.grade ?? null,
 			$failedEvaluatorCount: metadata.failedEvaluators?.length || 0,
+			$gitBranch: metadata.gitBranch || null,
+			$gitCommitSha: metadata.gitCommitSha || null,
 			$resultJson: JSON.stringify(result),
 			$finalPromptsJson: finalPrompts ? JSON.stringify(finalPrompts) : null,
 			$errorMessage: null,
@@ -164,11 +172,13 @@ export class EvaluationRepository {
         id, repository_url, evaluation_mode, evaluators_count, status,
         total_files, total_issues, critical_count, high_count, medium_count,
         curated_count, total_cost_usd, total_duration_ms, total_input_tokens, total_output_tokens,
+        git_branch, git_commit_sha,
         result_json, final_prompts_json, error_message, error_code, created_at, completed_at
       ) VALUES (
         $id, $repositoryUrl, $evaluationMode, $evaluatorsCount, $status,
         $totalFiles, $totalIssues, $criticalCount, $highCount, $mediumCount,
         $curatedCount, $totalCostUsd, $totalDurationMs, $totalInputTokens, $totalOutputTokens,
+        $gitBranch, $gitCommitSha,
         $resultJson, $finalPromptsJson, $errorMessage, $errorCode, $createdAt, $completedAt
       )
     `);
@@ -189,6 +199,8 @@ export class EvaluationRepository {
 			$totalDurationMs: 0,
 			$totalInputTokens: 0,
 			$totalOutputTokens: 0,
+			$gitBranch: null,
+			$gitCommitSha: null,
 			$resultJson: null,
 			$finalPromptsJson: null,
 			$errorMessage: error.message,
@@ -449,6 +461,8 @@ export class EvaluationRepository {
 			contextScore: row.context_score ?? undefined,
 			contextGrade: (row.context_grade as ContextScoreGrade) ?? undefined,
 			failedEvaluatorCount: row.failed_evaluator_count ?? 0,
+			gitBranch: row.git_branch || undefined,
+			gitCommitSha: row.git_commit_sha || undefined,
 			errorMessage: row.error_message || undefined,
 			errorCode: row.error_code || undefined,
 			createdAt: row.created_at,

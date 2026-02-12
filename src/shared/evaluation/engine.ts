@@ -88,6 +88,30 @@ async function runCountCommand(cmd: string, cwd: string): Promise<number> {
 }
 
 /**
+ * Capture current git branch and commit SHA for the working directory.
+ * Returns empty strings on failure (e.g., non-git directories).
+ */
+async function captureGitInfo(
+	cwd: string,
+): Promise<{ branch: string; commitSha: string }> {
+	const [branch, commitSha] = await Promise.all([
+		runShellCommand("git rev-parse --abbrev-ref HEAD", cwd),
+		runShellCommand("git rev-parse HEAD", cwd),
+	]);
+	return { branch, commitSha };
+}
+
+/**
+ * Git metadata to embed in evaluation results for remediation re-cloning.
+ */
+interface GitMetadata {
+	repositoryUrl?: string;
+	localPath?: string;
+	gitBranch?: string;
+	gitCommitSha?: string;
+}
+
+/**
  * Collect structured technical data from the codebase programmatically.
  * Runs batched shell/file operations and takes a few seconds.
  * This data is injected into evaluator prompts so they don't need to rediscover it.
@@ -673,6 +697,16 @@ export class EvaluationEngine {
 			}
 		}
 
+		// Capture git metadata for remediation re-cloning
+		const gitInfo = await captureGitInfo(workingDir);
+		const gitMetadata: GitMetadata = {
+			repositoryUrl: request.repositoryUrl,
+			localPath:
+				request.localPath || (!request.repositoryUrl ? workingDir : undefined),
+			gitBranch: gitInfo.branch || undefined,
+			gitCommitSha: gitInfo.commitSha || undefined,
+		};
+
 		let evaluationSucceeded = false;
 
 		try {
@@ -1112,6 +1146,8 @@ export class EvaluationEngine {
 							contextResult?.usage?.output_tokens,
 						contextScore: createNoFilesContextScore(),
 						noFileMode: true,
+						// Git metadata for remediation
+						...gitMetadata,
 						// Error tracking
 						hasErrors: allErrors.some((e) => e.severity === "fatal"),
 						hasPartialFailures: allErrors.some((e) => e.severity === "partial"),
@@ -1179,6 +1215,7 @@ export class EvaluationEngine {
 					contextResult,
 					consistencyIssues,
 					provider,
+					gitMetadata,
 				);
 			} else {
 				result = await this.runIndependentMode(
@@ -1189,6 +1226,7 @@ export class EvaluationEngine {
 					contextResult,
 					consistencyIssues,
 					provider,
+					gitMetadata,
 				);
 			}
 
@@ -1300,6 +1338,7 @@ export class EvaluationEngine {
 		contextResult?: IContextIdentifierResult,
 		consistencyIssues: Issue[] = [],
 		provider?: IAIProvider,
+		gitMetadata?: GitMetadata,
 	): Promise<EvaluationOutput> {
 		const {
 			verbose = false,
@@ -1612,6 +1651,8 @@ export class EvaluationEngine {
 			deduplicationPhase2DurationMs: dedupResult.phase2?.duration_ms,
 			// Context score
 			contextScore,
+			// Git metadata for remediation
+			...gitMetadata,
 			// Error tracking
 			hasErrors,
 			hasPartialFailures,
@@ -1699,6 +1740,7 @@ export class EvaluationEngine {
 		contextResult?: IContextIdentifierResult,
 		consistencyIssues: Issue[] = [],
 		provider?: IAIProvider,
+		gitMetadata?: GitMetadata,
 	): Promise<IndependentEvaluationOutput> {
 		const {
 			verbose = false,
@@ -2073,6 +2115,8 @@ export class EvaluationEngine {
 			deduplicationPhase2DurationMs: dedupResult.phase2?.duration_ms,
 			// Context score
 			contextScore,
+			// Git metadata for remediation
+			...gitMetadata,
 			// Error tracking
 			hasErrors: hasErrorsIndependent,
 			hasPartialFailures: hasPartialFailuresIndependent,

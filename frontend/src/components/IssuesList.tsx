@@ -4,6 +4,18 @@ import { generateIssueKey } from "../lib/issue-utils";
 import type { CategoryGroup, Issue } from "../types/evaluation";
 import { IssueCard } from "./IssueCard";
 
+/** Find an issue's key by reference equality in the pre-built issueKeyMap (uses global allIssues indices). */
+function findIssueKey(
+	issue: Issue,
+	issueKeyMap?: Map<string, Issue>,
+): string | null {
+	if (!issueKeyMap) return null;
+	for (const [key, mappedIssue] of issueKeyMap) {
+		if (mappedIssue === issue) return key;
+	}
+	return null;
+}
+
 interface IssuesListProps {
 	issues: Issue[];
 	groupedByFile?: Record<string, Issue[]>;
@@ -126,8 +138,10 @@ export const IssuesList: React.FC<IssuesListProps> = ({
 								<div className="evaluator-groups-container">
 									{categoryGroups.map((group) => {
 										// Calculate group selection state
-										const groupKeys = group.issues.map((issue) =>
-											generateIssueKey(issue, issues.indexOf(issue)),
+										const groupKeys = group.issues.map(
+											(issue, idx) =>
+												findIssueKey(issue, issueKeyMap) ??
+												generateIssueKey(issue, idx),
 										);
 										const allSelected =
 											selectedKeys &&
@@ -177,10 +191,9 @@ export const IssuesList: React.FC<IssuesListProps> = ({
 
 												{/* Issues in this category group */}
 												{group.issues.map((issue, idx) => {
-													const issueKey = generateIssueKey(
-														issue,
-														issues.indexOf(issue),
-													);
+													const issueKey =
+														findIssueKey(issue, issueKeyMap) ??
+														generateIssueKey(issue, idx);
 													const isSelected =
 														selectedKeys?.has(issueKey) || false;
 													const issueHash = generateIssueHash(issue);
@@ -221,8 +234,10 @@ export const IssuesList: React.FC<IssuesListProps> = ({
 						const displayName = isCrossFile ? "Cross-File Issues" : file;
 
 						// Calculate group selection state
-						const groupKeys = fileIssues.map((issue, idx) =>
-							generateIssueKey(issue, issues.indexOf(issue)),
+						const groupKeys = fileIssues.map(
+							(issue, idx) =>
+								findIssueKey(issue, issueKeyMap) ??
+								generateIssueKey(issue, idx),
 						);
 						const allSelected =
 							selectedKeys && groupKeys.every((key) => selectedKeys.has(key));
@@ -296,10 +311,9 @@ export const IssuesList: React.FC<IssuesListProps> = ({
 											</div>
 											<div className="space-y-4">
 												{categoryIssues.map((issue, idx) => {
-													const issueKey = generateIssueKey(
-														issue,
-														issues.indexOf(issue),
-													);
+													const issueKey =
+														findIssueKey(issue, issueKeyMap) ??
+														generateIssueKey(issue, idx);
 													const isSelected =
 														selectedKeys?.has(issueKey) || false;
 													const issueHash = generateIssueHash(issue);
@@ -336,7 +350,8 @@ export const IssuesList: React.FC<IssuesListProps> = ({
 				/* Flat list */
 				<div className="space-y-4">
 					{issues.map((issue, idx) => {
-						const issueKey = generateIssueKey(issue, idx);
+						const issueKey =
+							findIssueKey(issue, issueKeyMap) ?? generateIssueKey(issue, idx);
 						const isSelected = selectedKeys?.has(issueKey) || false;
 						const issueHash = generateIssueHash(issue);
 						const feedback = feedbackMap?.get(issueHash);

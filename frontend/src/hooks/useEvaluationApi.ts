@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { EvaluatorFilter, Issue } from "../types/evaluation";
 import type {
 	IBatchEvaluateResponse,
@@ -41,6 +41,33 @@ export interface RemediationStatusResponse {
 	completedAt?: string;
 }
 
+export interface RemediationForEvaluationResponse {
+	id: string;
+	status: string;
+	currentStep?: string;
+	result?: RemediationResult;
+	error?: { message: string; code?: string };
+	createdAt: string;
+	startedAt?: string;
+	completedAt?: string | null;
+	// DB record fields (flat shape)
+	fullPatch?: string | null;
+	fileChanges?: RemediationResult["fileChanges"];
+	totalAdditions?: number;
+	totalDeletions?: number;
+	filesChanged?: number;
+	totalDurationMs?: number;
+	totalCostUsd?: number;
+	totalInputTokens?: number;
+	totalOutputTokens?: number;
+	summary?: RemediationResult["summary"] | null;
+	promptStats?: {
+		errorFixStats?: RemediationResult["errorFixStats"];
+		suggestionEnrichStats?: RemediationResult["suggestionEnrichStats"];
+	} | null;
+	errorMessage?: string | null;
+}
+
 interface IUseEvaluationApiReturn {
 	submitJob: (
 		repositoryUrl: string,
@@ -77,6 +104,9 @@ interface IUseEvaluationApiReturn {
 	getRemediationResult: (
 		remediationId: string,
 	) => Promise<RemediationStatusResponse>;
+	getRemediationForEvaluation: (
+		evaluationId: string,
+	) => Promise<RemediationForEvaluationResponse | null>;
 	downloadPatch: (remediationId: string) => Promise<void>;
 	isLoading: boolean;
 	error: string | null;
@@ -370,6 +400,38 @@ export function useEvaluationApi(): IUseEvaluationApiReturn {
 		[],
 	);
 
+	const getRemediationForEvaluation = useCallback(
+		async (
+			evaluationId: string,
+		): Promise<RemediationForEvaluationResponse | null> => {
+			try {
+				const response = await fetch(
+					`/api/remediation/for-evaluation/${evaluationId}`,
+					{
+						method: "GET",
+						headers: { "Content-Type": "application/json" },
+					},
+				);
+
+				if (response.status === 404) {
+					return null;
+				}
+
+				if (!response.ok) {
+					const errorData = await response.json().catch(() => ({}));
+					throw new Error(errorData.error || `HTTP error ${response.status}`);
+				}
+
+				return (await response.json()) as RemediationForEvaluationResponse;
+			} catch (err) {
+				// Silently return null — this is a best-effort lookup on mount
+				console.warn("[API] Failed to fetch remediation for evaluation:", err);
+				return null;
+			}
+		},
+		[],
+	);
+
 	const downloadPatch = useCallback(
 		async (remediationId: string): Promise<void> => {
 			try {
@@ -402,18 +464,36 @@ export function useEvaluationApi(): IUseEvaluationApiReturn {
 		setError(null);
 	}, []);
 
-	return {
-		submitJob,
-		submitBatch,
-		getBatchStatus,
-		getJobStatus,
-		cancelJob,
-		generateRemediationPrompts,
-		executeRemediation,
-		getRemediationResult,
-		downloadPatch,
-		isLoading,
-		error,
-		clearError,
-	};
+	return useMemo(
+		() => ({
+			submitJob,
+			submitBatch,
+			getBatchStatus,
+			getJobStatus,
+			cancelJob,
+			generateRemediationPrompts,
+			executeRemediation,
+			getRemediationResult,
+			getRemediationForEvaluation,
+			downloadPatch,
+			isLoading,
+			error,
+			clearError,
+		}),
+		[
+			submitJob,
+			submitBatch,
+			getBatchStatus,
+			getJobStatus,
+			cancelJob,
+			generateRemediationPrompts,
+			executeRemediation,
+			getRemediationResult,
+			getRemediationForEvaluation,
+			downloadPatch,
+			isLoading,
+			error,
+			clearError,
+		],
+	);
 }

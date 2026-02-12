@@ -1398,11 +1398,13 @@
    ============================================ */
 @layer components {
 	.diff-viewer {
-		@apply font-mono text-xs overflow-x-auto rounded-lg bg-slate-900/80 border border-slate-700/50;
+		@apply font-mono text-xs overflow-hidden rounded-lg bg-slate-900/80 border border-slate-700/50;
+		max-width: 100%;
 	}
 
 	.diff-line {
 		@apply flex;
+		min-width: 0;
 	}
 
 	.diff-line-addition {
@@ -1428,7 +1430,10 @@
 	}
 
 	.diff-line-content {
-		@apply whitespace-pre py-px text-slate-300;
+		@apply whitespace-pre-wrap py-px text-slate-300;
+		min-width: 0;
+		flex: 1;
+		word-break: break-all;
 	}
 
 	.diff-line-addition .diff-line-content {

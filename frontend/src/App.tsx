@@ -40,6 +40,7 @@ import { useBookmarkApi } from "./hooks/useBookmarkApi";
 import { useEvaluationApi } from "./hooks/useEvaluationApi";
 import { useEvaluationHistory } from "./hooks/useEvaluationHistory";
 import { useFeedbackApi } from "./hooks/useFeedbackApi";
+import { useSelectionApi } from "./hooks/useSelectionApi";
 import { useSSE } from "./hooks/useSSE";
 import { useVersion } from "./hooks/useVersion";
 import { getFilteredEvaluatorCount } from "./lib/formatters";
@@ -151,6 +152,9 @@ function AppContent() {
 	// Bookmark state
 	const [bookmarkSet, setBookmarkSet] = useState<Set<string>>(new Set());
 	const bookmarkApi = useBookmarkApi();
+
+	// Selection persistence
+	const selectionApi = useSelectionApi();
 
 	// Derive currentEvaluationId from URL parameter
 	const currentEvaluationId = urlEvaluationId || null;
@@ -731,15 +735,18 @@ function AppContent() {
 					handleFileLoad(jobStatus.result);
 					setCurrentRepositoryUrl(jobStatus.repositoryUrl || null);
 					setEvaluationMode("completed");
-					// Load feedback and bookmarks
+					// Load feedback, bookmarks, and selections
 					try {
 						const feedback =
 							await feedbackApi.getFeedbackForEvaluation(urlEvaluationId);
 						setFeedbackMap(feedback);
 						if (!cloudMode) {
-							const bookmarks =
-								await bookmarkApi.getBookmarksForEvaluation(urlEvaluationId);
+							const [bookmarks, selections] = await Promise.all([
+								bookmarkApi.getBookmarksForEvaluation(urlEvaluationId),
+								selectionApi.getSelectionsForEvaluation(urlEvaluationId),
+							]);
 							setBookmarkSet(bookmarks);
+							setSelectedIssueKeys(selections);
 						}
 					} catch (err) {
 						console.error("Failed to load metadata:", err);
@@ -817,15 +824,18 @@ function AppContent() {
 					handleFileLoad(record.result);
 					setCurrentRepositoryUrl(record.repositoryUrl);
 					setEvaluationMode("completed");
-					// Load feedback and bookmarks
+					// Load feedback, bookmarks, and selections
 					try {
 						const feedback =
 							await feedbackApi.getFeedbackForEvaluation(urlEvaluationId);
 						setFeedbackMap(feedback);
 						if (!cloudMode) {
-							const bookmarks =
-								await bookmarkApi.getBookmarksForEvaluation(urlEvaluationId);
+							const [bookmarks, selections] = await Promise.all([
+								bookmarkApi.getBookmarksForEvaluation(urlEvaluationId),
+								selectionApi.getSelectionsForEvaluation(urlEvaluationId),
+							]);
 							setBookmarkSet(bookmarks);
+							setSelectedIssueKeys(selections);
 						}
 					} catch (err) {
 						console.error("Failed to load metadata:", err);
@@ -850,6 +860,7 @@ function AppContent() {
 		api,
 		feedbackApi,
 		bookmarkApi,
+		selectionApi,
 		cloudMode,
 	]);
 
@@ -1351,6 +1362,14 @@ function AppContent() {
 	};
 
 	const handleClear = useCallback(() => {
+		// Clear selections in DB before resetting state
+		if (currentEvaluationId) {
+			selectionApi
+				.clearSelections(currentEvaluationId)
+				.catch((err) =>
+					console.error("Failed to clear selections on reset:", err),
+				);
+		}
 		setEvaluationData(null);
 		setEvaluationMode("idle");
 		setApiError(null);
@@ -1367,7 +1386,7 @@ function AppContent() {
 		setBookmarkSet(new Set());
 		// Navigate to root
 		navigate("/");
-	}, [navigate]);
+	}, [navigate, currentEvaluationId, selectionApi]);
 
 	const handleDeleteEvaluation = useCallback(async () => {
 		if (currentEvaluationId) {
@@ -1378,23 +1397,47 @@ function AppContent() {
 
 	// Issue selection handlers
 	const handleToggleIssueSelection = useCallback(
-		(key: string, issue: Issue) => {
+		(key: string, _issue: Issue) => {
 			setSelectedIssueKeys((prev) => {
 				const newSet = new Set(prev);
-				if (newSet.has(key)) {
+				const isRemoving = newSet.has(key);
+				if (isRemoving) {
 					newSet.delete(key);
 				} else {
 					newSet.add(key);
 				}
+				// Persist to DB (fire-and-forget)
+				if (currentEvaluationId) {
+					if (isRemoving) {
+						selectionApi
+							.removeSelection(currentEvaluationId, key)
+							.catch((err) =>
+								console.error("Failed to persist selection removal:", err),
+							);
+					} else {
+						selectionApi
+							.addSelections(currentEvaluationId, [key])
+							.catch((err) =>
+								console.error("Failed to persist selection add:", err),
+							);
+					}
+				}
 				return newSet;
 			});
 		},
-		[],
+		[currentEvaluationId, selectionApi],
 	);
 
 	const handleClearSelection = useCallback(() => {
 		setSelectedIssueKeys(new Set());
-	}, []);
+		if (currentEvaluationId) {
+			selectionApi
+				.clearSelections(currentEvaluationId)
+				.catch((err) =>
+					console.error("Failed to persist selection clear:", err),
+				);
+		}
+	}, [currentEvaluationId, selectionApi]);
 
 	const handleFeedback = useCallback(
 		async (issueHash: string, feedbackType: "like" | "dislike" | null) => {
@@ -1463,16 +1506,34 @@ function AppContent() {
 		[currentEvaluationId, allIssues, bookmarkSet, bookmarkApi, cloudMode],
 	);
 
-	const handleSelectAllInGroup = useCallback((issues: Issue[]) => {
-		setSelectedIssueKeys((prev) => {
-			const newSet = new Set(prev);
-			issues.forEach((issue, index) => {
-				const key = generateIssueKey(issue, index);
-				newSet.add(key);
+	const handleSelectAllInGroup = useCallback(
+		(issues: Issue[]) => {
+			const keysToAdd: string[] = [];
+			setSelectedIssueKeys((prev) => {
+				const newSet = new Set(prev);
+				for (const issue of issues) {
+					const globalIndex = allIssues.indexOf(issue);
+					if (globalIndex >= 0) {
+						const key = generateIssueKey(issue, globalIndex);
+						if (!newSet.has(key)) {
+							keysToAdd.push(key);
+						}
+						newSet.add(key);
+					}
+				}
+				return newSet;
 			});
-			return newSet;
-		});
-	}, []);
+			// Persist new keys to DB (fire-and-forget)
+			if (currentEvaluationId && keysToAdd.length > 0) {
+				selectionApi
+					.addSelections(currentEvaluationId, keysToAdd)
+					.catch((err) =>
+						console.error("Failed to persist group selection:", err),
+					);
+			}
+		},
+		[allIssues, currentEvaluationId, selectionApi],
+	);
 
 	const handleReviewSelected = useCallback(() => {
 		handleTabChange("remediate");
@@ -1480,27 +1541,50 @@ function AppContent() {
 
 	const handleAddAllToRemediation = useCallback(
 		(issues: (Issue & { evaluatorName?: string })[]) => {
+			const keysToAdd: string[] = [];
 			setSelectedIssueKeys((prev) => {
 				const newSet = new Set(prev);
 				for (const issue of issues) {
 					const globalIndex = allIssues.indexOf(issue);
 					if (globalIndex >= 0) {
-						newSet.add(generateIssueKey(issue, globalIndex));
+						const key = generateIssueKey(issue, globalIndex);
+						if (!newSet.has(key)) {
+							keysToAdd.push(key);
+						}
+						newSet.add(key);
 					}
 				}
 				return newSet;
 			});
+			// Persist new keys to DB (fire-and-forget)
+			if (currentEvaluationId && keysToAdd.length > 0) {
+				selectionApi
+					.addSelections(currentEvaluationId, keysToAdd)
+					.catch((err) =>
+						console.error("Failed to persist add-all selection:", err),
+					);
+			}
 		},
-		[allIssues],
+		[allIssues, currentEvaluationId, selectionApi],
 	);
 
-	const handleRemoveIssueFromRemediation = useCallback((key: string) => {
-		setSelectedIssueKeys((prev) => {
-			const newSet = new Set(prev);
-			newSet.delete(key);
-			return newSet;
-		});
-	}, []);
+	const handleRemoveIssueFromRemediation = useCallback(
+		(key: string) => {
+			setSelectedIssueKeys((prev) => {
+				const newSet = new Set(prev);
+				newSet.delete(key);
+				return newSet;
+			});
+			if (currentEvaluationId) {
+				selectionApi
+					.removeSelection(currentEvaluationId, key)
+					.catch((err) =>
+						console.error("Failed to persist issue removal:", err),
+					);
+			}
+		},
+		[currentEvaluationId, selectionApi],
+	);
 
 	// Tab configuration
 	const tabs: TabItem[] = useMemo(() => {

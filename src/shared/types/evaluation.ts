@@ -448,6 +448,11 @@ export interface Metadata {
 	warnings?: StructuredError[];
 	/** Whether the evaluation ran in no-file mode (no AGENTS.md found, suggestion-only) */
 	noFileMode?: boolean;
+	// Git metadata for remediation re-cloning
+	repositoryUrl?: string;
+	localPath?: string;
+	gitBranch?: string;
+	gitCommitSha?: string;
 }
 
 // Independent evaluation mode format

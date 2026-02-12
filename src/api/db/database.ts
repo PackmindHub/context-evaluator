@@ -93,6 +93,18 @@ function initializeDatabase(): Database {
 		// Column already exists, ignore
 	}
 
+	// Add git metadata columns if they don't exist (for existing databases)
+	try {
+		database.run(`ALTER TABLE evaluations ADD COLUMN git_branch TEXT;`);
+	} catch {
+		// Column already exists, ignore
+	}
+	try {
+		database.run(`ALTER TABLE evaluations ADD COLUMN git_commit_sha TEXT;`);
+	} catch {
+		// Column already exists, ignore
+	}
+
 	// Create issue_feedback table
 	database.run(`
     CREATE TABLE IF NOT EXISTS issue_feedback (
@@ -135,6 +147,24 @@ function initializeDatabase(): Database {
 	database.run(`
     CREATE INDEX IF NOT EXISTS idx_bookmarks_evaluation
     ON issue_bookmarks(evaluation_id);
+  `);
+
+	// Create issue_selections table (remediation picks)
+	database.run(`
+    CREATE TABLE IF NOT EXISTS issue_selections (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      evaluation_id TEXT NOT NULL,
+      issue_key TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(evaluation_id, issue_key),
+      FOREIGN KEY(evaluation_id) REFERENCES evaluations(id) ON DELETE CASCADE
+    );
+  `);
+
+	// Create index for selection queries
+	database.run(`
+    CREATE INDEX IF NOT EXISTS idx_selections_evaluation
+    ON issue_selections(evaluation_id);
   `);
 
 	// Create remediations table
