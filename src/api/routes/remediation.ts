@@ -1,5 +1,5 @@
 /**
- * Remediation routes - generates copy-paste-ready AI agent prompts from evaluation results
+ * Remediation routes - generates prompts and executes remediation via CLI agents
  */
 
 import { buildTechnicalInventorySection } from "@shared/claude/prompt-builder";
@@ -9,8 +9,12 @@ import {
 	type RemediationIssue,
 } from "@shared/remediation/prompt-generator";
 import type { Issue } from "@shared/types/evaluation";
+import type { IRemediationRequest } from "@shared/types/remediation";
 import { evaluationRepository } from "../db/evaluation-repository";
+import { remediationRepository } from "../db/remediation-repository";
 import type { JobManager } from "../jobs/job-manager";
+import type { RemediationJobManager } from "../jobs/remediation-job-manager";
+import type { RemediationSSEHandler } from "../sse/remediation-sse-handler";
 import {
 	errorResponse,
 	internalErrorResponse,
@@ -51,7 +55,11 @@ function issueToRemediationIssue(
 }
 
 export class RemediationRoutes {
-	constructor(private jobManager: JobManager) {}
+	constructor(
+		private jobManager: JobManager,
+		private remediationJobManager?: RemediationJobManager,
+		private remediationSSEHandler?: RemediationSSEHandler,
+	) {}
 
 	async generatePrompts(req: Request): Promise<Response> {
 		try {
@@ -144,5 +152,145 @@ export class RemediationRoutes {
 			console.error("[RemediationRoutes] Error generating prompts:", err);
 			return internalErrorResponse("Failed to generate remediation prompts");
 		}
+	}
+
+	/**
+	 * POST /api/remediation/execute — Start a remediation execution job
+	 */
+	async execute(req: Request): Promise<Response> {
+		try {
+			if (!this.remediationJobManager) {
+				return errorResponse(
+					"Remediation execution is not available",
+					"NOT_AVAILABLE",
+					503,
+				);
+			}
+
+			const body = (await req.json()) as IRemediationRequest;
+
+			if (!body.evaluationId) {
+				return errorResponse(
+					"evaluationId is required",
+					"INVALID_REQUEST",
+					400,
+				);
+			}
+			if (!body.issues || body.issues.length === 0) {
+				return errorResponse(
+					"issues must be a non-empty array",
+					"INVALID_REQUEST",
+					400,
+				);
+			}
+			if (!body.targetFileType) {
+				return errorResponse(
+					"targetFileType is required",
+					"INVALID_REQUEST",
+					400,
+				);
+			}
+			if (!body.provider) {
+				return errorResponse("provider is required", "INVALID_REQUEST", 400);
+			}
+
+			const remediationId = this.remediationJobManager.submitJob(body);
+
+			return okResponse({
+				remediationId,
+				sseUrl: `/api/remediation/${remediationId}/progress`,
+				status: "queued",
+			});
+		} catch (err: unknown) {
+			console.error("[RemediationRoutes] Error executing remediation:", err);
+			return internalErrorResponse("Failed to start remediation execution");
+		}
+	}
+
+	/**
+	 * GET /api/remediation/:id — Get remediation status/result
+	 */
+	async getRemediation(
+		_req: Request,
+		remediationId: string,
+	): Promise<Response> {
+		try {
+			// Check in-memory job first
+			if (this.remediationJobManager) {
+				const job = this.remediationJobManager.getJob(remediationId);
+				if (job) {
+					return okResponse({
+						id: job.id,
+						status: job.status,
+						currentStep: job.currentStep,
+						result: job.result,
+						error: job.error,
+						createdAt: job.createdAt.toISOString(),
+						startedAt: job.startedAt?.toISOString(),
+						completedAt: job.completedAt?.toISOString(),
+					});
+				}
+			}
+
+			// Fallback to database
+			const record = remediationRepository.getRemediationById(remediationId);
+			if (record) {
+				return okResponse(record);
+			}
+
+			return notFoundResponse("Remediation not found");
+		} catch (err: unknown) {
+			console.error("[RemediationRoutes] Error getting remediation:", err);
+			return internalErrorResponse("Failed to get remediation status");
+		}
+	}
+
+	/**
+	 * GET /api/remediation/:id/patch — Download the full patch file
+	 */
+	async getPatch(_req: Request, remediationId: string): Promise<Response> {
+		try {
+			// Check in-memory job first
+			if (this.remediationJobManager) {
+				const job = this.remediationJobManager.getJob(remediationId);
+				if (job?.result?.fullPatch) {
+					return new Response(job.result.fullPatch, {
+						headers: {
+							"Content-Type": "text/plain",
+							"Content-Disposition": 'attachment; filename="remediation.patch"',
+						},
+					});
+				}
+			}
+
+			// Fallback to database
+			const record = remediationRepository.getRemediationById(remediationId);
+			if (record?.fullPatch) {
+				return new Response(record.fullPatch, {
+					headers: {
+						"Content-Type": "text/plain",
+						"Content-Disposition": 'attachment; filename="remediation.patch"',
+					},
+				});
+			}
+
+			return notFoundResponse("Patch not found");
+		} catch (err: unknown) {
+			console.error("[RemediationRoutes] Error getting patch:", err);
+			return internalErrorResponse("Failed to get patch");
+		}
+	}
+
+	/**
+	 * GET /api/remediation/:id/progress — SSE stream for progress
+	 */
+	getProgress(remediationId: string): Response {
+		if (!this.remediationSSEHandler) {
+			return new Response(JSON.stringify({ error: "SSE not available" }), {
+				status: 503,
+				headers: { "Content-Type": "application/json" },
+			});
+		}
+		return this.remediationSSEHandler.createSSEResponse(remediationId);
 	}
 }

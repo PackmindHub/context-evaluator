@@ -137,6 +137,53 @@ function initializeDatabase(): Database {
     ON issue_bookmarks(evaluation_id);
   `);
 
+	// Create remediations table
+	database.run(`
+    CREATE TABLE IF NOT EXISTS remediations (
+      id TEXT PRIMARY KEY,
+      evaluation_id TEXT NOT NULL,
+      status TEXT NOT NULL,
+      provider TEXT NOT NULL,
+      target_file_type TEXT NOT NULL,
+      selected_issue_count INTEGER NOT NULL,
+      error_count INTEGER DEFAULT 0,
+      suggestion_count INTEGER DEFAULT 0,
+      full_patch TEXT,
+      file_changes_json TEXT,
+      total_additions INTEGER DEFAULT 0,
+      total_deletions INTEGER DEFAULT 0,
+      files_changed INTEGER DEFAULT 0,
+      total_duration_ms INTEGER DEFAULT 0,
+      total_cost_usd REAL DEFAULT 0,
+      total_input_tokens INTEGER DEFAULT 0,
+      total_output_tokens INTEGER DEFAULT 0,
+      error_message TEXT,
+      created_at TEXT NOT NULL,
+      completed_at TEXT,
+      FOREIGN KEY(evaluation_id) REFERENCES evaluations(id) ON DELETE CASCADE
+    );
+  `);
+
+	// Add summary_json column if it doesn't exist (for existing databases)
+	try {
+		database.run(`ALTER TABLE remediations ADD COLUMN summary_json TEXT;`);
+	} catch {
+		// Column already exists, ignore
+	}
+
+	// Add prompt_stats_json column if it doesn't exist (for existing databases)
+	try {
+		database.run(`ALTER TABLE remediations ADD COLUMN prompt_stats_json TEXT;`);
+	} catch {
+		// Column already exists, ignore
+	}
+
+	// Create index for remediation lookups by evaluation
+	database.run(`
+    CREATE INDEX IF NOT EXISTS idx_remediations_evaluation
+    ON remediations(evaluation_id);
+  `);
+
 	console.log("[Database] Database initialized successfully");
 
 	return database;

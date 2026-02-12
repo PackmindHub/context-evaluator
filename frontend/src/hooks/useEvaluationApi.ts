@@ -6,6 +6,7 @@ import type {
 	IEvaluateResponse,
 	IJobStatusResponse,
 } from "../types/job";
+import type { RemediationResult } from "../types/remediation";
 
 /** Supported AI provider names */
 export type ProviderName =
@@ -21,6 +22,23 @@ export interface RemediationPromptsResponse {
 	suggestionEnrichPrompt: string;
 	errorCount: number;
 	suggestionCount: number;
+}
+
+export interface ExecuteRemediationResponse {
+	remediationId: string;
+	sseUrl: string;
+	status: string;
+}
+
+export interface RemediationStatusResponse {
+	id: string;
+	status: string;
+	currentStep?: string;
+	result?: RemediationResult;
+	error?: { message: string; code: string };
+	createdAt: string;
+	startedAt?: string;
+	completedAt?: string;
 }
 
 interface IUseEvaluationApiReturn {
@@ -50,6 +68,16 @@ interface IUseEvaluationApiReturn {
 		issues: Issue[],
 		targetFileType: "AGENTS.md" | "CLAUDE.md",
 	) => Promise<RemediationPromptsResponse>;
+	executeRemediation: (
+		evaluationId: string,
+		issues: Issue[],
+		targetFileType: "AGENTS.md" | "CLAUDE.md",
+		provider: ProviderName,
+	) => Promise<ExecuteRemediationResponse>;
+	getRemediationResult: (
+		remediationId: string,
+	) => Promise<RemediationStatusResponse>;
+	downloadPatch: (remediationId: string) => Promise<void>;
 	isLoading: boolean;
 	error: string | null;
 	clearError: () => void;
@@ -274,6 +302,102 @@ export function useEvaluationApi(): IUseEvaluationApiReturn {
 		[],
 	);
 
+	const executeRemediation = useCallback(
+		async (
+			evaluationId: string,
+			issues: Issue[],
+			targetFileType: "AGENTS.md" | "CLAUDE.md",
+			provider: ProviderName,
+		): Promise<ExecuteRemediationResponse> => {
+			try {
+				const response = await fetch("/api/remediation/execute", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						evaluationId,
+						issues,
+						targetFileType,
+						provider,
+					}),
+				});
+
+				if (!response.ok) {
+					const errorData = await response.json().catch(() => ({}));
+					throw new Error(errorData.error || `HTTP error ${response.status}`);
+				}
+
+				const data = await response.json();
+
+				// Ensure sseUrl is absolute
+				if (data.sseUrl && data.sseUrl.startsWith("/")) {
+					data.sseUrl = `${window.location.origin}${data.sseUrl}`;
+				}
+
+				return data as ExecuteRemediationResponse;
+			} catch (err) {
+				const message =
+					err instanceof Error ? err.message : "Failed to execute remediation";
+				setError(message);
+				throw err;
+			}
+		},
+		[],
+	);
+
+	const getRemediationResult = useCallback(
+		async (remediationId: string): Promise<RemediationStatusResponse> => {
+			try {
+				const response = await fetch(`/api/remediation/${remediationId}`, {
+					method: "GET",
+					headers: { "Content-Type": "application/json" },
+				});
+
+				if (!response.ok) {
+					const errorData = await response.json().catch(() => ({}));
+					throw new Error(errorData.error || `HTTP error ${response.status}`);
+				}
+
+				return (await response.json()) as RemediationStatusResponse;
+			} catch (err) {
+				const message =
+					err instanceof Error
+						? err.message
+						: "Failed to get remediation result";
+				setError(message);
+				throw err;
+			}
+		},
+		[],
+	);
+
+	const downloadPatch = useCallback(
+		async (remediationId: string): Promise<void> => {
+			try {
+				const response = await fetch(`/api/remediation/${remediationId}/patch`);
+
+				if (!response.ok) {
+					throw new Error(`Failed to download patch: HTTP ${response.status}`);
+				}
+
+				const blob = await response.blob();
+				const url = URL.createObjectURL(blob);
+				const a = document.createElement("a");
+				a.href = url;
+				a.download = "remediation.patch";
+				document.body.appendChild(a);
+				a.click();
+				document.body.removeChild(a);
+				URL.revokeObjectURL(url);
+			} catch (err) {
+				const message =
+					err instanceof Error ? err.message : "Failed to download patch";
+				setError(message);
+				throw err;
+			}
+		},
+		[],
+	);
+
 	const clearError = useCallback(() => {
 		setError(null);
 	}, []);
@@ -285,6 +409,9 @@ export function useEvaluationApi(): IUseEvaluationApiReturn {
 		getJobStatus,
 		cancelJob,
 		generateRemediationPrompts,
+		executeRemediation,
+		getRemediationResult,
+		downloadPatch,
 		isLoading,
 		error,
 		clearError,

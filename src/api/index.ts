@@ -4,6 +4,7 @@ import { fileURLToPath } from "url";
 import { hasEmbeddedAssets, hasEmbeddedPrompts } from "../embedded";
 import { BatchManager } from "./jobs/batch-manager";
 import { JobManager } from "./jobs/job-manager";
+import { RemediationJobManager } from "./jobs/remediation-job-manager";
 import {
 	addCorsHeaders,
 	DEFAULT_CORS_HEADERS,
@@ -20,6 +21,7 @@ import { ProviderRoutes } from "./routes/providers";
 import { RemediationRoutes } from "./routes/remediation";
 import { StatsRoutes } from "./routes/stats";
 import { SSEProgressHandler } from "./sse/progress-handler";
+import { RemediationSSEHandler } from "./sse/remediation-sse-handler";
 import { serveStaticFile } from "./static/static-file-server";
 import { getEvaluatorById, getEvaluators } from "./utils/evaluator-utils";
 import {
@@ -64,6 +66,8 @@ interface IAPIServerConfig {
 export class APIServer {
 	private jobManager: JobManager;
 	private sseHandler: SSEProgressHandler;
+	private remediationJobManager: RemediationJobManager;
+	private remediationSSEHandler: RemediationSSEHandler;
 	private evaluationRoutes: EvaluationRoutes;
 	private feedbackRoutes: FeedbackRoutes;
 	private bookmarkRoutes: BookmarkRoutes;
@@ -84,6 +88,10 @@ export class APIServer {
 			maxQueueSize: config.maxQueueSize ?? 20,
 		});
 		this.sseHandler = new SSEProgressHandler(this.jobManager);
+		this.remediationJobManager = new RemediationJobManager(this.jobManager);
+		this.remediationSSEHandler = new RemediationSSEHandler(
+			this.remediationJobManager,
+		);
 		const batchManager = cloudMode
 			? null
 			: new BatchManager(this.jobManager, this.rateLimiter);
@@ -105,7 +113,11 @@ export class APIServer {
 			this.rateLimiter,
 		);
 		this.providerRoutes = new ProviderRoutes(cloudMode);
-		this.remediationRoutes = new RemediationRoutes(this.jobManager);
+		this.remediationRoutes = new RemediationRoutes(
+			this.jobManager,
+			this.remediationJobManager,
+			this.remediationSSEHandler,
+		);
 	}
 
 	/**
@@ -280,6 +292,27 @@ export class APIServer {
 		if (path === "/api/remediation/generate-prompts" && req.method === "POST") {
 			return this.remediationRoutes.generatePrompts(req);
 		}
+		if (path === "/api/remediation/execute" && req.method === "POST") {
+			return this.remediationRoutes.execute(req);
+		}
+		if (
+			path.match(/^\/api\/remediation\/[^/]+\/progress$/) &&
+			req.method === "GET"
+		) {
+			const remediationId = path.split("/")[3]!;
+			return this.remediationRoutes.getProgress(remediationId);
+		}
+		if (
+			path.match(/^\/api\/remediation\/[^/]+\/patch$/) &&
+			req.method === "GET"
+		) {
+			const remediationId = path.split("/")[3]!;
+			return this.remediationRoutes.getPatch(req, remediationId);
+		}
+		if (path.match(/^\/api\/remediation\/[^/]+$/) && req.method === "GET") {
+			const remediationId = path.split("/").pop()!;
+			return this.remediationRoutes.getRemediation(req, remediationId);
+		}
 
 		// Bookmark routes
 		if (path === "/api/bookmarks" && req.method === "POST") {
@@ -341,6 +374,8 @@ export class APIServer {
 	async stop(): Promise<void> {
 		apiServerLogger.log("\n🛑 Shutting down API server...");
 
+		this.remediationSSEHandler.shutdown();
+		this.remediationJobManager.shutdown();
 		this.sseHandler.shutdown();
 		this.jobManager.shutdown();
 

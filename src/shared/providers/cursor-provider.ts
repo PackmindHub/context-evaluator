@@ -59,11 +59,20 @@ export class CursorProvider extends BaseProvider {
 		prompt: string,
 		options: IProviderInvokeOptions = {},
 	): Promise<IProviderResponse> {
-		const { verbose = false, timeout = DEFAULT_TIMEOUT_MS, cwd } = options;
+		const {
+			verbose = false,
+			timeout = DEFAULT_TIMEOUT_MS,
+			cwd,
+			writeMode = false,
+		} = options;
 
 		// Cursor CLI command format: agent -p --output-format json
 		// Note: prompt is passed via stdin to avoid E2BIG errors on large prompts
 		const args = ["-p", "--output-format", "json"];
+
+		if (writeMode) {
+			args.push("--dangerously-skip-permissions");
+		}
 
 		if (verbose) {
 			console.log(`\n[${this.displayName}] Starting API call...`);

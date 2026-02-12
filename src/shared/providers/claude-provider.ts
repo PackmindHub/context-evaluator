@@ -46,7 +46,12 @@ export class ClaudeProvider extends BaseProvider {
 		prompt: string,
 		options: IProviderInvokeOptions = {},
 	): Promise<IProviderResponse> {
-		const { verbose = false, timeout = DEFAULT_TIMEOUT_MS, cwd } = options;
+		const {
+			verbose = false,
+			timeout = DEFAULT_TIMEOUT_MS,
+			cwd,
+			writeMode = false,
+		} = options;
 
 		// Note: prompt is passed via stdin to avoid E2BIG errors on large prompts
 		const args = [
@@ -56,6 +61,10 @@ export class ClaudeProvider extends BaseProvider {
 			"--no-session-persistence",
 			"--disable-slash-commands",
 		];
+
+		if (writeMode) {
+			args.push("--dangerously-skip-permissions");
+		}
 
 		if (verbose) {
 			claudeLogger.log(`\nStarting API call...`);

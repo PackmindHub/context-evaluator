@@ -35,6 +35,8 @@ export interface IProviderInvokeOptions {
 	timeout?: number;
 	/** Working directory for the CLI process (defaults to process.cwd()) */
 	cwd?: string;
+	/** Enable file editing mode (for remediation execution) */
+	writeMode?: boolean;
 }
 
 /**

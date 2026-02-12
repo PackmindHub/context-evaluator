@@ -62,7 +62,12 @@ export class CodexProvider extends BaseProvider {
 		prompt: string,
 		options: IProviderInvokeOptions = {},
 	): Promise<IProviderResponse> {
-		const { verbose = false, timeout = DEFAULT_TIMEOUT_MS, cwd } = options;
+		const {
+			verbose = false,
+			timeout = DEFAULT_TIMEOUT_MS,
+			cwd,
+			writeMode = false,
+		} = options;
 
 		// Codex CLI command format: codex exec --json --full-auto
 		// Note: prompt is passed via stdin to avoid E2BIG errors on large prompts
@@ -71,7 +76,7 @@ export class CodexProvider extends BaseProvider {
 			"--json",
 			"--full-auto",
 			"--sandbox",
-			"read-only",
+			writeMode ? "network-only" : "read-only",
 			"--skip-git-repo-check",
 		];
 

@@ -1392,3 +1392,63 @@
 		box-shadow: 0 0 12px rgba(99, 102, 241, 0.8);
 	}
 }
+
+/* ============================================
+   DIFF VIEWER
+   ============================================ */
+@layer components {
+	.diff-viewer {
+		@apply font-mono text-xs overflow-x-auto rounded-lg bg-slate-900/80 border border-slate-700/50;
+	}
+
+	.diff-line {
+		@apply flex;
+	}
+
+	.diff-line-addition {
+		background-color: rgba(34, 197, 94, 0.1);
+	}
+
+	.diff-line-deletion {
+		background-color: rgba(239, 68, 68, 0.1);
+	}
+
+	.diff-line-header {
+		@apply bg-slate-800 text-slate-400 italic;
+	}
+
+	.diff-line-number {
+		@apply text-slate-600 text-right select-none px-2 py-px;
+		min-width: 2.5rem;
+	}
+
+	.diff-line-prefix {
+		@apply px-1 py-px select-none text-slate-500;
+		min-width: 1rem;
+	}
+
+	.diff-line-content {
+		@apply whitespace-pre py-px text-slate-300;
+	}
+
+	.diff-line-addition .diff-line-content {
+		@apply text-green-300;
+	}
+
+	.diff-line-deletion .diff-line-content {
+		@apply text-red-300;
+	}
+
+	/* File change badges */
+	.change-badge-modified {
+		@apply bg-yellow-500/10 text-yellow-400 border border-yellow-500/20;
+	}
+
+	.change-badge-added {
+		@apply bg-green-500/10 text-green-400 border border-green-500/20;
+	}
+
+	.change-badge-deleted {
+		@apply bg-red-500/10 text-red-400 border border-red-500/20;
+	}
+}

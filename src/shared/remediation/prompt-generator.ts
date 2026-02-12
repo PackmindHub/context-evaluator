@@ -146,7 +146,17 @@ ${issueBlocks}
 3. Fix each remaining issue, highest severity first
 4. Preserve all correct existing content
 5. Keep changes minimal — only fix what's genuinely flagged
-6. Do not add commentary, headers, or sections beyond what's needed`;
+6. Do not add commentary, headers, or sections beyond what's needed
+7. After making all changes, output a JSON summary:
+\`\`\`json
+{
+  "actions": [
+    { "issueIndex": 1, "status": "fixed", "file": "AGENTS.md", "summary": "Replaced vague setup instructions with exact commands" },
+    { "issueIndex": 2, "status": "skipped", "summary": "Not a real issue after reading the file" }
+  ]
+}
+\`\`\`
+Use issue numbers from above. Status: "fixed" or "skipped". Keep summaries under 15 words.`;
 }
 
 function buildSuggestionEnrichPrompt(input: RemediationInput): string {
@@ -192,7 +202,17 @@ ${issueBlocks}
 4. Add concise, accurate documentation based on actual codebase analysis
 5. Create new ${input.targetFileType} files in subdirectories if recommended
 6. Preserve all correct existing content
-7. Keep additions minimal — only add what's needed to close the gap`;
+7. Keep additions minimal — only add what's needed to close the gap
+8. After making all changes, output a JSON summary:
+\`\`\`json
+{
+  "actions": [
+    { "issueIndex": 1, "status": "added", "file": "AGENTS.md", "summary": "Added testing patterns section with Jest conventions" },
+    { "issueIndex": 2, "status": "skipped", "summary": "Already documented in existing section" }
+  ]
+}
+\`\`\`
+Use gap numbers from above. Status: "added" or "skipped". Keep summaries under 15 words.`;
 }
 
 export function generateRemediationPrompts(
