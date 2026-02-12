@@ -1,3 +1,10 @@
+# [0.3.1] - 2026-02-12
+
+## Fixed
+
+- Suppress false positive severity-9 conflicts when colocated AGENTS.md/CLAUDE.md contain `@` file reference annotations (e.g., `@CLAUDE.md` pointing to the companion file)
+- File deduplication now drops pointer files containing only `@` references, keeping only the referenced content file
+
 # [0.3.0] - 2026-02-11
 
 ## Added

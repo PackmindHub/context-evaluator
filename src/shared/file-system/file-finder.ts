@@ -1,6 +1,7 @@
 import { lstat, readFile, realpath } from "fs/promises";
 import { glob } from "glob";
 import { basename, dirname, resolve } from "path";
+import { detectCrossReference } from "./file-reference-detector";
 
 /**
  * Find all Claude Code rules files (.claude/rules/ *.md) recursively.
@@ -319,13 +320,29 @@ async function deduplicateContextFiles(
 					}
 					result.push(agentsFile);
 				} else {
-					// Different content, keep both
-					if (verbose) {
-						console.log(
-							`[FileFinder] Keeping both files in ${dir} (different content)`,
-						);
+					// Different content - check for @ file reference annotations
+					const crossRef = detectCrossReference(agentsContent, claudeContent);
+					if (crossRef.hasReference) {
+						// One file is just a pointer, keep only the content file
+						const contentFile =
+							crossRef.contentFile === "agents" ? agentsFile : claudeFile;
+						const pointerFile =
+							crossRef.referenceFile === "agents" ? agentsFile : claudeFile;
+						if (verbose) {
+							console.log(
+								`[FileFinder] Deduplicated: ${pointerFile} (file reference to ${contentFile})`,
+							);
+						}
+						result.push(contentFile);
+					} else {
+						// Different content, keep both
+						if (verbose) {
+							console.log(
+								`[FileFinder] Keeping both files in ${dir} (different content)`,
+							);
+						}
+						result.push(agentsFile, claudeFile);
 					}
-					result.push(agentsFile, claudeFile);
 				}
 			} catch (error) {
 				// If we can't read files, keep both to be safe

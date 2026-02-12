@@ -5,6 +5,7 @@ import {
 	findColocatedMdFiles,
 	getRelativePath,
 } from "@shared/file-system/file-finder";
+import { detectCrossReference } from "@shared/file-system/file-reference-detector";
 import type { Issue, Location } from "@shared/types/evaluation";
 import { createTwoFilesPatch } from "diff";
 import { readFile } from "fs/promises";
@@ -98,6 +99,17 @@ export async function validateFileConsistency(
 					readFile(pair.agentsPath, "utf-8"),
 					readFile(pair.claudePath, "utf-8"),
 				]);
+
+				// Check for @ file reference annotations (e.g., @CLAUDE.md pointing to companion file)
+				const crossRef = detectCrossReference(agentsContent, claudeContent);
+				if (crossRef.hasReference) {
+					if (verbose) {
+						console.log(
+							`[FileConsistencyValidator] Skipped pair in ${getRelativePath(pair.directory, baseDir)}: ${crossRef.referenceFile === "agents" ? "AGENTS.md" : "CLAUDE.md"} is a file reference annotation`,
+						);
+					}
+					continue;
+				}
 
 				// Strip Packmind standards sections before comparison
 				const agentsContentStripped = stripPackmindStandards(agentsContent);

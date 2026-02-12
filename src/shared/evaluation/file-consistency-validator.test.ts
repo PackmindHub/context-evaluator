@@ -391,4 +391,95 @@ Claude specific standards
 		// Files differ only in presence of trailing newline, should be considered identical
 		expect(issue).toBeUndefined();
 	});
+
+	test("should report no conflict when AGENTS.md is a @CLAUDE.md reference", async () => {
+		const dir = join(testDir, "agents-ref-claude");
+		await mkdir(dir, { recursive: true });
+
+		await writeFile(join(dir, "AGENTS.md"), "@CLAUDE.md\n");
+		await writeFile(
+			join(dir, "CLAUDE.md"),
+			"# Real Content\n\nActual instructions here.\n",
+		);
+
+		const result = await validateFileConsistency(testDir);
+
+		const issue = result.issues.find(
+			(i) =>
+				i.category === "File Consistency" &&
+				Array.isArray(i.affectedFiles) &&
+				i.affectedFiles.some((f) => f.includes("agents-ref-claude")),
+		);
+
+		expect(issue).toBeUndefined();
+	});
+
+	test("should report no conflict when CLAUDE.md is a @AGENTS.md reference", async () => {
+		const dir = join(testDir, "claude-ref-agents");
+		await mkdir(dir, { recursive: true });
+
+		await writeFile(
+			join(dir, "AGENTS.md"),
+			"# Real Content\n\nActual instructions here.\n",
+		);
+		await writeFile(join(dir, "CLAUDE.md"), "@AGENTS.md\n");
+
+		const result = await validateFileConsistency(testDir);
+
+		const issue = result.issues.find(
+			(i) =>
+				i.category === "File Consistency" &&
+				Array.isArray(i.affectedFiles) &&
+				i.affectedFiles.some((f) => f.includes("claude-ref-agents")),
+		);
+
+		expect(issue).toBeUndefined();
+	});
+
+	test("should report no conflict for dotslash variant @./CLAUDE.md", async () => {
+		const dir = join(testDir, "dotslash-ref");
+		await mkdir(dir, { recursive: true });
+
+		await writeFile(join(dir, "AGENTS.md"), "@./CLAUDE.md");
+		await writeFile(
+			join(dir, "CLAUDE.md"),
+			"# Real Content\n\nActual instructions here.\n",
+		);
+
+		const result = await validateFileConsistency(testDir);
+
+		const issue = result.issues.find(
+			(i) =>
+				i.category === "File Consistency" &&
+				Array.isArray(i.affectedFiles) &&
+				i.affectedFiles.some((f) => f.includes("dotslash-ref")),
+		);
+
+		expect(issue).toBeUndefined();
+	});
+
+	test("should still report conflict when reference has extra content", async () => {
+		const dir = join(testDir, "ref-with-extra-content");
+		await mkdir(dir, { recursive: true });
+
+		await writeFile(
+			join(dir, "AGENTS.md"),
+			"@CLAUDE.md\n\n# Also some extra content\n",
+		);
+		await writeFile(
+			join(dir, "CLAUDE.md"),
+			"# Real Content\n\nActual instructions here.\n",
+		);
+
+		const result = await validateFileConsistency(testDir);
+
+		const issue = result.issues.find(
+			(i) =>
+				i.category === "File Consistency" &&
+				Array.isArray(i.affectedFiles) &&
+				i.affectedFiles.some((f) => f.includes("ref-with-extra-content")),
+		);
+
+		expect(issue).toBeDefined();
+	});
 });

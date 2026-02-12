@@ -833,6 +833,77 @@ describe("File Finder", () => {
 		});
 	});
 
+	describe("File Reference Deduplication", () => {
+		let testDir: string;
+
+		beforeEach(async () => {
+			testDir = join(
+				process.cwd(),
+				"test-temp",
+				`test-fileref-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+			);
+			await mkdir(testDir, { recursive: true });
+		});
+
+		afterEach(async () => {
+			await rm(testDir, { recursive: true, force: true });
+		});
+
+		test("should keep only CLAUDE.md when AGENTS.md is @CLAUDE.md reference", async () => {
+			await writeFile(join(testDir, "AGENTS.md"), "@CLAUDE.md\n");
+			await writeFile(
+				join(testDir, "CLAUDE.md"),
+				"# Real Content\n\nActual instructions here.\n",
+			);
+
+			const files = await findAgentsFiles(testDir);
+
+			expect(files.length).toBe(1);
+			expect(files[0]).toContain("CLAUDE.md");
+			expect(files[0]).not.toContain("AGENTS.md");
+		});
+
+		test("should keep only AGENTS.md when CLAUDE.md is @AGENTS.md reference", async () => {
+			await writeFile(
+				join(testDir, "AGENTS.md"),
+				"# Real Content\n\nActual instructions here.\n",
+			);
+			await writeFile(join(testDir, "CLAUDE.md"), "@AGENTS.md\n");
+
+			const files = await findAgentsFiles(testDir);
+
+			expect(files.length).toBe(1);
+			expect(files[0]).toContain("AGENTS.md");
+		});
+
+		test("should keep only CLAUDE.md for dotslash variant @./CLAUDE.md", async () => {
+			await writeFile(join(testDir, "AGENTS.md"), "@./CLAUDE.md");
+			await writeFile(
+				join(testDir, "CLAUDE.md"),
+				"# Real Content\n\nActual instructions here.\n",
+			);
+
+			const files = await findAgentsFiles(testDir);
+
+			expect(files.length).toBe(1);
+			expect(files[0]).toContain("CLAUDE.md");
+		});
+
+		test("should keep both files when reference has extra content", async () => {
+			await writeFile(
+				join(testDir, "AGENTS.md"),
+				"@CLAUDE.md\n# Extra content",
+			);
+			await writeFile(join(testDir, "CLAUDE.md"), "# Different content here\n");
+
+			const files = await findAgentsFiles(testDir);
+
+			expect(files.length).toBe(2);
+			expect(files.some((f) => f.endsWith("AGENTS.md"))).toBe(true);
+			expect(files.some((f) => f.endsWith("CLAUDE.md"))).toBe(true);
+		});
+	});
+
 	describe("Claude Code Rules Files Discovery", () => {
 		let testDir: string;
 
