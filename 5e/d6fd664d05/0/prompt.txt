@@ -1,0 +1,49 @@
+Implement the following plan:
+
+# Fix: Frontend flooding backend with remediation API requests
+
+## Context
+
+The frontend sends dozens of identical `GET /api/remediation/for-evaluation/{id}` requests per second (~50+ within a single second). This happens because `useEvaluationApi()` returns a **new object on every render**, and `RemediateTab.tsx` uses that object in a `useEffect` dependency array — causing the effect (which fetches remediation status) to re-run on every render in an infinite loop.
+
+## Root Cause
+
+1. **`useEvaluationApi()`** (`frontend/src/hooks/useEvaluationApi.ts:467-481`) returns a plain object literal. While each callback inside is individually stable (`useCallback(fn, [])`), the wrapping object is recreated every render.
+
+2. **`RemediateTab.tsx:162`** has `[evaluationId, api]` as useEffect deps. Since `api` is a new reference every render, the effect re-runs continuously, each time calling `getRemediationForEvaluation()`.
+
+3. **`useProviderDetection()`** (`frontend/src/hooks/useProviderDetection.ts:97-104`) has the same unstable-object pattern. Less impactful (guarded by `if status === "idle"`) but still causes unnecessary effect re-runs.
+
+## Changes
+
+### 1. `frontend/src/hooks/useEvaluationApi.ts`
+- Add `useMemo` to imports
+- Wrap the return object (lines 467-481) in `useMemo` with all its properties as dependencies
+- Since all callbacks have `[]` deps (stable), the memo only breaks when `isLoading` or `error` actually change
+
+### 2. `frontend/src/hooks/useProviderDetection.ts`
+- Add `useMemo` to imports
+- Wrap the return object (lines 97-104) in `useMemo` with all its properties as dependencies
+- Object stays stable once provider detection completes
+
+## What this does NOT change
+- No component files modified — fix is entirely in the hooks
+- No dependency arrays removed — they are correct per exhaustive-deps; the bug was in the hooks
+- No polling/debouncing added — the intent is a one-time fetch on mount, and after this fix that's what happens
+
+## Collateral benefits
+- `BatchStatusPage.tsx` has an existing `useRef` workaround for this same bug — becomes unnecessary (harmless to leave)
+- `App.tsx` callbacks (`handleSubmit`, `handleBatchSubmit`, `handleCancelJob`) stop being needlessly recreated
+- `PatchDownload.tsx` `handleDownload` stops being recreated every render
+
+## Verification
+1. `bun run test` — no regressions
+2. `bun run lint` + `bun run typecheck` — clean
+3. Manual: open RemediateTab with Network tab → confirm `/api/remediation/for-evaluation/{id}` is called once on mount, not continuously
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+commit this
