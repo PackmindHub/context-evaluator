@@ -1,11 +1,4 @@
-# [0.3.1] - 2026-02-12
-
-## Fixed
-
-- Suppress false positive severity-9 conflicts when colocated AGENTS.md/CLAUDE.md contain `@` file reference annotations (e.g., `@CLAUDE.md` pointing to the companion file)
-- File deduplication now drops pointer files containing only `@` references, keeping only the referenced content file
-
-# [0.3.0] - 2026-02-11
+# [Unreleased]
 
 ## Added
 
@@ -21,6 +14,12 @@
 - `--concurrency` CLI option to control parallel evaluator execution
 - Advanced CLI options: `--timeout`, `--linked-docs-concurrency`, `--enable-assessment-features`
 - Remediation API route (`POST /api/remediation/generate-prompts`) accepting issues directly
+
+
+## Fixed
+
+- Suppress false positive severity-9 conflicts when colocated AGENTS.md/CLAUDE.md contain `@` file reference annotations (e.g., `@CLAUDE.md` pointing to the companion file)
+- File deduplication now drops pointer files containing only `@` references, keeping only the referenced content file
 
 ## Changed
 
