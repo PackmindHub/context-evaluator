@@ -59,6 +59,7 @@ export class RemediationRoutes {
 		private jobManager: JobManager,
 		private remediationJobManager?: RemediationJobManager,
 		private remediationSSEHandler?: RemediationSSEHandler,
+		private cloudMode: boolean = false,
 	) {}
 
 	async generatePrompts(req: Request): Promise<Response> {
@@ -194,6 +195,27 @@ export class RemediationRoutes {
 				return errorResponse("provider is required", "INVALID_REQUEST", 400);
 			}
 
+			// Guard: one remediation per evaluation
+			if (
+				this.remediationJobManager.hasActiveJobForEvaluation(body.evaluationId)
+			) {
+				return errorResponse(
+					"A remediation is already in progress for this evaluation",
+					"REMEDIATION_EXISTS",
+					409,
+				);
+			}
+			const existingRecord = remediationRepository.getRemediationByEvaluationId(
+				body.evaluationId,
+			);
+			if (existingRecord) {
+				return errorResponse(
+					"A remediation already exists for this evaluation",
+					"REMEDIATION_EXISTS",
+					409,
+				);
+			}
+
 			const remediationId = this.remediationJobManager.submitJob(body);
 
 			return okResponse({
@@ -285,6 +307,57 @@ export class RemediationRoutes {
 		} catch (err: unknown) {
 			console.error("[RemediationRoutes] Error getting remediation:", err);
 			return internalErrorResponse("Failed to get remediation status");
+		}
+	}
+
+	/**
+	 * DELETE /api/remediation/:id — Delete a remediation (non-cloud only)
+	 */
+	async deleteRemediation(
+		_req: Request,
+		remediationId: string,
+	): Promise<Response> {
+		try {
+			if (this.cloudMode) {
+				return errorResponse(
+					"Deleting remediations is not allowed in cloud mode",
+					"CLOUD_MODE_RESTRICTED",
+					403,
+				);
+			}
+
+			// Prevent deleting active (queued/running) remediations
+			if (this.remediationJobManager) {
+				const job = this.remediationJobManager.getJob(remediationId);
+				if (job && (job.status === "queued" || job.status === "running")) {
+					return errorResponse(
+						"Cannot delete an active remediation",
+						"REMEDIATION_ACTIVE",
+						409,
+					);
+				}
+			}
+
+			const deleted = remediationRepository.deleteRemediation(remediationId);
+			if (!deleted) {
+				return notFoundResponse("Remediation not found");
+			}
+
+			// Clean up in-memory job data
+			if (this.remediationJobManager) {
+				// Find the job to get the evaluationId for cleanup
+				const job = this.remediationJobManager.getJob(remediationId);
+				if (job) {
+					this.remediationJobManager.removeJobByEvaluationId(
+						job.request.evaluationId,
+					);
+				}
+			}
+
+			return okResponse({ success: true });
+		} catch (err: unknown) {
+			console.error("[RemediationRoutes] Error deleting remediation:", err);
+			return internalErrorResponse("Failed to delete remediation");
 		}
 	}
 

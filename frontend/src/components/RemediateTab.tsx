@@ -73,6 +73,7 @@ interface RemediateTabProps {
 	issueKeyMap: Map<string, Issue>;
 	onRemoveIssue: (key: string) => void;
 	onClearAll: () => void;
+	cloudMode?: boolean;
 }
 
 export function RemediateTab({
@@ -82,6 +83,7 @@ export function RemediateTab({
 	issueKeyMap,
 	onRemoveIssue,
 	onClearAll,
+	cloudMode = false,
 }: RemediateTabProps) {
 	const api = useEvaluationApi();
 	const providerDetection = useProviderDetection();
@@ -94,6 +96,8 @@ export function RemediateTab({
 		useState<ProviderName>("claude");
 	const [isExecuting, setIsExecuting] = useState(false);
 	const [showConfirmModal, setShowConfirmModal] = useState(false);
+	const [showDeleteModal, setShowDeleteModal] = useState(false);
+	const [isDeleting, setIsDeleting] = useState(false);
 	const [executeError, setExecuteError] = useState<string | null>(null);
 
 	// SSE state
@@ -455,13 +459,25 @@ export function RemediateTab({
 		api,
 	]);
 
-	const handleBackToConfig = useCallback(() => {
-		setPhase("config");
-		setResult(null);
-		setRemediationId(null);
-		setSseUrl(null);
-		setProgressState({ status: "queued", logs: [] });
-	}, []);
+	const handleDeleteRemediation = useCallback(async () => {
+		if (!remediationId) return;
+		setIsDeleting(true);
+		try {
+			await api.deleteRemediation(remediationId);
+			setPhase("config");
+			setResult(null);
+			setRemediationId(null);
+			setSseUrl(null);
+			setProgressState({ status: "queued", logs: [] });
+			setShowDeleteModal(false);
+		} catch (err) {
+			setExecuteError(
+				err instanceof Error ? err.message : "Failed to delete remediation",
+			);
+		} finally {
+			setIsDeleting(false);
+		}
+	}, [remediationId, api]);
 
 	if (!evaluationData) {
 		return (
@@ -474,7 +490,7 @@ export function RemediateTab({
 		);
 	}
 
-	if (totalSelected === 0) {
+	if (totalSelected === 0 && phase === "config") {
 		return (
 			<div className="space-y-6">
 				<div className="card">
@@ -603,9 +619,15 @@ export function RemediateTab({
 						</div>
 						<div className="flex items-center gap-2">
 							{remediationId && <PatchDownload remediationId={remediationId} />}
-							<button onClick={handleBackToConfig} className="btn-secondary">
-								Back
-							</button>
+							{!cloudMode && (
+								<button
+									onClick={() => setShowDeleteModal(true)}
+									disabled={isDeleting}
+									className="btn-secondary text-red-400 hover:text-red-300"
+								>
+									{isDeleting ? "Deleting..." : "Delete & Start Over"}
+								</button>
+							)}
 						</div>
 					</div>
 				</div>
@@ -635,6 +657,40 @@ export function RemediateTab({
 						})}
 					</div>
 				)}
+
+				{executeError && <p className="text-sm text-red-400">{executeError}</p>}
+
+				{/* Delete Confirmation Modal */}
+				<Modal
+					isOpen={showDeleteModal}
+					onClose={() => setShowDeleteModal(false)}
+					title="Delete Remediation"
+					maxWidth="max-w-md"
+				>
+					<div className="space-y-4">
+						<p className="text-sm text-slate-300">
+							This will permanently delete the remediation result for this
+							evaluation. You can then re-run remediation with a fresh git
+							state.
+						</p>
+						<div className="flex justify-end gap-3 pt-2">
+							<button
+								onClick={() => setShowDeleteModal(false)}
+								className="btn-secondary"
+								disabled={isDeleting}
+							>
+								Cancel
+							</button>
+							<button
+								onClick={handleDeleteRemediation}
+								disabled={isDeleting}
+								className="btn-primary bg-red-600 hover:bg-red-500"
+							>
+								{isDeleting ? "Deleting..." : "Delete"}
+							</button>
+						</div>
+					</div>
+				</Modal>
 			</div>
 		);
 	}

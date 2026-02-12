@@ -741,13 +741,13 @@ function AppContent() {
 							await feedbackApi.getFeedbackForEvaluation(urlEvaluationId);
 						setFeedbackMap(feedback);
 						if (!cloudMode) {
-							const [bookmarks, selections] = await Promise.all([
-								bookmarkApi.getBookmarksForEvaluation(urlEvaluationId),
-								selectionApi.getSelectionsForEvaluation(urlEvaluationId),
-							]);
+							const bookmarks =
+								await bookmarkApi.getBookmarksForEvaluation(urlEvaluationId);
 							setBookmarkSet(bookmarks);
-							setSelectedIssueKeys(selections);
 						}
+						const selections =
+							await selectionApi.getSelectionsForEvaluation(urlEvaluationId);
+						setSelectedIssueKeys(selections);
 					} catch (err) {
 						console.error("Failed to load metadata:", err);
 					}
@@ -830,13 +830,13 @@ function AppContent() {
 							await feedbackApi.getFeedbackForEvaluation(urlEvaluationId);
 						setFeedbackMap(feedback);
 						if (!cloudMode) {
-							const [bookmarks, selections] = await Promise.all([
-								bookmarkApi.getBookmarksForEvaluation(urlEvaluationId),
-								selectionApi.getSelectionsForEvaluation(urlEvaluationId),
-							]);
+							const bookmarks =
+								await bookmarkApi.getBookmarksForEvaluation(urlEvaluationId);
 							setBookmarkSet(bookmarks);
-							setSelectedIssueKeys(selections);
 						}
+						const selections =
+							await selectionApi.getSelectionsForEvaluation(urlEvaluationId);
+						setSelectedIssueKeys(selections);
 					} catch (err) {
 						console.error("Failed to load metadata:", err);
 					}
@@ -1902,6 +1902,7 @@ function AppContent() {
 								issueKeyMap={issueKeyMap}
 								onRemoveIssue={handleRemoveIssueFromRemediation}
 								onClearAll={handleClearSelection}
+								cloudMode={cloudMode}
 							/>
 						</TabPanel>
 

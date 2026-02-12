@@ -120,6 +120,7 @@ export class APIServer {
 			this.jobManager,
 			this.remediationJobManager,
 			this.remediationSSEHandler,
+			cloudMode,
 		);
 	}
 
@@ -321,6 +322,10 @@ export class APIServer {
 		) {
 			const remediationId = path.split("/")[3]!;
 			return this.remediationRoutes.getPatch(req, remediationId);
+		}
+		if (path.match(/^\/api\/remediation\/[^/]+$/) && req.method === "DELETE") {
+			const remediationId = path.split("/").pop()!;
+			return this.remediationRoutes.deleteRemediation(req, remediationId);
 		}
 		if (path.match(/^\/api\/remediation\/[^/]+$/) && req.method === "GET") {
 			const remediationId = path.split("/").pop()!;

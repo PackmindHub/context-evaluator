@@ -216,6 +216,13 @@ export class RemediationRepository {
 		return this.rowToRecord(row);
 	}
 
+	deleteRemediation(id: string): boolean {
+		const db = getDatabase();
+		const stmt = db.prepare(`DELETE FROM remediations WHERE id = ?`);
+		const result = stmt.run(id);
+		return result.changes > 0;
+	}
+
 	getRemediationByEvaluationId(
 		evaluationId: string,
 	): IRemediationRecord | null {

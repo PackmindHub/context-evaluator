@@ -107,6 +107,7 @@ interface IUseEvaluationApiReturn {
 	getRemediationForEvaluation: (
 		evaluationId: string,
 	) => Promise<RemediationForEvaluationResponse | null>;
+	deleteRemediation: (remediationId: string) => Promise<void>;
 	downloadPatch: (remediationId: string) => Promise<void>;
 	isLoading: boolean;
 	error: string | null;
@@ -432,6 +433,28 @@ export function useEvaluationApi(): IUseEvaluationApiReturn {
 		[],
 	);
 
+	const deleteRemediation = useCallback(
+		async (remediationId: string): Promise<void> => {
+			try {
+				const response = await fetch(`/api/remediation/${remediationId}`, {
+					method: "DELETE",
+					headers: { "Content-Type": "application/json" },
+				});
+
+				if (!response.ok) {
+					const errorData = await response.json().catch(() => ({}));
+					throw new Error(errorData.error || `HTTP error ${response.status}`);
+				}
+			} catch (err) {
+				const message =
+					err instanceof Error ? err.message : "Failed to delete remediation";
+				setError(message);
+				throw err;
+			}
+		},
+		[],
+	);
+
 	const downloadPatch = useCallback(
 		async (remediationId: string): Promise<void> => {
 			try {
@@ -475,6 +498,7 @@ export function useEvaluationApi(): IUseEvaluationApiReturn {
 			executeRemediation,
 			getRemediationResult,
 			getRemediationForEvaluation,
+			deleteRemediation,
 			downloadPatch,
 			isLoading,
 			error,
@@ -490,6 +514,7 @@ export function useEvaluationApi(): IUseEvaluationApiReturn {
 			executeRemediation,
 			getRemediationResult,
 			getRemediationForEvaluation,
+			deleteRemediation,
 			downloadPatch,
 			isLoading,
 			error,

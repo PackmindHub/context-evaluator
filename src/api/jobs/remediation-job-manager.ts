@@ -77,6 +77,30 @@ export class RemediationJobManager {
 		return undefined;
 	}
 
+	hasActiveJobForEvaluation(evaluationId: string): boolean {
+		for (const job of this.jobs.values()) {
+			if (
+				job.request.evaluationId === evaluationId &&
+				(job.status === "queued" || job.status === "running")
+			) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	removeJobByEvaluationId(evaluationId: string): boolean {
+		for (const [id, job] of this.jobs) {
+			if (job.request.evaluationId === evaluationId) {
+				this.jobs.delete(id);
+				this.progressCallbacks.delete(id);
+				this.eventBuffer.delete(id);
+				return true;
+			}
+		}
+		return false;
+	}
+
 	onProgress(jobId: string, callback: RemediationProgressCallback): void {
 		const callbacks = this.progressCallbacks.get(jobId) ?? [];
 		callbacks.push(callback);
