@@ -1,0 +1,135 @@
+Implement the following plan:
+
+# Plan: Remediation Real-Time Progress, Sequential Execution & Backend Logging
+
+## Context
+
+The remediation system executes AI prompts to fix evaluation issues but provides minimal feedback during execution. The user sees only a spinner with a step label ("Fixing errors...") and generic log lines ("Step started: executing_error_fix"). Backend console output is limited to 3 lines per job (queued/completed/failed). The user wants: (1) rich real-time progress in the UI, (2) confirmation that prompts run sequentially, and (3) detailed backend logging for tracking.
+
+**Key finding**: Prompts already execute sequentially — error batches run one-at-a-time via `for`/`await`, then suggestion batches the same way. No code changes needed for sequential execution.
+
+## Files to Modify
+
+| File | Change |
+|------|--------|
+| `src/shared/types/remediation.ts` | Add `remediation.progress` event type |
+| `src/shared/remediation/engine.ts` | Emit enriched events + add structured logging |
+| `src/api/jobs/remediation-job-manager.ts` | Enhanced job lifecycle logging |
+| `frontend/src/types/remediation.ts` | Extend `IRemediationProgressState` with new tracking fields |
+| `frontend/src/components/RemediateTab.tsx` | Handle new `remediation.progress` event, pass enriched props |
+| `frontend/src/components/RemediationProgress.tsx` | Redesign with summary header, progress bar, running totals, batch detail |
+
+## Step 1: Add `remediation.progress` event type (backend types)
+
+**File**: `src/shared/types/remediation.ts`
+
+Add `"remediation.progress"` to the `RemediationProgressEvent.type` union. No new interfaces needed — the `data` field is already `Record<string, unknown>`.
+
+## Step 2: Enrich engine events + add backend logging
+
+**File**: `src/shared/remediation/engine.ts`
+
+### 2a. Extend `emitStep` to accept extra data
+
+Add an optional `extraData?: Record<string, unknown>` parameter. Spread it into the event's `data` object alongside `step` and `batchInfo`.
+
+### 2b. Emit initial plan event after computing batches
+
+After splitting errors/suggestions and creating the provider (around line 193), emit a `remediation.progress` event with:
+- `errorCount`, `suggestionCount`
+- `errorBatchCount`, `suggestionBatchCount`, `totalBatches`
+- `provider`, `targetFileType`
+- All running totals initialized to 0
+
+### 2c. Enrich `step.started` with issue summaries
+
+Before each batch's `emitStep("started")`, compute brief issue summaries (`evaluatorName: category`) and pass them as `issuesSummary` + `batchIssueCount` in `extraData`.
+
+### 2d. Enrich `step.completed` with per-batch stats
+
+After each provider response, pass `batchDurationMs`, `batchCostUsd`, `batchInputTokens`, `batchOutputTokens` in `extraData`.
+
+### 2e. Emit `remediation.progress` after each batch with running totals
+
+Track global counters (`globalCompletedBatches`, `globalTotalDurationMs`, `globalTotalCostUsd`, `globalTotalInputTokens`, `globalTotalOutputTokens`) and emit a `remediation.progress` event after each batch completes. Include `phase: "errors" | "suggestions"`.
+
+### 2f. Add structured `console.log` statements with `[Remediation]` prefix
+
+Key log points:
+- After determining working directory: `[Remediation] Working directory: /path (clone|local)`
+- After splitting issues: `[Remediation] Issues: 5 errors, 3 suggestions`
+- After computing batches: `[Remediation] Plan: 2 error batch(es) + 1 suggestion batch(es), provider: claude`
+- Before each provider call: `[Remediation] Invoking claude for error fix batch 1/2 (10 issues)`
+- After each provider response: `[Remediation] Batch 1/2 completed: 23400ms, $0.0234, 12340 in / 4567 out`
+- After diff capture: `[Remediation] Diff: 3 files changed, +45/-12 lines`
+- After reset: `[Remediation] Working directory reset`
+- After summary parsing: `[Remediation] Summary: 7 addressed, 1 skipped, parsed=true`
+- Before return: `[Remediation] Complete: 3 files, +45/-12 lines, 67800ms total, $0.0468`
+
+## Step 3: Enhance job manager logging
+
+**File**: `src/api/jobs/remediation-job-manager.ts`
+
+- **On queue**: Add issue count, provider, target file type to the log
+- **On start**: Add a `Job started` log line (currently missing)
+- **On completion**: Add duration and file change stats
+- **On failure**: Already logs error message — keep as-is
+
+## Step 4: Extend frontend progress state types
+
+**File**: `frontend/src/types/remediation.ts`
+
+Add fields to `IRemediationProgressState`:
+```
+errorCount?, suggestionCount?, totalBatches?, completedBatches?,
+currentPhase?, runningTotalCostUsd?, runningTotalDurationMs?,
+runningTotalInputTokens?, runningTotalOutputTokens?,
+currentBatchIssues?, lastBatchStats?
+```
+
+## Step 5: Handle new events in RemediateTab SSE handler
+
+**File**: `frontend/src/components/RemediateTab.tsx`
+
+- Add `case "remediation.progress"` to `handleSSEMessage` — update counts, totals, phase
+- Enrich `case "remediation.step.started"` — capture `issuesSummary` into state
+- Enrich `case "remediation.step.completed"` — capture batch stats, generate richer log message (e.g., "Error fix batch 1/2 completed: 23s, $0.02")
+- Pass all new state fields as props to `<RemediationProgress>`
+
+## Step 6: Redesign RemediationProgress component
+
+**File**: `frontend/src/components/RemediationProgress.tsx`
+
+Updated layout with 5 sections:
+
+1. **Summary header** (always visible once plan event received):
+   `Fixing 5 errors (2 batches), then enriching 3 suggestions (1 batch)`
+
+2. **Progress bar** (visible once batches start):
+   A simple `bg-slate-700` track with `bg-blue-500` fill bar, label: `Batch 2/3`
+
+3. **Running totals strip** (visible once first batch completes):
+   `Cost: $0.0234 | Tokens: 12,340 in / 4,567 out | Time: 45s`
+
+4. **Current batch detail** (visible during execution):
+   Lists issue summaries for the active batch (from `currentBatchIssues`)
+
+5. **Activity log** (existing, unchanged, scrollable at bottom)
+
+Uses existing CSS classes only: `text-caption`, `text-body-muted`, `text-xs`, `text-sm`, `bg-slate-800/50`, `border-slate-700/50`, `text-blue-400`.
+
+## Verification
+
+1. Run `bun run test` — all existing tests must pass
+2. Run `bun run lint` — no lint errors
+3. Manual test: start the dev server (`bun run dev`), run an evaluation, select issues, execute remediation:
+   - Verify the progress UI shows summary header, progress bar, running totals, and batch details in real-time
+   - Verify the backend console shows detailed `[Remediation]` log lines at each step
+   - Verify prompts execute sequentially (error batches first, then suggestions, one at a time)
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+Generate a commit message but don't commit it
