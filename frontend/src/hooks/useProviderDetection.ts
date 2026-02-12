@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { ProviderName } from "./useEvaluationApi";
 
 /**
@@ -94,12 +94,22 @@ export function useProviderDetection(): IUseProviderDetectionReturn {
 		[state.providers],
 	);
 
-	return {
-		detectProviders,
-		status: state.status,
-		providers: state.providers,
-		error: state.error,
-		clearError,
-		getProviderStatus,
-	};
+	return useMemo(
+		() => ({
+			detectProviders,
+			status: state.status,
+			providers: state.providers,
+			error: state.error,
+			clearError,
+			getProviderStatus,
+		}),
+		[
+			detectProviders,
+			state.status,
+			state.providers,
+			state.error,
+			clearError,
+			getProviderStatus,
+		],
+	);
 }
