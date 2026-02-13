@@ -2,7 +2,7 @@
 
 AI agent documentation quality analyzer for AGENTS.md and CLAUDE.md files.
 
-This tool evaluates your AI agent instruction files using 17 specialized evaluators to identify issues and improvement opportunities. It helps ensure your documentation provides clear, actionable guidance for AI coding assistants.
+This tool evaluates your AI agent instruction files using 17 specialized evaluators to identify issues and improvement opportunities, and can automatically remediate them using AI. It helps ensure your documentation provides clear, actionable guidance for AI coding assistants.
 
 **An experimental project from [Packmind](https://github.com/PackmindHub/packmind).**
 
@@ -93,6 +93,32 @@ Each issue includes:
 - Location in your documentation
 - Problem description
 - Recommended fix
+
+---
+
+## Remediation
+
+After reviewing evaluation results, you can automatically fix issues using AI-powered remediation (web UI only).
+
+### How it works
+
+1. **Select issues** — Use the + button on issue cards to add them to your selection basket
+2. **Configure** — Choose your target file type (AGENTS.md or CLAUDE.md) and AI provider
+3. **Execute** — Click "Execute Remediation" to let the AI agent fix errors and add missing content
+4. **Review** — Inspect the generated diffs per file, then download the patch
+
+Errors are fixed first (sorted by severity), then suggestions are added on top. Issues are batched automatically to stay within token limits.
+
+### Output
+
+- Per-file diffs with additions/deletions
+- Action summary showing what was fixed, added, or skipped
+- Downloadable `.patch` file
+- Cost and token usage breakdown
+
+### Alternative: Generate Prompts
+
+If you prefer manual control, click "Generate Prompts" to get copy-paste-ready prompts for your own CLI agent.
 
 ---
 
