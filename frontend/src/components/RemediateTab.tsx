@@ -165,6 +165,13 @@ export function RemediateTab({
 		};
 	}, [evaluationId, api]);
 
+	// Clear selection basket when remediation completes (fresh or restored)
+	useEffect(() => {
+		if (phase === "results") {
+			onClearAll();
+		}
+	}, [phase, onClearAll]);
+
 	// Available providers for the selector
 	const availableProviders = useMemo(() => {
 		const providers: ProviderStatus[] = [];
@@ -1019,15 +1026,30 @@ function PromptDisplay({ title, content }: { title: string; content: string }) {
 	);
 }
 
+function getGroupDisplayName(issueTitle: string): string {
+	const colonIndex = issueTitle.indexOf(": ");
+	return colonIndex >= 0 ? issueTitle.slice(colonIndex + 2) : issueTitle;
+}
+
 function ActionSummarySection({
 	summary,
 }: {
 	summary: NonNullable<RemediationResult["summary"]>;
 }) {
-	const allActions = [
-		...summary.errorFixActions,
-		...summary.suggestionEnrichActions,
-	];
+	const groupedActions = useMemo(() => {
+		const allActions = [
+			...summary.errorFixActions,
+			...summary.suggestionEnrichActions,
+		];
+		const groups = new Map<string, RemediationAction[]>();
+		for (const action of allActions) {
+			const key = action.issueTitle ?? "Other";
+			const existing = groups.get(key);
+			if (existing) existing.push(action);
+			else groups.set(key, [action]);
+		}
+		return groups;
+	}, [summary.errorFixActions, summary.suggestionEnrichActions]);
 
 	return (
 		<div className="card">
@@ -1042,62 +1064,67 @@ function ActionSummarySection({
 					)}
 				</span>
 			</div>
-			<div className="space-y-1">
-				{allActions.map((action) => (
-					<div
-						key={`${action.issueIndex}-${action.status}`}
-						className="flex items-start gap-2 py-1 px-1"
-					>
-						{action.status === "skipped" ? (
-							<span className="text-slate-500 flex-shrink-0 mt-0.5">
-								<svg
-									className="w-4 h-4"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
+			<div className="space-y-3">
+				{[...groupedActions.entries()].map(([issueTitle, actions]) => (
+					<div key={issueTitle}>
+						<div className="flex items-center justify-between mb-1 px-1">
+							<span className="text-sm font-medium text-slate-300">
+								{getGroupDisplayName(issueTitle)}
+							</span>
+							<span className="text-xs text-slate-500">
+								{actions.length} {actions.length === 1 ? "action" : "actions"}
+							</span>
+						</div>
+						<div className="pl-4 border-l border-slate-700/50 space-y-1">
+							{actions.map((action) => (
+								<div
+									key={`${action.issueIndex}-${action.status}`}
+									className="flex items-start gap-2 py-1 px-1"
 								>
-									<path
-										strokeLinecap="round"
-										strokeLinejoin="round"
-										strokeWidth={2}
-										d="M20 12H4"
-									/>
-								</svg>
-							</span>
-						) : (
-							<span className="text-green-400 flex-shrink-0 mt-0.5">
-								<svg
-									className="w-4 h-4"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-								>
-									<path
-										strokeLinecap="round"
-										strokeLinejoin="round"
-										strokeWidth={2}
-										d="M5 13l4 4L19 7"
-									/>
-								</svg>
-							</span>
-						)}
-						<span className="text-sm text-slate-300 flex-1">
-							{action.issueTitle ? (
-								<span className="text-slate-400 text-xs mr-1.5">
-									{action.issueTitle}
-								</span>
-							) : (
-								<span className="text-slate-400 font-mono text-xs mr-1.5">
-									#{action.issueIndex}
-								</span>
-							)}
-							{action.summary}
-						</span>
-						{action.file && (
-							<span className="text-xs text-slate-500 font-mono flex-shrink-0">
-								{action.file}
-							</span>
-						)}
+									{action.status === "skipped" ? (
+										<span className="text-slate-500 flex-shrink-0 mt-0.5">
+											<svg
+												className="w-4 h-4"
+												fill="none"
+												viewBox="0 0 24 24"
+												stroke="currentColor"
+											>
+												<path
+													strokeLinecap="round"
+													strokeLinejoin="round"
+													strokeWidth={2}
+													d="M20 12H4"
+												/>
+											</svg>
+										</span>
+									) : (
+										<span className="text-green-400 flex-shrink-0 mt-0.5">
+											<svg
+												className="w-4 h-4"
+												fill="none"
+												viewBox="0 0 24 24"
+												stroke="currentColor"
+											>
+												<path
+													strokeLinecap="round"
+													strokeLinejoin="round"
+													strokeWidth={2}
+													d="M5 13l4 4L19 7"
+												/>
+											</svg>
+										</span>
+									)}
+									<span className="text-sm text-slate-300 flex-1">
+										{action.summary}
+									</span>
+									{action.file && (
+										<span className="text-xs text-slate-500 font-mono flex-shrink-0">
+											{action.file}
+										</span>
+									)}
+								</div>
+							))}
+						</div>
 					</div>
 				))}
 			</div>
