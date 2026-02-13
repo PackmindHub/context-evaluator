@@ -83,6 +83,7 @@ Tests are located in the tests/ directory following pytest conventions.
 - `npm test`, `npm run test`, `npm t`
 - `yarn test`, `yarn run test`
 - `bun test`, `bun run test`
+- `pnpm test`, `pnpm run test`
 - `pytest`, `pytest .`, `python -m pytest`
 - `cargo test`
 - `go test`, `go test ./...`
@@ -91,6 +92,14 @@ Tests are located in the tests/ directory following pytest conventions.
 - `rake test`, `bundle exec rspec`
 - `mix test` (Elixir)
 - `dotnet test` (.NET)
+- `nx test`, `nx test <project-name>`, `nx run <project>:test`
+- `turbo test`, `turbo run test`
+- `lerna test`, `lerna run test`
+- `rush test`
+- `make test`
+- `bazel test`
+
+**General Principle:** Commands from well-known build/monorepo tools (Nx, Turborepo, Lerna, Rush, Make, Bazel) that invoke `test` targets are wrappers around standard test runners. They follow the same exit code and output conventions. Treat them identically to direct test runner invocations. Parameterized versions (e.g., `nx test <project-name>`) are also exempt.
 
 **Why these are exempt:**
 - Exit code 0 = all tests pass, non-zero = failures
