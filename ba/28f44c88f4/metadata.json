@@ -3,9 +3,17 @@
   "checkpoint_id": "ba28f44c88f4",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 1,
+  "checkpoints_count": 2,
   "files_touched": [
-    "frontend/src/components/RemediateTab.tsx"
+    "frontend/src/components/RemediateTab.tsx",
+    "prompts/evaluators/context-gaps.md",
+    "prompts/evaluators/database-patterns-coverage.md",
+    "prompts/evaluators/test-patterns-coverage.md",
+    "src/api/routes/remediation.ts",
+    "src/shared/remediation/engine.ts",
+    "src/shared/remediation/prompt-generator.test.ts",
+    "src/shared/remediation/prompt-generator.ts",
+    "src/shared/types/remediation.ts"
   ],
   "sessions": [
     {
@@ -14,13 +22,20 @@
       "context": "/ba/28f44c88f4/0/context.md",
       "content_hash": "/ba/28f44c88f4/0/content_hash.txt",
       "prompt": "/ba/28f44c88f4/0/prompt.txt"
+    },
+    {
+      "metadata": "/ba/28f44c88f4/1/metadata.json",
+      "transcript": "/ba/28f44c88f4/1/full.jsonl",
+      "context": "/ba/28f44c88f4/1/context.md",
+      "content_hash": "/ba/28f44c88f4/1/content_hash.txt",
+      "prompt": "/ba/28f44c88f4/1/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 16,
-    "cache_creation_tokens": 42468,
-    "cache_read_tokens": 657304,
-    "output_tokens": 185,
-    "api_call_count": 14
+    "input_tokens": 60,
+    "cache_creation_tokens": 113380,
+    "cache_read_tokens": 3103988,
+    "output_tokens": 5799,
+    "api_call_count": 50
   }
 }

@@ -1,0 +1,139 @@
+Implement the following plan:
+
+# Plan: Propagate `isPhantomFile` Through Remediation Pipeline & Add Phantom File Support to Evaluators 12/14/15
+
+## Context
+
+Suggestion evaluators can identify context gaps that warrant either updating an existing AGENTS.md file or creating a new one in a subdirectory. Currently, only evaluator 11 (subdirectory-coverage) supports suggesting new file creation via `isPhantomFile: true`. Evaluators 12, 14, 15 only reference existing files. Additionally, even when evaluator 11 produces a phantom file suggestion, the `isPhantomFile` flag is **dropped** during the remediation pipeline conversion, so the AI agent never gets an explicit "create this file" instruction.
+
+**Goal**: Each suggestion should clearly indicate whether it's about (1) updating an existing file or (2) creating a new file at a specific path. The remediation prompt must reflect this distinction.
+
+---
+
+## Changes
+
+### 1. Add `isPhantomFile` to `RemediationIssue` interface
+
+**File**: `src/shared/remediation/prompt-generator.ts` (line 9-21)
+
+Add `isPhantomFile?: boolean` to the `RemediationIssue` interface.
+
+### 2. Add `isPhantomFile` to `IRemediationRequest.issues` type
+
+**File**: `src/shared/types/remediation.ts` (lines 73-93)
+
+Add `isPhantomFile?: boolean` to the issues array item type so the field isn't silently discarded.
+
+### 3. Preserve `isPhantomFile` in both `issueToRemediationIssue` functions
+
+Two places convert issues and currently drop the field:
+
+**File**: `src/shared/remediation/engine.ts` (lines 67-91)
+- Add `isPhantomFile: issue.isPhantomFile` to the return object
+
+**File**: `src/api/routes/remediation.ts` (lines 31-55)
+- Add `isPhantomFile: issue.isPhantomFile` to the return object
+
+### 4. Update `formatSuggestionIssueBlock` to distinguish "create" vs "update"
+
+**File**: `src/shared/remediation/prompt-generator.ts` (lines 84-108)
+
+When `isPhantomFile` is true, output:
+```
+**Action**: Create new file at `packages/frontend/AGENTS.md`
+```
+Instead of the misleading:
+```
+**File**: packages/frontend/AGENTS.md, lines 1-1
+```
+
+The existing file case remains unchanged (`**File**: path, lines X-Y`).
+
+### 5. Update `buildSuggestionEnrichPrompt` instruction text
+
+**File**: `src/shared/remediation/prompt-generator.ts` (line 203)
+
+Replace instruction 5:
+```
+5. Create new ${input.targetFileType} files in subdirectories if recommended
+```
+With:
+```
+5. When a gap specifies "Create new file at <path>", create that file with the recommended content
+```
+
+### 6. Add phantom file format sections to evaluator prompts 12, 14, 15
+
+Add a "Phantom File Location Format (Optional)" section before the "Your Task" section in each evaluator prompt, following the same pattern established by evaluator 11. The section explains when/how to use `isPhantomFile: true` with subdirectory-specific paths.
+
+**Files**:
+- `prompts/evaluators/context-gaps.md` - insert before line 361 (before `## Your Task`)
+- `prompts/evaluators/test-patterns-coverage.md` - insert before line 663
+- `prompts/evaluators/database-patterns-coverage.md` - insert before line 723
+
+Each section will be tailored with domain-specific guidance:
+- **Eval 12**: When framework/architecture patterns are specific to a subdirectory
+- **Eval 14**: When test framework/infrastructure differs per subdirectory
+- **Eval 15**: When database/ORM patterns are specific to a sub-application
+
+Conservative guardrails: phantom file suggestion should be the exception, only used when patterns are subdirectory-specific and would cause context pollution in the root file. If a subdirectory AGENTS.md already exists, suggest updating it instead.
+
+### 7. Add phantom file task item to "Your Task" in each evaluator
+
+In each evaluator's task list, add a numbered item referencing the phantom file format section:
+
+- **Eval 12** (`context-gaps.md`): After item 8 (line 382), add: `9. **Use phantom file format** when suggesting a new AGENTS.md file in a subdirectory (see "Phantom File Location Format" section)` — renumber 9→10, 10→11
+- **Eval 14** (`test-patterns-coverage.md`): After item 8 (line 684), same pattern — renumber 9→10, 10→11
+- **Eval 15** (`database-patterns-coverage.md`): After item 8 (line 744), same pattern — renumber 9→10, 10→11
+
+### 8. Add tests for phantom file handling in prompt generation
+
+**File**: `src/shared/remediation/prompt-generator.test.ts`
+
+Add 3 test cases:
+1. **Phantom file suggestion** → prompt contains `**Action**: Create new file at \`path\`` and does NOT contain `lines 1-1`
+2. **Regular suggestion** → prompt contains `**File**: path, lines X-Y` and does NOT contain `Create new file`
+3. **Mixed phantom and regular suggestions** → prompt contains both formats correctly
+
+The existing `makeSuggestion()` helper already accepts `Partial<RemediationIssue>`, so once `isPhantomFile` is added to the interface, it works automatically.
+
+---
+
+## Files Modified
+
+| File | Change |
+|------|--------|
+| `src/shared/remediation/prompt-generator.ts` | Add `isPhantomFile` to interface, update format function and instruction text |
+| `src/shared/types/remediation.ts` | Add `isPhantomFile` to request type |
+| `src/shared/remediation/engine.ts` | Preserve field in conversion |
+| `src/api/routes/remediation.ts` | Preserve field in conversion |
+| `prompts/evaluators/context-gaps.md` | Add phantom file section + task item |
+| `prompts/evaluators/test-patterns-coverage.md` | Add phantom file section + task item |
+| `prompts/evaluators/database-patterns-coverage.md` | Add phantom file section + task item |
+| `src/shared/remediation/prompt-generator.test.ts` | Add 3 test cases |
+
+## Verification
+
+1. `bun run test` — all existing + new tests pass
+2. `bun run lint` — no lint errors
+3. `bun run typecheck` — TypeScript types valid
+4. Manual verification: generate a remediation prompt with a phantom file suggestion and confirm the output shows `**Action**: Create new file at \`path\`` instead of `**File**: path, lines 1-1`
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+commit this
+
+---
+
+[Request interrupted by user for tool use]
+
+---
+
+Wait, someelse edit the app.tsx
+
+---
+
+I allow you to commit with "--no-verify"
