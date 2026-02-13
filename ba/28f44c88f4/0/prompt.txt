@@ -1,0 +1,47 @@
+Implement the following plan:
+
+# Plan: Clear issue selection basket after remediation
+
+## Context
+
+After a remediation completes, the top bar still shows "X issues selected" with Clear/Remediate buttons (the `SelectionSummaryBar`). This is confusing because the remediation has already been executed for those issues. The selection basket should be automatically emptied when a remediation runs successfully.
+
+## Current behavior
+
+1. User selects issues → `selectedIssueKeys` state + DB persistence via `selectionApi`
+2. User clicks Remediate → `RemediateTab` executes remediation
+3. Remediation completes → `phase` changes to `"results"`, but selections remain untouched
+4. The `SelectionSummaryBar` still renders because `selectedIssueKeys.size > 0`
+
+## Fix
+
+**File: `frontend/src/components/RemediateTab.tsx`**
+
+Add a `useEffect` that calls `onClearAll()` when the component transitions to the `"results"` phase. This covers both:
+- Fresh remediation completion (via SSE `remediation.completed` event)
+- Restored completed remediation (via `loadExistingRemediation` on mount)
+
+```tsx
+// After existing useEffect blocks (~line 167)
+useEffect(() => {
+  if (phase === "results") {
+    onClearAll();
+  }
+}, [phase, onClearAll]);
+```
+
+This is the minimal change needed. `onClearAll` is `handleClearSelection` from App.tsx which:
+- Clears frontend state: `setSelectedIssueKeys(new Set())`
+- Clears DB: `selectionApi.clearSelections(currentEvaluationId)`
+
+Once selections are cleared, `SelectionSummaryBar` returns `null` (line 14 check: `selectedCount === 0`), hiding the bar.
+
+## Verification
+
+1. Run `bun run test`
+2. Run `bun run lint`
+3. Manual test: select issues → run remediation → verify the top bar disappears when remediation completes
+4. Manual test: reload page with a completed remediation → verify the bar doesn't flash then disappear
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
