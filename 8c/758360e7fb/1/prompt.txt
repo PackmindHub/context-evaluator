@@ -1,0 +1,78 @@
+Implement the following plan:
+
+# Plan: Enable Remediation in Cloud Mode + One-Per-Evaluation + Deletion
+
+## Context
+
+Remediation is currently skipped in cloud mode (selections and remediation persistence are bypassed). The goal is to:
+1. **Enable remediation in cloud mode** — one-and-done (no delete, no re-run)
+2. **Enforce one remediation per evaluation** (both modes)
+3. **Allow deletion in non-cloud mode** — users can delete a remediation and re-run with fresh git state
+
+## Changes
+
+### 1. Backend: `src/api/db/remediation-repository.ts`
+- Add `deleteRemediation(id: string): boolean` method (DELETE FROM remediations WHERE id = ?)
+
+### 2. Backend: `src/api/jobs/remediation-job-manager.ts`
+- Add `removeJobByEvaluationId(evaluationId: string): boolean` — cleans up in-memory completed/failed job data after DB deletion
+- Add `hasActiveJobForEvaluation(evaluationId: string): boolean` — checks if a queued/running job exists for this evaluation
+
+### 3. Backend: `src/api/routes/remediation.ts`
+- Add `cloudMode` parameter to constructor (stored as `private cloudMode: boolean`)
+- **Execute guard** (in `execute()`, before `submitJob`): check in-memory active jobs + DB for existing remediation → return 409 `REMEDIATION_EXISTS` if found
+- **New handler** `deleteRemediation(req, remediationId)`:
+  - Return 403 `CLOUD_MODE_RESTRICTED` if cloud mode
+  - Prevent deleting active (queued/running) remediations → 409
+  - Delete from DB via `remediationRepository.deleteRemediation()`
+  - Clean up in-memory job via `removeJobByEvaluationId()`
+  - Return `{ success: true }`
+
+### 4. Backend: `src/api/index.ts`
+- Pass `cloudMode` to `RemediationRoutes` constructor (line 119-123)
+- Add DELETE route: `if (path.match(/^\/api\/remediation\/[^/]+$/) && req.method === "DELETE")` → before the existing GET matcher for same path (line 325)
+
+### 5. Frontend: `frontend/src/App.tsx`
+- **Lines 743-750 and 832-839**: Split the `!cloudMode` guard — keep bookmarks behind it, but always load selections (needed for remediation in both modes)
+- **Lines 1898-1905**: Pass `cloudMode={cloudMode}` prop to `<RemediateTab>`
+
+### 6. Frontend: `frontend/src/hooks/useEvaluationApi.ts`
+- Add `deleteRemediation(remediationId: string): Promise<void>` — `DELETE /api/remediation/${remediationId}`
+- Add to return type and useMemo
+
+### 7. Frontend: `frontend/src/components/RemediateTab.tsx`
+- Accept `cloudMode?: boolean` prop
+- Add `isDeleting` and `showDeleteModal` state
+- Add `handleDeleteRemediation` callback: calls `api.deleteRemediation()`, resets to config phase on success
+- **Results phase UI**:
+  - Non-cloud: show "Delete & Start Over" button (opens confirmation modal)
+  - Cloud: no delete button, result is permanent
+- Add delete confirmation modal (using existing `<Modal>` component)
+- Fix `totalSelected === 0` early return to check `phase === "config"` (so loaded results still display)
+
+## File Summary
+
+| File | Change |
+|------|--------|
+| `src/api/db/remediation-repository.ts` | Add `deleteRemediation()` |
+| `src/api/jobs/remediation-job-manager.ts` | Add `removeJobByEvaluationId()`, `hasActiveJobForEvaluation()` |
+| `src/api/routes/remediation.ts` | Add cloudMode, execute guard, delete handler |
+| `src/api/index.ts` | Pass cloudMode, add DELETE route |
+| `frontend/src/App.tsx` | Enable selections in cloud mode, pass cloudMode to RemediateTab |
+| `frontend/src/hooks/useEvaluationApi.ts` | Add `deleteRemediation()` |
+| `frontend/src/components/RemediateTab.tsx` | cloudMode prop, delete flow, confirmation modal |
+
+## Verification
+
+1. `bun run test` — all existing tests pass
+2. `bun run lint` — no lint errors
+3. `bun run typecheck` — no type errors
+4. Manual test non-cloud: run remediation → view results → delete → verify config phase → re-run
+5. Manual test cloud: run remediation → verify no delete button → verify re-execute returns 409
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+commit

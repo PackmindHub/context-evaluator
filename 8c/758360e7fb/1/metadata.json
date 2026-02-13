@@ -1,0 +1,35 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "8c758360e7fb",
+  "session_id": "a9e81d0e-ac68-490f-95de-9f12a3c7ed23",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-13T11:35:28.764721Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "frontend/src/App.tsx",
+    "frontend/src/components/RemediateTab.tsx",
+    "frontend/src/hooks/useEvaluationApi.ts",
+    "src/api/db/remediation-repository.ts",
+    "src/api/index.ts",
+    "src/api/jobs/remediation-job-manager.ts",
+    "src/api/routes/remediation.ts"
+  ],
+  "agent": "Claude Code",
+  "token_usage": {
+    "input_tokens": 70,
+    "cache_creation_tokens": 170096,
+    "cache_read_tokens": 5195623,
+    "output_tokens": 3602,
+    "api_call_count": 66
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-13T11:35:28.627781Z",
+    "agent_lines": 212,
+    "human_added": 41,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 253,
+    "agent_percentage": 83.79446640316206
+  }
+}
