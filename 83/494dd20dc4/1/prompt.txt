@@ -1,0 +1,102 @@
+Implement the following plan:
+
+# Plan: Highlight Remediation Feature in Welcome Page & How It Works Page
+
+## Context
+
+The Remediate feature is fully implemented in the web UI but invisible to new users. The welcome page (EmptyState) only says "Analyze your AI agent context" and the How It Works page shows a 4-step flow ending at "Actionable Results" — neither mentions that users can automatically fix the issues found. This plan adds remediation visibility to both pages.
+
+## Changes
+
+### 1. Update Welcome Page hero copy
+
+**File:** `frontend/src/components/EmptyState.tsx`
+
+Update the tagline (line 27-29) to mention remediation alongside evaluation:
+
+**Current:**
+```
+Improve context quality for AI Coding Agents by evaluating your
+AGENTS.md, CLAUDE.md, copilot-instructions.md, SKILL.md, and
+referenced documentation
+```
+
+**New:**
+```
+Evaluate and automatically fix your AI agent documentation —
+AGENTS.md, CLAUDE.md, copilot-instructions.md, SKILL.md, and
+referenced files
+```
+
+This keeps it concise while surfacing the remediation capability upfront. "Evaluate and automatically fix" communicates the two-phase value prop.
+
+Also update the instruction text (line 33) from:
+```
+Paste a Git repository URL below to evaluate ...
+```
+to:
+```
+Paste a Git repository URL below to analyze ...
+```
+
+Minor wording change — "analyze" better matches the headline ("Analyze your AI agent context") and avoids repeating "evaluate" from the tagline.
+
+### 2. Add Step 5 "Automatic Remediation" to How It Works page
+
+**File:** `frontend/src/components/HowItWorksPage.tsx`
+
+**a) Update page subtitle** (line 16) to mention remediation:
+
+**Current:**
+```
+Understanding the context-evaluator evaluation process from input to
+actionable recommendations
+```
+
+**New:**
+```
+From repository analysis to actionable recommendations — and automatic fixes
+```
+
+**b) Add a new Step 5 card** after the Step 4 "Actionable Results" card (after line 299), using purple accent color (to differentiate from the analysis steps):
+
+```
+Step 5 — Automatic Remediation (purple badge/icon)
+Icon: wrench/tool icon (svg)
+Title: "Automatic Remediation"
+Description: "Select the issues you want to fix and let an AI agent update your documentation automatically."
+
+Detail box "How to remediate:" with bullet points:
+  • Select issues using the + button on issue cards
+  • Choose your target file (AGENTS.md or CLAUDE.md) and AI provider
+  • Execute — errors are fixed first by severity, then suggestions are added
+  • Review per-file diffs and download a .patch file
+
+Footer link: (none needed — the tab is available after evaluation)
+```
+
+This follows the exact same card structure as Steps 1-4 (icon box + badge + heading + description + detail box with bullet list).
+
+### 3. Update page header subtitle in How It Works
+
+Already covered in 2a above.
+
+## Files Modified
+
+| File | Change |
+|------|--------|
+| `frontend/src/components/EmptyState.tsx` | Update tagline + instruction text |
+| `frontend/src/components/HowItWorksPage.tsx` | Update subtitle, add Step 5 card |
+
+## Verification
+
+- `bun run test` — all tests pass
+- `bun run lint` — no lint errors
+- Visual check: `bun run dev:frontend` and visit `/` and `/how-it-works` to confirm rendering
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+commit
