@@ -36,6 +36,7 @@ export function DiffViewer({ diff }: DiffViewerProps) {
 									<div key={li} className={lineClass}>
 										<span className="diff-line-number" />
 										<span className="diff-line-number" />
+										<span className="diff-line-prefix" />
 										<span className="diff-line-content">{line.content}</span>
 									</div>
 								);

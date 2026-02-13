@@ -1403,7 +1403,8 @@
 	}
 
 	.diff-line {
-		@apply flex;
+		display: grid;
+		grid-template-columns: 3rem 3rem 1.25rem 1fr;
 		min-width: 0;
 	}
 
@@ -1421,18 +1422,15 @@
 
 	.diff-line-number {
 		@apply text-slate-600 text-right select-none px-2 py-px;
-		min-width: 2.5rem;
 	}
 
 	.diff-line-prefix {
 		@apply px-1 py-px select-none text-slate-500;
-		min-width: 1rem;
 	}
 
 	.diff-line-content {
 		@apply whitespace-pre-wrap py-px text-slate-300;
-		min-width: 0;
-		flex: 1;
+		overflow: hidden;
 		word-break: break-all;
 	}
 
