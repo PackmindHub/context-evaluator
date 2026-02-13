@@ -13,8 +13,8 @@ export const HowItWorksPage: React.FC = () => {
 				<div className="mb-12">
 					<h1 className="text-title mb-2">How It Works</h1>
 					<p className="text-body-muted">
-						Understanding the context-evaluator evaluation process from input to
-						actionable recommendations
+						From repository analysis to actionable recommendations — and
+						automatic fixes
 					</p>
 				</div>
 
@@ -290,6 +290,80 @@ export const HowItWorksPage: React.FC = () => {
 											<span>
 												Filtering and search capabilities to focus on what
 												matters
+											</span>
+										</li>
+									</ul>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					{/* Step 5: Remediation */}
+					<div className="card">
+						<div className="flex items-start gap-4">
+							<div className="flex-shrink-0">
+								<div className="w-12 h-12 rounded-lg bg-purple-500/20 border border-purple-500/30 flex items-center justify-center">
+									<svg
+										className="w-6 h-6 text-purple-400"
+										fill="none"
+										stroke="currentColor"
+										viewBox="0 0 24 24"
+									>
+										<path
+											strokeLinecap="round"
+											strokeLinejoin="round"
+											strokeWidth={2}
+											d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+										/>
+										<path
+											strokeLinecap="round"
+											strokeLinejoin="round"
+											strokeWidth={2}
+											d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+										/>
+									</svg>
+								</div>
+							</div>
+							<div className="flex-1">
+								<div className="flex items-center gap-2 mb-2">
+									<span className="badge bg-purple-500/20 text-purple-400 border border-purple-500/30">
+										Step 5
+									</span>
+									<h2 className="text-heading">Automatic Remediation</h2>
+								</div>
+								<p className="text-body mb-3">
+									Select the issues you want to fix and let an AI agent update
+									your documentation automatically.
+								</p>
+								<div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700">
+									<p className="text-body-muted text-sm mb-2">
+										How to remediate:
+									</p>
+									<ul className="space-y-1 text-body text-sm">
+										<li className="flex items-baseline gap-2">
+											<span className="text-purple-400">•</span>
+											<span>
+												Select issues using the + button on issue cards
+											</span>
+										</li>
+										<li className="flex items-baseline gap-2">
+											<span className="text-purple-400">•</span>
+											<span>
+												Choose your target file (AGENTS.md or CLAUDE.md) and AI
+												provider
+											</span>
+										</li>
+										<li className="flex items-baseline gap-2">
+											<span className="text-purple-400">•</span>
+											<span>
+												Execute — errors are fixed first by severity, then
+												suggestions are added
+											</span>
+										</li>
+										<li className="flex items-baseline gap-2">
+											<span className="text-purple-400">•</span>
+											<span>
+												Review per-file diffs and download a .patch file
 											</span>
 										</li>
 									</ul>
