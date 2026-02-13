@@ -2,6 +2,7 @@
 
 ## Added
 
+- **Re-run evaluation from summary page**: "Re-run" button in the evaluation summary header allows re-running the same repository without navigating back to the home page, with an inline provider selector in non-cloud mode
 - **Remediation module redesign**: Issue-level selection workflow replaces evaluator-checklist approach
   - "Add to remediate" (+) button on each issue card in Errors and Suggestions tabs
   - "Add all to remediation" bulk action button in each tab
