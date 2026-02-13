@@ -3,12 +3,14 @@
   "checkpoint_id": "8c758360e7fb",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 2,
+  "checkpoints_count": 3,
   "files_touched": [
     "frontend/src/App.tsx",
+    "frontend/src/components/DiffViewer.tsx",
     "frontend/src/components/RemediateTab.tsx",
     "frontend/src/components/Tabs.tsx",
     "frontend/src/hooks/useEvaluationApi.ts",
+    "frontend/src/styles.css",
     "src/api/db/remediation-repository.ts",
     "src/api/index.ts",
     "src/api/jobs/remediation-job-manager.ts",
@@ -28,13 +30,20 @@
       "context": "/8c/758360e7fb/1/context.md",
       "content_hash": "/8c/758360e7fb/1/content_hash.txt",
       "prompt": "/8c/758360e7fb/1/prompt.txt"
+    },
+    {
+      "metadata": "/8c/758360e7fb/2/metadata.json",
+      "transcript": "/8c/758360e7fb/2/full.jsonl",
+      "context": "/8c/758360e7fb/2/context.md",
+      "content_hash": "/8c/758360e7fb/2/content_hash.txt",
+      "prompt": "/8c/758360e7fb/2/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 93,
-    "cache_creation_tokens": 226954,
-    "cache_read_tokens": 6251724,
-    "output_tokens": 4304,
-    "api_call_count": 85
+    "input_tokens": 107,
+    "cache_creation_tokens": 276927,
+    "cache_read_tokens": 6567632,
+    "output_tokens": 4374,
+    "api_call_count": 95
   }
 }

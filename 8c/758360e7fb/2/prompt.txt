@@ -1,0 +1,56 @@
+Implement the following plan:
+
+# Fix Diff Viewer Column Layout
+
+## Context
+
+The diff viewer in the Remediation tab displays unified diffs with jumbled columns - line numbers and +/- prefixes run together (e.g., `1-` instead of properly separated columns, `812` instead of `8  12`). The root cause is that the current flexbox layout with `min-width` isn't reliably enforcing fixed column widths. CSS Grid is the correct tool for this fixed-column tabular layout.
+
+## Changes
+
+### 1. `frontend/src/styles.css` (diff viewer section, ~lines 1399-1446)
+
+Switch `.diff-line` from flexbox to CSS Grid with explicit column sizing:
+
+| Class | Change |
+|---|---|
+| `.diff-line` | Replace `@apply flex` with `display: grid; grid-template-columns: 3rem 3rem 1.25rem 1fr;` |
+| `.diff-line-number` | Remove `min-width: 2.5rem` (redundant with grid column) |
+| `.diff-line-prefix` | Remove `min-width: 1rem` (redundant with grid column) |
+| `.diff-line-content` | Remove `flex: 1`, add `overflow: hidden` |
+
+### 2. `frontend/src/components/DiffViewer.tsx` (lines 36-41)
+
+Add an empty prefix `<span>` to header lines (`@@`) so all rows have exactly 4 children matching the 4 grid columns:
+
+```tsx
+case "header":
+    lineClass += " diff-line-header";
+    return (
+        <div key={li} className={lineClass}>
+            <span className="diff-line-number" />
+            <span className="diff-line-number" />
+            <span className="diff-line-prefix" />       // ← ADD THIS
+            <span className="diff-line-content">{line.content}</span>
+        </div>
+    );
+```
+
+## Verification
+
+1. `cd frontend && bun run css:build` - rebuild Tailwind CSS
+2. `bun run test` - ensure no regressions
+3. `bun run lint` - pass linting
+4. `bun run dev` - visually confirm:
+   - Line numbers right-aligned in fixed-width columns
+   - Old/new line numbers visually separated
+   - Prefix (+/-) in its own column
+   - `@@` header lines aligned with content lines
+   - Long lines wrap within content column
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+commit
