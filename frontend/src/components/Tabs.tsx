@@ -26,7 +26,7 @@ export const Tabs: React.FC<TabsProps> = ({ tabs, activeTab, onTabChange }) => {
 		width: number;
 	}>({ left: 0, width: 0 });
 
-	// Update indicator position when active tab changes
+	// Update indicator position when active tab changes or resizes
 	useEffect(() => {
 		if (!tabsRef.current) return;
 
@@ -34,7 +34,10 @@ export const Tabs: React.FC<TabsProps> = ({ tabs, activeTab, onTabChange }) => {
 			`[data-tab-id="${activeTab}"]`,
 		) as HTMLButtonElement | null;
 
-		if (activeTabElement) {
+		if (!activeTabElement) return;
+
+		const updateIndicator = () => {
+			if (!tabsRef.current) return;
 			const containerRect = tabsRef.current.getBoundingClientRect();
 			const tabRect = activeTabElement.getBoundingClientRect();
 
@@ -42,7 +45,14 @@ export const Tabs: React.FC<TabsProps> = ({ tabs, activeTab, onTabChange }) => {
 				left: tabRect.left - containerRect.left,
 				width: tabRect.width,
 			});
-		}
+		};
+
+		updateIndicator();
+
+		const observer = new ResizeObserver(updateIndicator);
+		observer.observe(activeTabElement);
+
+		return () => observer.disconnect();
 	}, [activeTab]);
 
 	return (
