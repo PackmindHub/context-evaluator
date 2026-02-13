@@ -1,0 +1,83 @@
+Implement the following plan:
+
+# Plan: Re-run Evaluation from Summary Page
+
+## Context
+
+After running an evaluation and applying remediation changes locally, users need a way to re-run the evaluation on the same repository to see updated results. Currently, they must go back to the home page and re-enter the git URL manually. This feature adds a "Re-run" button directly in the evaluation summary header, with an inline provider selector in non-cloud mode.
+
+## Changes
+
+### 1. Add `onReRun` prop and re-run UI to Summary component
+
+**File:** `frontend/src/components/Summary.tsx`
+
+- Add `onReRun?: (provider: ProviderName) => void` to `SummaryProps` (line 22)
+- Import `ProviderName` from `../hooks/useEvaluationApi`
+- Add `PROVIDERS` constant (same list as in `RepositoryUrlInput.tsx` lines 67-73)
+- Add `reRunProvider` state initialized from `metadata.agent` (with fallback to "claude" if agent is "random")
+- In the header section (lines 318-346), wrap the delete button in a flex container and add the re-run UI before it:
+  - **Non-cloud mode**: inline `<select>` dropdown (pre-selected to original provider) + "Re-run" button
+  - **Cloud mode**: just the "Re-run" button (passes `"random"` as provider)
+  - Use a refresh/cycle SVG icon on the button
+  - Style: compact `text-xs` dropdown matching header badges, `btn-primary`-style button at small scale
+
+### 2. Wire up `handleReRun` callback in App.tsx
+
+**File:** `frontend/src/App.tsx`
+
+- Import `ProviderName` from `./hooks/useEvaluationApi`
+- Fix `handleUrlSubmit` provider type from inline union `"claude" | "opencode" | "cursor" | "github-copilot"` to `ProviderName` (line 605) — this also fixes the missing `"codex"` and `"random"` types
+- Same fix for `handleBatchSubmit` (line 670)
+- Add `handleReRun` callback:
+  ```ts
+  const handleReRun = useCallback(
+      async (provider: ProviderName) => {
+          if (!currentRepositoryUrl) return;
+          await handleUrlSubmit(currentRepositoryUrl, 17, provider, "all");
+      },
+      [currentRepositoryUrl, handleUrlSubmit],
+  );
+  ```
+- Pass `onReRun={handleReRun}` to `<Summary>` component (line 1778, after `onDelete`)
+
+### No backend changes required
+
+The feature reuses the existing `submitJob` → `POST /api/evaluate` → job manager flow entirely. No new API endpoints or backend modifications needed.
+
+## Files Modified
+
+| File | Change |
+|------|--------|
+| `frontend/src/components/Summary.tsx` | Add `onReRun` prop, provider dropdown, re-run button in header |
+| `frontend/src/App.tsx` | Add `handleReRun` callback, fix provider type, pass prop to Summary |
+
+## Reference Files (read-only)
+
+- `frontend/src/components/RepositoryUrlInput.tsx` — PROVIDERS constant pattern (lines 67-73), dropdown styling
+- `frontend/src/hooks/useEvaluationApi.ts` — `ProviderName` type (line 12), `submitJob` API
+- `frontend/src/contexts/FeatureFlagContext.tsx` — `cloudMode` flag already used in Summary
+
+## Verification
+
+1. Run `bun run test` to ensure no regressions
+2. Run `bun run lint` to check code quality
+3. Run `bun run typecheck` for TypeScript validation
+4. Manual testing:
+   - Start dev server: `bun run dev`
+   - Run an evaluation from the home page
+   - On the summary page, verify the re-run button appears in the header
+   - Non-cloud mode: verify provider dropdown is visible and pre-selected to the original agent
+   - Click "Re-run" — verify redirect to progress page for the new evaluation
+   - Cloud mode: verify only the button appears (no dropdown)
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+commit this
+
+---
+
+update changelog.md as well
