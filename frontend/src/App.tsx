@@ -37,6 +37,7 @@ import {
 	useFeatureFlags,
 } from "./contexts/FeatureFlagContext";
 import { useBookmarkApi } from "./hooks/useBookmarkApi";
+import type { ProviderName } from "./hooks/useEvaluationApi";
 import { useEvaluationApi } from "./hooks/useEvaluationApi";
 import { useEvaluationHistory } from "./hooks/useEvaluationHistory";
 import { useFeedbackApi } from "./hooks/useFeedbackApi";
@@ -602,7 +603,7 @@ function AppContent() {
 		async (
 			url: string,
 			evaluators: number,
-			provider?: "claude" | "opencode" | "cursor" | "github-copilot",
+			provider?: ProviderName,
 			evaluatorFilter?: EvaluatorFilter,
 			concurrency?: number,
 			selectedEvaluators?: string[],
@@ -667,7 +668,7 @@ function AppContent() {
 		async (
 			urls: string[],
 			_evaluators: number,
-			provider?: "claude" | "opencode" | "cursor" | "github-copilot",
+			provider?: ProviderName,
 			evaluatorFilter?: EvaluatorFilter,
 			concurrency?: number,
 			selectedEvaluators?: string[],
@@ -1395,6 +1396,15 @@ function AppContent() {
 		}
 	}, [currentEvaluationId, historyApi, handleClear]);
 
+	// Handle re-run evaluation from Summary page
+	const handleReRun = useCallback(
+		async (provider: ProviderName) => {
+			if (!currentRepositoryUrl) return;
+			await handleUrlSubmit(currentRepositoryUrl, 17, provider, "all");
+		},
+		[currentRepositoryUrl, handleUrlSubmit],
+	);
+
 	// Issue selection handlers
 	const handleToggleIssueSelection = useCallback(
 		(key: string, _issue: Issue) => {
@@ -1776,6 +1786,7 @@ function AppContent() {
 								curatedCount={curatedIssues.length}
 								evaluationId={currentEvaluationId ?? undefined}
 								onDelete={handleDeleteEvaluation}
+								onReRun={handleReRun}
 								curation={evaluationData.curation}
 								evaluationLogs={evaluationLogs}
 							/>

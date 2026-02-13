@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useFeatureFlags } from "../contexts/FeatureFlagContext";
+import type { ProviderName } from "../hooks/useEvaluationApi";
 import { extractRepoName, formatCost, formatDuration } from "../lib/formatters";
 import type {
 	ICuratedIssue,
@@ -11,6 +12,15 @@ import { ContextFilesBrowserModal } from "./shared/ContextFilesBrowserModal";
 import { LinkedDocsBrowserModal } from "./shared/LinkedDocsBrowserModal";
 import { SkillsBrowserModal } from "./shared/SkillsBrowserModal";
 import { ContextScoreCard } from "./summary/ContextScoreCard";
+
+/** Available AI providers */
+const PROVIDERS: { name: ProviderName; displayName: string }[] = [
+	{ name: "claude", displayName: "Claude Code" },
+	{ name: "codex", displayName: "OpenAI Codex" },
+	{ name: "opencode", displayName: "OpenCode" },
+	{ name: "cursor", displayName: "Cursor Agent" },
+	{ name: "github-copilot", displayName: "GitHub Copilot" },
+];
 
 // Log entry type for activity logs
 interface LogEntry {
@@ -34,6 +44,7 @@ interface SummaryProps {
 	curatedCount?: number;
 	evaluationId?: string;
 	onDelete?: () => void;
+	onReRun?: (provider: ProviderName) => void;
 	curation?: {
 		errors?: {
 			curatedIssues: ICuratedIssue[];
@@ -62,6 +73,7 @@ export const Summary: React.FC<SummaryProps> = ({
 	curatedCount,
 	evaluationId,
 	onDelete,
+	onReRun,
 	curation,
 	evaluationLogs,
 }) => {
@@ -74,6 +86,9 @@ export const Summary: React.FC<SummaryProps> = ({
 		"agents" | "claude" | "copilot" | "rules" | "claude-code" | null
 	>(null);
 	const [showActivityLog, setShowActivityLog] = useState(false);
+	const [reRunProvider, setReRunProvider] = useState<ProviderName>(
+		metadata.agent === "random" ? "claude" : (metadata.agent as ProviderName),
+	);
 	const formattedDate = new Date(metadata.generatedAt).toLocaleString();
 	const shareUrl = evaluationId
 		? `${window.location.origin}/evaluation/${evaluationId}`
@@ -316,34 +331,76 @@ export const Summary: React.FC<SummaryProps> = ({
 							</span>
 						</div>
 					</div>
-					{/* Delete Button - hidden in cloud mode */}
-					{evaluationId && onDelete && !cloudMode && (
-						<button
-							onClick={() => {
-								if (
-									confirm("Are you sure you want to delete this evaluation?")
-								) {
-									onDelete();
-								}
-							}}
-							className="p-2 text-slate-400 hover:text-red-400 hover:bg-slate-700/60 rounded-lg transition-all"
-							title="Delete evaluation"
-						>
-							<svg
-								className="w-6 h-6"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
+					<div className="flex items-center gap-2">
+						{/* Re-run Button */}
+						{onReRun && (
+							<div className="flex items-center gap-1.5">
+								{!cloudMode && (
+									<select
+										value={reRunProvider}
+										onChange={(e) =>
+											setReRunProvider(e.target.value as ProviderName)
+										}
+										className="bg-slate-700/60 border border-slate-600/50 text-slate-200 text-xs rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+									>
+										{PROVIDERS.map((p) => (
+											<option key={p.name} value={p.name}>
+												{p.displayName}
+											</option>
+										))}
+									</select>
+								)}
+								<button
+									onClick={() => onReRun(cloudMode ? "random" : reRunProvider)}
+									className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg transition-colors"
+									title="Re-run evaluation"
+								>
+									<svg
+										className="w-3.5 h-3.5"
+										fill="none"
+										stroke="currentColor"
+										viewBox="0 0 24 24"
+									>
+										<path
+											strokeLinecap="round"
+											strokeLinejoin="round"
+											strokeWidth={2}
+											d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+										/>
+									</svg>
+									Re-run
+								</button>
+							</div>
+						)}
+						{/* Delete Button - hidden in cloud mode */}
+						{evaluationId && onDelete && !cloudMode && (
+							<button
+								onClick={() => {
+									if (
+										confirm("Are you sure you want to delete this evaluation?")
+									) {
+										onDelete();
+									}
+								}}
+								className="p-2 text-slate-400 hover:text-red-400 hover:bg-slate-700/60 rounded-lg transition-all"
+								title="Delete evaluation"
 							>
-								<path
-									strokeLinecap="round"
-									strokeLinejoin="round"
-									strokeWidth={2}
-									d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-								/>
-							</svg>
-						</button>
-					)}
+								<svg
+									className="w-6 h-6"
+									fill="none"
+									stroke="currentColor"
+									viewBox="0 0 24 24"
+								>
+									<path
+										strokeLinecap="round"
+										strokeLinejoin="round"
+										strokeWidth={2}
+										d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+									/>
+								</svg>
+							</button>
+						)}
+					</div>
 				</div>
 			</div>
 
