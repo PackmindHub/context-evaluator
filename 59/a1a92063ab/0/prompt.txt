@@ -1,0 +1,91 @@
+Implement the following plan:
+
+# Plan: Group Action Summary by Evaluator Type
+
+## Context
+
+The Action Summary section in the RemediateTab currently renders a flat list of all remediation actions. Each action redundantly shows its evaluator name prefix (e.g., "outdated-documentation: Outdated Documentation") inline, making the list hard to scan when multiple actions come from the same evaluator. The user wants actions grouped by evaluator type with bullet point lists.
+
+## Changes
+
+**Single file to modify**: `frontend/src/components/RemediateTab.tsx` — `ActionSummarySection` component (lines 1022-1106)
+
+### 1. Add helper function (before the component, ~line 1022)
+
+Extract display name from `issueTitle`:
+```typescript
+function getGroupDisplayName(issueTitle: string): string {
+  const colonIndex = issueTitle.indexOf(": ");
+  return colonIndex >= 0 ? issueTitle.slice(colonIndex + 2) : issueTitle;
+}
+```
+
+The `issueTitle` format is always `"evaluatorSlug: Category Name"` (set in `src/shared/remediation/engine.ts:104`).
+
+### 2. Add grouping logic inside the component (after `allActions` definition)
+
+Group actions by `issueTitle` using a `Map` (preserves insertion order):
+```typescript
+const groupedActions = useMemo(() => {
+  const groups = new Map<string, RemediationAction[]>();
+  for (const action of allActions) {
+    const key = action.issueTitle ?? "Other";
+    const existing = groups.get(key);
+    if (existing) existing.push(action);
+    else groups.set(key, [action]);
+  }
+  return groups;
+}, [summary.errorFixActions, summary.suggestionEnrichActions]);
+```
+
+### 3. Replace flat list with grouped rendering
+
+**Before** (flat):
+```
+✓ outdated-documentation: Outdated Documentation  Changed title from...    AGENTS.md
+✓ outdated-documentation: Outdated Documentation  Replaced fake types...   AGENTS.md
+✓ context-gaps: Context Gaps & ...                 Added Architecture...    AGENTS.md
+```
+
+**After** (grouped):
+```
+Outdated Documentation                                    2 actions
+  ✓ Changed title from 'atomic-lru' to '...'              AGENTS.md
+  ✓ Replaced fake types with actual...                     AGENTS.md
+
+Context Gaps & Documentation Opportunities                3 actions
+  ✓ Added Architecture section with Strategy pattern...    AGENTS.md
+  ✓ Added asyncio Conventions section...                   AGENTS.md
+  ✓ Added Make Targets table...                            AGENTS.md
+```
+
+Key visual elements:
+- **Group header**: category name (left) + action count badge (right), `text-sm font-medium text-slate-300`
+- **Indented actions**: `pl-4 border-l border-slate-700/50` for visual hierarchy
+- **No more redundant evaluator prefix** on each action row — the group header provides that context
+- **Same status icons**: green checkmark (fixed/added) or slate minus (skipped)
+- **File badge**: right-aligned, same as current
+
+### Edge cases
+- Actions without `issueTitle` → grouped under "Other"
+- Empty actions → renders nothing, header still shows "0 addressed"
+
+## Verification
+
+```bash
+bun run test       # No regressions
+bun run lint       # Biome passes
+bun run typecheck  # TypeScript valid
+bun run dev        # Manual visual check of grouped layout
+```
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+[Request interrupted by user]
+
+---
+
+continue
