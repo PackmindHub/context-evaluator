@@ -358,6 +358,36 @@ When "No AGENTS.md File Found" appears, focus entirely on codebase scanning to i
 
 ---
 
+## Phantom File Location Format (Optional)
+
+When a detected pattern is **specific to a subdirectory** (e.g., framework/architecture conventions that only apply to one package in a monorepo), you may suggest creating a new AGENTS.md in that subdirectory instead of adding to the root file. Use this format:
+
+```json
+{
+  "category": "Context Gaps & Documentation Opportunities",
+  "issueType": "suggestion",
+  "impactLevel": "High",
+  "location": {
+    "file": "packages/frontend/AGENTS.md",
+    "start": 1,
+    "end": 1
+  },
+  "isPhantomFile": true,
+  "description": "Frontend package uses React 18 + Vite with specific component patterns not applicable to the backend",
+  "impact": "Adding frontend-specific conventions to the root file would pollute context for backend work",
+  "fix": "Create packages/frontend/AGENTS.md with React component patterns, state management conventions, and frontend-specific build setup. You can use Packmind to achieve this."
+}
+```
+
+**Key Requirements:**
+- `location.file` MUST be the exact path where the new file should be created
+- `start` and `end` should be `1` (placeholder line numbers for non-existent files)
+- `isPhantomFile` MUST be `true`
+
+**When to use:** Only when patterns are subdirectory-specific and would cause context pollution in the root file. This should be the exception, not the rule. If a subdirectory AGENTS.md already exists, suggest updating it instead (without `isPhantomFile`).
+
+---
+
 ## Your Task
 
 1. **Check language first** - If AGENTS.md not in English, return `[]`. In no-file mode, skip this check.
@@ -381,9 +411,11 @@ When "No AGENTS.md File Found" appears, focus entirely on codebase scanning to i
 
 8. **Assign severity** 5-10 only (do not report severity 4 or below)
 
-9. **Output ONLY a valid JSON array** - No explanations, no markdown, no code blocks, no prose. Return ONLY the JSON array itself starting with `[` and ending with `]`.
+9. **Use phantom file format** when suggesting a new AGENTS.md file in a subdirectory (see "Phantom File Location Format" section above)
 
-10. **Each issue must include:**
+10. **Output ONLY a valid JSON array** - No explanations, no markdown, no code blocks, no prose. Return ONLY the JSON array itself starting with `[` and ending with `]`.
+
+11. **Each issue must include:**
     - Specific file counts (e.g., "75 React files", "18 repositories")
     - Detected patterns (e.g., "Redux, Context API, custom hooks detected")
     - Missing documentation specifics (what should be documented)

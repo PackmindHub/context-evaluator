@@ -18,6 +18,7 @@ export interface RemediationIssue {
 	snippet?: string;
 	fix?: string;
 	recommendation?: string;
+	isPhantomFile?: boolean;
 }
 
 export interface RemediationInput {
@@ -89,7 +90,9 @@ function formatSuggestionIssueBlock(
 	lines.push(`### ${index + 1}. ${issue.evaluatorName}: ${issue.category}`);
 	lines.push(`**Impact**: ${issue.impactLevel ?? "N/A"}`);
 
-	if (issue.location.file) {
+	if (issue.isPhantomFile && issue.location.file) {
+		lines.push(`**Action**: Create new file at \`${issue.location.file}\``);
+	} else if (issue.location.file) {
 		lines.push(
 			`**File**: ${issue.location.file}, lines ${issue.location.start}-${issue.location.end}`,
 		);
@@ -200,7 +203,7 @@ ${issueBlocks}
 2. Use your own judgment to assess each gap: these were produced by an automated evaluator and some may be false positives or irrelevant given the actual codebase. Skip any suggestion that is not genuinely useful after reviewing the code
 3. Address each remaining gap, highest impact first
 4. Add concise, accurate documentation based on actual codebase analysis
-5. Create new ${input.targetFileType} files in subdirectories if recommended
+5. When a gap specifies "Create new file at <path>", create that file with the recommended content
 6. Preserve all correct existing content
 7. Keep additions minimal — only add what's needed to close the gap
 8. After making all changes, output a JSON summary:

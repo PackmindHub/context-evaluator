@@ -87,6 +87,7 @@ export interface IRemediationRequest {
 		fix?: string;
 		recommendation?: string;
 		evaluatorName?: string;
+		isPhantomFile?: boolean;
 	}>;
 	targetFileType: "AGENTS.md" | "CLAUDE.md";
 	provider: ProviderName;

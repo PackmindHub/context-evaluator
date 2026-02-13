@@ -660,6 +660,36 @@ When the input indicates "No AGENTS.md File Found" or the content section shows 
 
 ---
 
+## Phantom File Location Format (Optional)
+
+When test framework or infrastructure patterns are **specific to a subdirectory** (e.g., a package in a monorepo uses a different test framework or has unique test setup), you may suggest creating a new AGENTS.md in that subdirectory. Use this format:
+
+```json
+{
+  "category": "Test Patterns Coverage",
+  "issueType": "suggestion",
+  "impactLevel": "High",
+  "location": {
+    "file": "packages/frontend/AGENTS.md",
+    "start": 1,
+    "end": 1
+  },
+  "isPhantomFile": true,
+  "description": "Frontend package uses Vitest with React Testing Library, distinct from backend Jest setup",
+  "impact": "Frontend-specific test patterns in root file would confuse agents working on backend",
+  "fix": "Create packages/frontend/AGENTS.md with Vitest configuration, React Testing Library patterns, and component test conventions"
+}
+```
+
+**Key Requirements:**
+- `location.file` MUST be the exact path where the new file should be created
+- `start` and `end` should be `1` (placeholder line numbers for non-existent files)
+- `isPhantomFile` MUST be `true`
+
+**When to use:** Only when test patterns are subdirectory-specific and would cause context pollution in the root file. This should be the exception, not the rule. If a subdirectory AGENTS.md already exists, suggest updating it instead (without `isPhantomFile`).
+
+---
+
 ## Your Task
 
 1. **Check language first** - If AGENTS.md not in English, return `[]`. In no-file mode, skip this check.
@@ -683,9 +713,11 @@ When the input indicates "No AGENTS.md File Found" or the content section shows 
 
 8. **Assign severity** 6-10 only (do not report severity 5 or below)
 
-9. **Output ONLY a valid JSON array** - No explanations, no markdown, no code blocks, no prose. Return ONLY the JSON array itself starting with `[` and ending with `]`.
+9. **Use phantom file format** when suggesting a new AGENTS.md file in a subdirectory (see "Phantom File Location Format" section above)
 
-10. **Each issue must include:**
+10. **Output ONLY a valid JSON array** - No explanations, no markdown, no code blocks, no prose. Return ONLY the JSON array itself starting with `[` and ending with `]`.
+
+11. **Each issue must include:**
     - Specific file counts (e.g., "75 test files", "30 mock usages")
     - Detected patterns (e.g., "Jest with *.test.ts naming, __mocks__ folders")
     - Missing documentation specifics (what should be documented)

@@ -213,5 +213,80 @@ describe("prompt-generator", () => {
 			expect(result.errorFixPrompt).toContain("# Fix Documentation Issues");
 			expect(result.suggestionEnrichPrompt).toContain("# Enrich Documentation");
 		});
+
+		test("phantom file suggestion shows create action instead of file lines", () => {
+			const input: RemediationInput = {
+				...baseInput,
+				suggestions: [
+					makeSuggestion({
+						isPhantomFile: true,
+						location: {
+							file: "packages/frontend/AGENTS.md",
+							start: 1,
+							end: 1,
+						},
+					}),
+				],
+			};
+
+			const result = generateRemediationPrompts(input);
+
+			expect(result.suggestionEnrichPrompt).toContain(
+				"**Action**: Create new file at `packages/frontend/AGENTS.md`",
+			);
+			expect(result.suggestionEnrichPrompt).not.toContain("lines 1-1");
+		});
+
+		test("regular suggestion shows file and lines", () => {
+			const input: RemediationInput = {
+				...baseInput,
+				suggestions: [
+					makeSuggestion({
+						location: { file: "AGENTS.md", start: 5, end: 20 },
+					}),
+				],
+			};
+
+			const result = generateRemediationPrompts(input);
+
+			expect(result.suggestionEnrichPrompt).toContain(
+				"**File**: AGENTS.md, lines 5-20",
+			);
+			expect(result.suggestionEnrichPrompt).not.toContain(
+				"**Action**: Create new file at",
+			);
+		});
+
+		test("mixed phantom and regular suggestions format correctly", () => {
+			const input: RemediationInput = {
+				...baseInput,
+				suggestions: [
+					makeSuggestion({
+						impactLevel: "High",
+						category: "Regular Gap",
+						location: { file: "AGENTS.md", start: 10, end: 25 },
+					}),
+					makeSuggestion({
+						impactLevel: "Medium",
+						category: "Phantom Gap",
+						isPhantomFile: true,
+						location: {
+							file: "packages/api/AGENTS.md",
+							start: 1,
+							end: 1,
+						},
+					}),
+				],
+			};
+
+			const result = generateRemediationPrompts(input);
+
+			expect(result.suggestionEnrichPrompt).toContain(
+				"**File**: AGENTS.md, lines 10-25",
+			);
+			expect(result.suggestionEnrichPrompt).toContain(
+				"**Action**: Create new file at `packages/api/AGENTS.md`",
+			);
+		});
 	});
 });

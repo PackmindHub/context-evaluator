@@ -87,6 +87,7 @@ function issueToRemediationIssue(
 		snippet: issue.snippet,
 		fix: issue.fix,
 		recommendation: issue.recommendation,
+		isPhantomFile: issue.isPhantomFile,
 	};
 }
 

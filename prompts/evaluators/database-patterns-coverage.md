@@ -720,6 +720,36 @@ When the input indicates "No AGENTS.md File Found" or the content section shows 
 
 ---
 
+## Phantom File Location Format (Optional)
+
+When database or ORM patterns are **specific to a subdirectory** (e.g., a sub-application in a monorepo has its own database/ORM setup), you may suggest creating a new AGENTS.md in that subdirectory. Use this format:
+
+```json
+{
+  "category": "Database Patterns Coverage",
+  "issueType": "suggestion",
+  "impactLevel": "High",
+  "location": {
+    "file": "services/billing/AGENTS.md",
+    "start": 1,
+    "end": 1
+  },
+  "isPhantomFile": true,
+  "description": "Billing service uses Prisma with its own schema and migrations, distinct from the main app's TypeORM setup",
+  "impact": "Billing-specific database patterns in root file would confuse agents working on the main application",
+  "fix": "Create services/billing/AGENTS.md with Prisma schema conventions, migration workflow, and billing-specific entity patterns"
+}
+```
+
+**Key Requirements:**
+- `location.file` MUST be the exact path where the new file should be created
+- `start` and `end` should be `1` (placeholder line numbers for non-existent files)
+- `isPhantomFile` MUST be `true`
+
+**When to use:** Only when database/ORM patterns are subdirectory-specific and would cause context pollution in the root file. This should be the exception, not the rule. If a subdirectory AGENTS.md already exists, suggest updating it instead (without `isPhantomFile`).
+
+---
+
 ## Your Task
 
 1. **Check language first** - If AGENTS.md not in English, return `[]`. In no-file mode, skip this check.
@@ -743,9 +773,11 @@ When the input indicates "No AGENTS.md File Found" or the content section shows 
 
 8. **Assign severity** 6-10 only (do not report severity 5 or below)
 
-9. **Output ONLY a valid JSON array** - No explanations, no markdown, no code blocks, no prose. Return ONLY the JSON array itself starting with `[` and ending with `]`.
+9. **Use phantom file format** when suggesting a new AGENTS.md file in a subdirectory (see "Phantom File Location Format" section above)
 
-10. **Each issue must include:**
+10. **Output ONLY a valid JSON array** - No explanations, no markdown, no code blocks, no prose. Return ONLY the JSON array itself starting with `[` and ending with `]`.
+
+11. **Each issue must include:**
     - Specific file counts (e.g., "18 entities", "25 migrations", "15 relationships")
     - Detected patterns (e.g., "Prisma with PostgreSQL, soft delete pattern, M:N relationships")
     - Missing documentation specifics (what should be documented)
