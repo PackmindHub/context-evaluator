@@ -68,6 +68,12 @@ export interface RemediationForEvaluationResponse {
 	errorMessage?: string | null;
 }
 
+export interface ImportReportResponse {
+	evaluationId: string;
+	repositoryUrl: string;
+	status: string;
+}
+
 interface IUseEvaluationApiReturn {
 	submitJob: (
 		repositoryUrl: string,
@@ -109,6 +115,7 @@ interface IUseEvaluationApiReturn {
 	) => Promise<RemediationForEvaluationResponse | null>;
 	deleteRemediation: (remediationId: string) => Promise<void>;
 	downloadPatch: (remediationId: string) => Promise<void>;
+	importReport: (reportJson: unknown) => Promise<ImportReportResponse>;
 	isLoading: boolean;
 	error: string | null;
 	clearError: () => void;
@@ -483,6 +490,36 @@ export function useEvaluationApi(): IUseEvaluationApiReturn {
 		[],
 	);
 
+	const importReport = useCallback(
+		async (reportJson: unknown): Promise<ImportReportResponse> => {
+			setIsLoading(true);
+			setError(null);
+
+			try {
+				const response = await fetch("/api/evaluations/import", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify(reportJson),
+				});
+
+				if (!response.ok) {
+					const errorData = await response.json().catch(() => ({}));
+					throw new Error(errorData.error || `HTTP error ${response.status}`);
+				}
+
+				return (await response.json()) as ImportReportResponse;
+			} catch (err) {
+				const message =
+					err instanceof Error ? err.message : "Failed to import report";
+				setError(message);
+				throw err;
+			} finally {
+				setIsLoading(false);
+			}
+		},
+		[],
+	);
+
 	const clearError = useCallback(() => {
 		setError(null);
 	}, []);
@@ -500,6 +537,7 @@ export function useEvaluationApi(): IUseEvaluationApiReturn {
 			getRemediationForEvaluation,
 			deleteRemediation,
 			downloadPatch,
+			importReport,
 			isLoading,
 			error,
 			clearError,
@@ -516,6 +554,7 @@ export function useEvaluationApi(): IUseEvaluationApiReturn {
 			getRemediationForEvaluation,
 			deleteRemediation,
 			downloadPatch,
+			importReport,
 			isLoading,
 			error,
 			clearError,

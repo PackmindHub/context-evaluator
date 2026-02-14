@@ -192,6 +192,56 @@ export function buildRawReport(output: EvaluationOutput): IRawReport {
 }
 
 // =============================================================================
+// Convert JSON Report back to EvaluationOutput (for import)
+// =============================================================================
+
+export function convertJsonReportToEvaluationOutput(
+	report: IJsonReport,
+): EvaluationOutput {
+	// Group issues by evaluator name
+	const issuesByEvaluator = new Map<string, Issue[]>();
+	for (const issue of report.issues) {
+		const evaluator = issue.evaluatorName || "unknown";
+		const existing = issuesByEvaluator.get(evaluator) || [];
+		// Strip enriched fields (severityLevel, formattedLocation) that don't belong in Issue
+		const { severityLevel: _sl, formattedLocation: _fl, ...baseIssue } = issue;
+		existing.push(baseIssue as Issue);
+		issuesByEvaluator.set(evaluator, existing);
+	}
+
+	// Build unified results array
+	const results = Array.from(issuesByEvaluator.entries()).map(
+		([evaluator, issues]) => ({
+			evaluator,
+			output: {
+				type: "result" as const,
+				subtype: "imported" as const,
+				is_error: false,
+				duration_ms: 0,
+				num_turns: 0,
+				result: JSON.stringify(issues),
+				session_id: "",
+				total_cost_usd: 0,
+				usage: {
+					input_tokens: 0,
+					output_tokens: 0,
+					cache_creation_input_tokens: 0,
+					cache_read_input_tokens: 0,
+				},
+				uuid: "",
+			},
+		}),
+	);
+
+	return {
+		metadata: report.metadata,
+		results,
+		crossFileIssues: [],
+		curation: report.curation,
+	};
+}
+
+// =============================================================================
 // Build JSON Report
 // =============================================================================
 

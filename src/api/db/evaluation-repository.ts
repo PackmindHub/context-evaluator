@@ -38,6 +38,7 @@ export interface IEvaluationHistoryItem {
 	failedEvaluatorCount: number;
 	gitBranch?: string;
 	gitCommitSha?: string;
+	isImported?: boolean;
 	errorMessage?: string;
 	errorCode?: string;
 	createdAt: string;
@@ -76,6 +77,7 @@ interface EvaluationRow {
 	failed_evaluator_count: number;
 	git_branch: string | null;
 	git_commit_sha: string | null;
+	is_imported: number;
 	result_json: string | null;
 	final_prompts_json: string | null;
 	error_message: string | null;
@@ -213,6 +215,69 @@ export class EvaluationRepository {
 	}
 
 	/**
+	 * Save an imported evaluation (from CLI JSON report)
+	 */
+	saveImportedEvaluation(
+		id: string,
+		result: EvaluationOutput,
+		repositoryUrl: string,
+	): void {
+		const db = getDatabase();
+		const now = new Date().toISOString();
+		const metadata = result.metadata;
+
+		const stmt = db.prepare(`
+      INSERT INTO evaluations (
+        id, repository_url, evaluation_mode, evaluators_count, status,
+        total_files, total_issues, critical_count, high_count, medium_count,
+        curated_count, total_cost_usd, total_duration_ms, total_input_tokens, total_output_tokens,
+        context_score, context_grade, failed_evaluator_count,
+        git_branch, git_commit_sha, is_imported,
+        result_json, final_prompts_json, error_message, error_code, created_at, completed_at
+      ) VALUES (
+        $id, $repositoryUrl, $evaluationMode, $evaluatorsCount, $status,
+        $totalFiles, $totalIssues, $criticalCount, $highCount, $mediumCount,
+        $curatedCount, $totalCostUsd, $totalDurationMs, $totalInputTokens, $totalOutputTokens,
+        $contextScore, $contextGrade, $failedEvaluatorCount,
+        $gitBranch, $gitCommitSha, $isImported,
+        $resultJson, $finalPromptsJson, $errorMessage, $errorCode, $createdAt, $completedAt
+      )
+    `);
+
+		stmt.run({
+			$id: id,
+			$repositoryUrl: repositoryUrl,
+			$evaluationMode: metadata.evaluationMode || null,
+			$evaluatorsCount: 0,
+			$status: "completed",
+			$totalFiles: metadata.totalFiles || 0,
+			$totalIssues: metadata.totalIssues || 0,
+			$criticalCount: 0,
+			$highCount: metadata.highCount || 0,
+			$mediumCount: metadata.mediumCount || 0,
+			$curatedCount: metadata.curatedCount || 0,
+			$totalCostUsd: metadata.totalCostUsd || 0,
+			$totalDurationMs: metadata.totalDurationMs || 0,
+			$totalInputTokens: metadata.totalInputTokens || 0,
+			$totalOutputTokens: metadata.totalOutputTokens || 0,
+			$contextScore: metadata.contextScore?.score ?? null,
+			$contextGrade: metadata.contextScore?.grade ?? null,
+			$failedEvaluatorCount: metadata.failedEvaluators?.length || 0,
+			$gitBranch: null,
+			$gitCommitSha: null,
+			$isImported: 1,
+			$resultJson: JSON.stringify(result),
+			$finalPromptsJson: null,
+			$errorMessage: null,
+			$errorCode: null,
+			$createdAt: metadata.generatedAt || now,
+			$completedAt: metadata.generatedAt || now,
+		});
+
+		console.log(`[EvaluationRepository] Saved imported evaluation ${id}`);
+	}
+
+	/**
 	 * Get evaluation by ID with full result
 	 */
 	getEvaluationById(id: string): IEvaluationRecord | null {
@@ -240,7 +305,7 @@ export class EvaluationRepository {
           id, repository_url, evaluation_mode, evaluators_count, status,
           total_files, total_issues, critical_count, high_count, medium_count,
           curated_count, total_cost_usd, total_duration_ms, total_input_tokens, total_output_tokens,
-          context_score, context_grade, failed_evaluator_count,
+          context_score, context_grade, failed_evaluator_count, is_imported,
           error_message, error_code, created_at, completed_at
         FROM evaluations
         ORDER BY completed_at DESC
@@ -255,7 +320,7 @@ export class EvaluationRepository {
         id, repository_url, evaluation_mode, evaluators_count, status,
         total_files, total_issues, critical_count, high_count, medium_count,
         curated_count, total_cost_usd, total_duration_ms, total_input_tokens, total_output_tokens,
-        context_score, context_grade, failed_evaluator_count,
+        context_score, context_grade, failed_evaluator_count, is_imported,
         error_message, error_code, created_at, completed_at
       FROM evaluations
       ORDER BY completed_at DESC
@@ -463,6 +528,7 @@ export class EvaluationRepository {
 			failedEvaluatorCount: row.failed_evaluator_count ?? 0,
 			gitBranch: row.git_branch || undefined,
 			gitCommitSha: row.git_commit_sha || undefined,
+			isImported: row.is_imported === 1 ? true : undefined,
 			errorMessage: row.error_message || undefined,
 			errorCode: row.error_code || undefined,
 			createdAt: row.created_at,

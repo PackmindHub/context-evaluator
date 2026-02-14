@@ -194,6 +194,15 @@ function initializeDatabase(): Database {
     );
   `);
 
+	// Add is_imported column if it doesn't exist (for existing databases)
+	try {
+		database.run(
+			`ALTER TABLE evaluations ADD COLUMN is_imported INTEGER DEFAULT 0;`,
+		);
+	} catch {
+		// Column already exists, ignore
+	}
+
 	// Add summary_json column if it doesn't exist (for existing databases)
 	try {
 		database.run(`ALTER TABLE remediations ADD COLUMN summary_json TEXT;`);

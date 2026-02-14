@@ -233,6 +233,11 @@ export class APIServer {
 			return this.handleGetEvaluator(evaluatorId);
 		}
 
+		// Import report route (must be before /api/evaluations/:id)
+		if (path === "/api/evaluations/import" && req.method === "POST") {
+			return this.evaluationRoutes.importReport(req);
+		}
+
 		// Evaluation history routes
 		if (path === "/api/evaluations") {
 			if (req.method === "GET") {

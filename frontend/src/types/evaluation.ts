@@ -524,6 +524,7 @@ export interface IEvaluationHistoryItem {
 	contextScore?: number;
 	contextGrade?: ContextScoreGrade;
 	failedEvaluatorCount: number;
+	isImported?: boolean;
 	errorMessage?: string;
 	errorCode?: string;
 	createdAt: string;

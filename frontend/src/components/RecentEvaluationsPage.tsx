@@ -483,6 +483,12 @@ export function RecentEvaluationsPage() {
 																			{item.contextGrade}
 																		</span>
 																	)}
+																{/* Imported Badge */}
+																{item.isImported && (
+																	<span className="px-2 py-1 text-sm font-medium bg-slate-700/50 text-slate-300 border border-slate-600/50 rounded-lg">
+																		Imported
+																	</span>
+																)}
 																{/* Failed Evaluators Badge */}
 																{item.failedEvaluatorCount > 0 && (
 																	<span

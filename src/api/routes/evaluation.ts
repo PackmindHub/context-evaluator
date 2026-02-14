@@ -1,3 +1,7 @@
+import {
+	convertJsonReportToEvaluationOutput,
+	type IJsonReport,
+} from "@cli/output/report-formatters";
 import type {
 	IBatchEvaluateRequest,
 	IEvaluateRequest,
@@ -477,6 +481,107 @@ export class EvaluationRoutes {
 		} catch (err: unknown) {
 			console.error(
 				"[EvaluationRoutes] Error in GET /api/evaluations/:id/prompts:",
+				err,
+			);
+			const error = err as Error;
+
+			return new Response(
+				JSON.stringify({
+					error: error.message || "Internal server error",
+					code: "INTERNAL_ERROR",
+				}),
+				{
+					status: 500,
+					headers: { "Content-Type": "application/json" },
+				},
+			);
+		}
+	}
+
+	/**
+	 * POST /api/evaluations/import - Import a CLI-generated JSON report
+	 */
+	async importReport(req: Request): Promise<Response> {
+		console.log("[EvaluationRoutes] POST /api/evaluations/import");
+
+		// Block in cloud mode
+		if (this.cloudMode) {
+			return new Response(
+				JSON.stringify({
+					error: "Import is not available in cloud mode",
+					code: "CLOUD_MODE_RESTRICTED",
+				}),
+				{
+					status: 403,
+					headers: { "Content-Type": "application/json" },
+				},
+			);
+		}
+
+		try {
+			const body = (await req.json()) as IJsonReport;
+
+			// Validate required fields
+			if (!body.metadata || !body.issues || !body.statistics) {
+				return new Response(
+					JSON.stringify({
+						error:
+							"Invalid report format: metadata, issues, and statistics are required",
+						code: "INVALID_REQUEST",
+					}),
+					{
+						status: 400,
+						headers: { "Content-Type": "application/json" },
+					},
+				);
+			}
+
+			if (!Array.isArray(body.issues)) {
+				return new Response(
+					JSON.stringify({
+						error: "Invalid report format: issues must be an array",
+						code: "INVALID_REQUEST",
+					}),
+					{
+						status: 400,
+						headers: { "Content-Type": "application/json" },
+					},
+				);
+			}
+
+			// Convert to EvaluationOutput
+			const evaluationOutput = convertJsonReportToEvaluationOutput(body);
+
+			// Generate a unique ID
+			const evaluationId = crypto.randomUUID();
+
+			// Determine repository URL
+			const repositoryUrl =
+				body.metadata.repositoryUrl ||
+				body.metadata.localPath ||
+				"unknown (imported)";
+
+			// Save to database
+			evaluationRepository.saveImportedEvaluation(
+				evaluationId,
+				evaluationOutput,
+				repositoryUrl,
+			);
+
+			return new Response(
+				JSON.stringify({
+					evaluationId,
+					repositoryUrl,
+					status: "imported",
+				}),
+				{
+					status: 201,
+					headers: { "Content-Type": "application/json" },
+				},
+			);
+		} catch (err: unknown) {
+			console.error(
+				"[EvaluationRoutes] Error in POST /api/evaluations/import:",
 				err,
 			);
 			const error = err as Error;

@@ -715,6 +715,36 @@ function AppContent() {
 		setSSEUrl(null);
 	}, []);
 
+	// Handle import of a CLI-generated JSON report
+	const handleImportReport = useCallback(
+		async (file: File) => {
+			try {
+				const text = await file.text();
+				const reportJson = JSON.parse(text);
+
+				// Basic validation
+				if (
+					!reportJson.metadata ||
+					!reportJson.issues ||
+					!reportJson.statistics
+				) {
+					throw new Error(
+						"Invalid report format: missing metadata, issues, or statistics",
+					);
+				}
+
+				const result = await api.importReport(reportJson);
+				navigate(`/evaluation/${result.evaluationId}?tab=summary`);
+			} catch (err) {
+				setApiError(
+					err instanceof Error ? err.message : "Failed to import report",
+				);
+				throw err;
+			}
+		},
+		[api, navigate],
+	);
+
 	// Load evaluation from URL on mount or when URL changes
 	// Handles both active jobs (reconnect SSE) and completed evaluations (load from database)
 	// biome-ignore lint/correctness/useExhaustiveDependencies: handleFileLoad is intentionally excluded - we want the latest version but don't want it to trigger re-runs
@@ -1946,6 +1976,7 @@ function AppContent() {
 							<EvaluationInputPanel
 								onUrlSubmit={handleUrlSubmit}
 								onBatchSubmit={!cloudMode ? handleBatchSubmit : undefined}
+								onImport={!cloudMode ? handleImportReport : undefined}
 								isLoading={api.isLoading}
 								urlError={apiError}
 								hasData={false}

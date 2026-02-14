@@ -13,7 +13,7 @@ import { isValidGitUrl } from "../lib/url-validation";
 import type { EvaluatorFilter } from "../types/evaluation";
 import type { IEvaluator } from "../types/evaluator";
 
-type InputMode = "single" | "batch";
+type InputMode = "single" | "batch" | "import";
 
 interface IRepositoryUrlInputProps {
 	onSubmit: (
@@ -32,6 +32,7 @@ interface IRepositoryUrlInputProps {
 		concurrency: number,
 		selectedEvaluators?: string[],
 	) => Promise<void>;
+	onImport?: (file: File) => Promise<void>;
 	isLoading: boolean;
 	error?: string | null;
 	disabled?: boolean;
@@ -49,6 +50,7 @@ const PROVIDERS: { name: ProviderName; displayName: string }[] = [
 export const RepositoryUrlInput: React.FC<IRepositoryUrlInputProps> = ({
 	onSubmit,
 	onBatchSubmit,
+	onImport,
 	isLoading,
 	error,
 	disabled = false,
@@ -73,6 +75,9 @@ export const RepositoryUrlInput: React.FC<IRepositoryUrlInputProps> = ({
 	const dropdownRef = useRef<HTMLDivElement>(null);
 	const [provider, setProvider] = useState<ProviderName>("claude");
 	const [validationError, setValidationError] = useState<string | null>(null);
+	const [importFileName, setImportFileName] = useState<string | null>(null);
+	const importFileRef = useRef<File | null>(null);
+	const fileInputRef = useRef<HTMLInputElement>(null);
 
 	// Parse batch URLs from textarea
 	const parsedBatchUrls = useMemo(() => {
@@ -241,6 +246,36 @@ export const RepositoryUrlInput: React.FC<IRepositoryUrlInputProps> = ({
 		[validationError],
 	);
 
+	const handleFileSelect = useCallback(
+		(e: React.ChangeEvent<HTMLInputElement>) => {
+			const file = e.target.files?.[0];
+			if (!file) return;
+			if (!file.name.endsWith(".json")) {
+				setValidationError("Please select a JSON file");
+				return;
+			}
+			importFileRef.current = file;
+			setImportFileName(file.name);
+			if (validationError) {
+				setValidationError(null);
+			}
+		},
+		[validationError],
+	);
+
+	const handleImportSubmit = useCallback(
+		async (e: React.FormEvent) => {
+			e.preventDefault();
+			if (!importFileRef.current || !onImport) return;
+			try {
+				await onImport(importFileRef.current);
+			} catch {
+				// Error is handled by parent component
+			}
+		},
+		[onImport],
+	);
+
 	const displayError = validationError || error;
 
 	/**
@@ -365,24 +400,29 @@ export const RepositoryUrlInput: React.FC<IRepositoryUrlInputProps> = ({
 		disabled ||
 		isLoading ||
 		(inputMode === "single" && !url.trim()) ||
-		(inputMode === "batch" && validBatchUrls.length === 0);
+		(inputMode === "batch" && validBatchUrls.length === 0) ||
+		(inputMode === "import" && !importFileRef.current);
 
 	return (
 		<div className="w-full">
-			<form onSubmit={handleSubmit}>
+			<form
+				onSubmit={inputMode === "import" ? handleImportSubmit : handleSubmit}
+			>
 				<div className="glass-card p-4 gradient-border-hover transition-all duration-300 overflow-visible">
 					<div className="flex flex-col items-center py-2">
 						{/* Text Content */}
 						<div className="text-center mb-3">
 							<p className="text-sm font-medium text-slate-200">
-								{inputMode === "batch"
-									? "Enter Git repository URLs to analyze (one per line)"
-									: "Enter a Git repository URL to analyze"}
+								{inputMode === "import"
+									? "Upload a CLI-generated JSON report"
+									: inputMode === "batch"
+										? "Enter Git repository URLs to analyze (one per line)"
+										: "Enter a Git repository URL to analyze"}
 							</p>
 						</div>
 
 						{/* Mode Toggle - only shown when not in cloud mode */}
-						{!cloudMode && onBatchSubmit && (
+						{!cloudMode && (onBatchSubmit || onImport) && (
 							<div className="flex items-center gap-1 mb-3 p-0.5 bg-slate-800/60 rounded-lg border border-slate-700/50">
 								<button
 									type="button"
@@ -398,26 +438,121 @@ export const RepositoryUrlInput: React.FC<IRepositoryUrlInputProps> = ({
 								>
 									Single URL
 								</button>
-								<button
-									type="button"
-									onClick={() => {
-										setInputMode("batch");
-										setValidationError(null);
-									}}
-									className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200 ${
-										inputMode === "batch"
-											? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
-											: "text-slate-400 hover:text-slate-300 border border-transparent"
-									}`}
-								>
-									Batch URLs
-								</button>
+								{onBatchSubmit && (
+									<button
+										type="button"
+										onClick={() => {
+											setInputMode("batch");
+											setValidationError(null);
+										}}
+										className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200 ${
+											inputMode === "batch"
+												? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
+												: "text-slate-400 hover:text-slate-300 border border-transparent"
+										}`}
+									>
+										Batch URLs
+									</button>
+								)}
+								{onImport && (
+									<button
+										type="button"
+										onClick={() => {
+											setInputMode("import");
+											setValidationError(null);
+										}}
+										className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200 ${
+											inputMode === "import"
+												? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
+												: "text-slate-400 hover:text-slate-300 border border-transparent"
+										}`}
+									>
+										Import JSON
+									</button>
+								)}
 							</div>
 						)}
 
-						{/* URL Input / Batch Textarea */}
+						{/* URL Input / Batch Textarea / Import File */}
 						<div className="w-full max-w-lg px-4 mb-3">
-							{inputMode === "batch" ? (
+							{inputMode === "import" ? (
+								<div
+									className={`
+										w-full px-4 py-6 bg-slate-800/60 border rounded-xl
+										text-center transition-all duration-200
+										${displayError ? "border-red-500/60" : "border-slate-600/60"}
+									`}
+								>
+									<input
+										ref={fileInputRef}
+										type="file"
+										accept=".json"
+										onChange={handleFileSelect}
+										disabled={disabled || isLoading}
+										className="hidden"
+									/>
+									{importFileName ? (
+										<div className="flex items-center justify-center gap-3">
+											<svg
+												className="w-5 h-5 text-green-400"
+												fill="none"
+												stroke="currentColor"
+												viewBox="0 0 24 24"
+											>
+												<path
+													strokeLinecap="round"
+													strokeLinejoin="round"
+													strokeWidth={2}
+													d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+												/>
+											</svg>
+											<span className="text-sm text-slate-200">
+												{importFileName}
+											</span>
+											<button
+												type="button"
+												onClick={() => {
+													importFileRef.current = null;
+													setImportFileName(null);
+													if (fileInputRef.current) {
+														fileInputRef.current.value = "";
+													}
+												}}
+												className="text-xs text-slate-400 hover:text-slate-200"
+											>
+												Change
+											</button>
+										</div>
+									) : (
+										<button
+											type="button"
+											onClick={() => fileInputRef.current?.click()}
+											disabled={disabled || isLoading}
+											className="flex flex-col items-center gap-2 mx-auto text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+										>
+											<svg
+												className="w-8 h-8"
+												fill="none"
+												stroke="currentColor"
+												viewBox="0 0 24 24"
+											>
+												<path
+													strokeLinecap="round"
+													strokeLinejoin="round"
+													strokeWidth={1.5}
+													d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+												/>
+											</svg>
+											<span className="text-sm">
+												Click to select a JSON report file
+											</span>
+											<span className="text-xs text-slate-500">
+												Generated via CLI with --report json
+											</span>
+										</button>
+									)}
+								</div>
+							) : inputMode === "batch" ? (
 								<>
 									<textarea
 										value={batchText}
@@ -495,8 +630,8 @@ export const RepositoryUrlInput: React.FC<IRepositoryUrlInputProps> = ({
 							)}
 						</div>
 
-						{/* Options Row: Evaluator Selector, Provider, Concurrency - hidden in cloud mode */}
-						{!cloudMode && (
+						{/* Options Row: Evaluator Selector, Provider, Concurrency - hidden in cloud mode and import mode */}
+						{!cloudMode && inputMode !== "import" && (
 							<div className="w-full max-w-lg px-4 mb-3">
 								<div className="flex flex-wrap items-center justify-center gap-4">
 									{/* Evaluator Multi-Select Dropdown */}
@@ -840,7 +975,11 @@ export const RepositoryUrlInput: React.FC<IRepositoryUrlInputProps> = ({
 												d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
 											></path>
 										</svg>
-										<span>Starting Evaluation...</span>
+										<span>
+											{inputMode === "import"
+												? "Importing..."
+												: "Starting Evaluation..."}
+										</span>
 									</>
 								) : (
 									<>
@@ -858,9 +997,11 @@ export const RepositoryUrlInput: React.FC<IRepositoryUrlInputProps> = ({
 											/>
 										</svg>
 										<span>
-											{inputMode === "batch"
-												? `Start Batch Evaluation (${validBatchUrls.length})`
-												: "Start Evaluation"}
+											{inputMode === "import"
+												? "Import Report"
+												: inputMode === "batch"
+													? `Start Batch Evaluation (${validBatchUrls.length})`
+													: "Start Evaluation"}
 										</span>
 									</>
 								)}
