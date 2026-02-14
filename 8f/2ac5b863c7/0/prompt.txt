@@ -1,0 +1,222 @@
+Implement the following plan:
+
+# Plan: Upload JSON Reports in Web UI
+
+## Context
+
+Users can generate JSON evaluation reports via the CLI (`--report json`), but currently there's no way to view these reports in the Web UI without re-running the evaluation. This feature allows users to upload CLI-generated JSON reports into the Web UI for viewing and persistence, available only in non-cloud instances.
+
+The `IJsonReport` format (from `--report json`) contains all necessary data: metadata, issues, statistics, context score, project context, curation, and cost analysis. This data needs to be converted back to `EvaluationOutput` (the internal format the UI expects) before storage and display.
+
+---
+
+## Implementation
+
+### 1. Backend: Add `POST /api/evaluations/import` endpoint
+
+**File: `src/api/routes/evaluation.ts`**
+
+- Add `importReport(req: Request)` method to `EvaluationRoutes`
+- Gate behind `!cloudMode` (return 403 if cloud mode)
+- Accept JSON body with the `IJsonReport` structure
+- Validate required fields: `metadata`, `issues` (array), `statistics`
+- Convert `IJsonReport` → `EvaluationOutput` (see step 2)
+- Generate a UUID for the imported evaluation
+- Mark the evaluation as `source: "imported"` in metadata
+- Save via `evaluationRepository.saveImportedEvaluation()` (see step 3)
+- Return `{ evaluationId, repositoryUrl, status: "imported" }`
+
+### 2. Backend: Convert `IJsonReport` → `EvaluationOutput`
+
+**File: `src/cli/output/report-formatters.ts`** (add reverse function)
+
+Add `convertJsonReportToEvaluationOutput(report: IJsonReport): EvaluationOutput`
+
+The `IJsonReport` has `metadata` (type `Metadata`) which is the same type used in `EvaluationOutput`. The key mapping:
+
+- `metadata` → copy directly (it's already the `Metadata` type)
+- `issues` → need to be put into a unified format structure (create a synthetic `results` array with a single entry, or better: store issues directly in a minimal unified structure)
+- `curation` → copy directly (same `ICurationOutput` type)
+- `contextScore` → already in `metadata.contextScore`
+- `projectContext` → already in `metadata.projectContext`
+
+Since the `IJsonReport.metadata` is the exact same `Metadata` type as `EvaluationOutput.metadata`, and the frontend's `allIssues` parser handles both unified and independent formats, the simplest approach is to create a **unified format** `EvaluationOutput` with synthetic results:
+
+```typescript
+{
+  metadata: report.metadata,
+  results: report.issues.map(issue => ({
+    evaluator: issue.evaluatorName || "unknown",
+    output: { result: JSON.stringify([issue]) },
+  })),
+  curation: report.curation,
+}
+```
+
+However, looking at how the frontend parses issues (`App.tsx:874-935`), it can handle the unified `results` array. But grouping one issue per result is wasteful. Better approach: group issues by evaluatorName, then create one result per evaluator:
+
+```typescript
+// Group issues by evaluator
+const issuesByEvaluator = groupBy(report.issues, i => i.evaluatorName || "unknown");
+const results = Object.entries(issuesByEvaluator).map(([evaluator, issues]) => ({
+  evaluator,
+  output: {
+    result: JSON.stringify(issues),
+    // Stub remaining output fields
+    usage: { input_tokens: 0, output_tokens: 0 },
+    duration_ms: 0,
+    total_cost_usd: 0,
+  },
+}));
+```
+
+Then construct:
+```typescript
+{
+  metadata: { ...report.metadata, isImported: true },
+  results,
+  curation: report.curation,
+}
+```
+
+### 3. Backend: Add `saveImportedEvaluation` to repository
+
+**File: `src/api/db/evaluation-repository.ts`**
+
+Add a new method `saveImportedEvaluation(id, evaluationOutput, repositoryUrl)` that:
+- Saves to the `evaluations` table using existing INSERT logic
+- Sets `status = "completed"`
+- Extracts metadata fields the same way `saveEvaluation` does
+- Sets `is_imported = 1` (new column, see step 4)
+
+### 4. Database: Add `is_imported` column
+
+**File: `src/api/db/database.ts`**
+
+Add migration (same pattern as existing column additions):
+```typescript
+try {
+  database.run(`ALTER TABLE evaluations ADD COLUMN is_imported INTEGER DEFAULT 0;`);
+} catch { /* Column already exists */ }
+```
+
+### 5. Backend: Expose `isImported` in history items
+
+**File: `src/api/db/evaluation-repository.ts`**
+
+- Add `isImported?: boolean` to `IEvaluationHistoryItem` interface
+- Add `is_imported` to `EvaluationRow` interface
+- Map `is_imported` → `isImported` in `rowToHistoryItem()`
+- Include `is_imported` in SELECT queries
+
+### 6. Backend: Register the new route
+
+**File: `src/api/index.ts`**
+
+Add route matching in `handleApiRoute()`:
+```typescript
+if (path === "/api/evaluations/import" && req.method === "POST") {
+  return this.evaluationRoutes.importReport(req);
+}
+```
+
+Place this **before** the existing `/api/evaluations/:id` pattern match to avoid collision.
+
+### 7. Frontend: Add `importReport` to `useEvaluationApi` hook
+
+**File: `frontend/src/hooks/useEvaluationApi.ts`**
+
+Add `importReport(file: File): Promise<{ evaluationId: string }>` method:
+- Read file as text, parse as JSON
+- Validate it looks like an `IJsonReport` (has `metadata`, `issues`, `statistics`)
+- POST to `/api/evaluations/import` with the parsed JSON
+- Return the evaluation ID
+
+### 8. Frontend: Add `isImported` to evaluation types
+
+**File: `frontend/src/types/evaluation.ts`**
+
+Add `isImported?: boolean` to the `IEvaluationHistoryItem` type (frontend mirror).
+
+### 9. Frontend: Add "Import Report" tab to input panel
+
+**File: `frontend/src/components/RepositoryUrlInput.tsx`**
+
+- Add a new `InputMode`: `"single" | "batch" | "import"`
+- In the mode toggle section (which is already hidden in cloud mode), add "Import JSON" button
+- When `inputMode === "import"`, show a file drop zone / file input instead of URL input
+- On file selection, call `onImport(file)` callback
+- After successful import, navigate to `/evaluation/:id`
+
+**File: `frontend/src/components/EvaluationInputPanel.tsx`**
+
+- Add `onImport?: (file: File) => Promise<void>` prop
+- Pass it through to `RepositoryUrlInput`
+
+**File: `frontend/src/App.tsx`**
+
+- Add `handleImportReport` callback that:
+  1. Calls `api.importReport(file)`
+  2. Navigates to `/evaluation/${evaluationId}?tab=summary`
+  3. Refreshes history
+- Pass it to `EvaluationInputPanel` as `onImport`
+
+### 10. Frontend: Add "Imported" badge to history
+
+**File: `frontend/src/components/RecentEvaluationsPage.tsx`**
+
+In the evaluation row rendering, check `item.isImported` and show a small "Imported" badge (similar to the existing grade badge pattern):
+
+```tsx
+{item.isImported && (
+  <span className="badge bg-slate-600/50 text-slate-300 border border-slate-500/50">
+    Imported
+  </span>
+)}
+```
+
+### 11. Ensure repository URL is present
+
+The `IJsonReport.metadata` already contains `repositoryUrl` and `localPath` fields. When importing:
+- Use `metadata.repositoryUrl || metadata.localPath || "unknown"` as the repository URL
+- This matches the existing pattern in `saveEvaluation()`
+
+---
+
+## Files to modify
+
+| File | Change |
+|------|--------|
+| `src/api/routes/evaluation.ts` | Add `importReport()` method |
+| `src/cli/output/report-formatters.ts` | Add `convertJsonReportToEvaluationOutput()` |
+| `src/api/db/evaluation-repository.ts` | Add `saveImportedEvaluation()`, add `isImported` to interfaces/queries |
+| `src/api/db/database.ts` | Add `is_imported` column migration |
+| `src/api/index.ts` | Register `POST /api/evaluations/import` route |
+| `frontend/src/hooks/useEvaluationApi.ts` | Add `importReport()` method |
+| `frontend/src/types/evaluation.ts` | Add `isImported` to history item type |
+| `frontend/src/components/RepositoryUrlInput.tsx` | Add "Import JSON" mode toggle and file input |
+| `frontend/src/components/EvaluationInputPanel.tsx` | Add `onImport` prop |
+| `frontend/src/App.tsx` | Add `handleImportReport` handler, pass to panel |
+| `frontend/src/components/RecentEvaluationsPage.tsx` | Add "Imported" badge |
+
+---
+
+## Verification
+
+1. **Unit tests**: Run `bun run test` - ensure no regressions
+2. **Manual testing**:
+   - Generate a JSON report via CLI: `bun run src/index.ts cli evaluate --report json -o test-report.json <repo-url>`
+   - Start the dev server: `bun run dev`
+   - Navigate to the home page, select "Import JSON" mode
+   - Upload the `test-report.json` file
+   - Verify it redirects to the evaluation view with full report display
+   - Verify the evaluation appears in history with "Imported" badge
+   - Verify cloud mode hides the import option (set `CLOUD_MODE=true`)
+3. **Lint/typecheck**: Run `bun run lint` and `bun run typecheck`
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+commit and update changelog

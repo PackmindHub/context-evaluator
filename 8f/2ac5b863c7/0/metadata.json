@@ -1,0 +1,91 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "8f2ac5b863c7",
+  "session_id": "464878eb-4c98-430c-a91b-32b051328dfb",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-14T18:06:45.665474Z",
+  "branch": "main",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "CHANGELOG.md",
+    "frontend/src/App.tsx",
+    "frontend/src/components/EvaluationInputPanel.tsx",
+    "frontend/src/components/RecentEvaluationsPage.tsx",
+    "frontend/src/components/RepositoryUrlInput.tsx",
+    "frontend/src/hooks/useEvaluationApi.ts",
+    "frontend/src/types/evaluation.ts",
+    "src/api/db/database.ts",
+    "src/api/db/evaluation-repository.ts",
+    "src/api/index.ts",
+    "src/api/routes/evaluation.test.ts",
+    "src/api/routes/evaluation.ts",
+    "src/cli/output/report-formatters.ts"
+  ],
+  "agent": "Claude Code",
+  "token_usage": {
+    "input_tokens": 103,
+    "cache_creation_tokens": 278043,
+    "cache_read_tokens": 11603898,
+    "output_tokens": 10511,
+    "api_call_count": 99
+  },
+  "summary": {
+    "intent": "Implement a feature to upload and view CLI-generated JSON evaluation reports in the Web UI, allowing users to import reports without re-running evaluations (non-cloud instances only).",
+    "outcome": "Successfully implemented end-to-end import functionality with backend endpoint, database migration, JSON-to-evaluation converter, frontend upload UI with file input, and imported badge in history. All 1219 tests pass, lint and typecheck clean.",
+    "learnings": {
+      "repo": [
+        "Database migrations use idempotent ALTER TABLE with try/catch pattern for column additions",
+        "Test database schemas must be kept in sync with migrations manually in evaluation.test.ts",
+        "The @cli/* path alias allows API routes to import from CLI modules",
+        "IJsonReport.metadata is already the same Metadata type as EvaluationOutput.metadata, enabling direct reuse",
+        "Pre-commit hooks run full test suite, lint, and typecheck automatically"
+      ],
+      "code": [
+        {
+          "path": "src/api/routes/evaluation.test.ts",
+          "line": 21,
+          "end_line": 38,
+          "finding": "Test database CREATE TABLE statements need manual updates when adding columns - the migration system doesn't apply to test DBs"
+        },
+        {
+          "path": "src/cli/output/report-formatters.ts",
+          "line": 118,
+          "end_line": 142,
+          "finding": "When converting IJsonReport back to EvaluationOutput, must strip enriched fields (severityLevel, formattedLocation) and include required crossFileIssues array"
+        },
+        {
+          "path": "src/api/index.ts",
+          "line": 111,
+          "end_line": 113,
+          "finding": "Route order matters - /api/evaluations/import must be registered before /api/evaluations/:id pattern to avoid collision"
+        },
+        {
+          "path": "frontend/src/components/RepositoryUrlInput.tsx",
+          "line": 20,
+          "end_line": 20,
+          "finding": "InputMode type uses union 'single' | 'batch' | 'import' to control UI rendering across multiple sections"
+        }
+      ],
+      "workflow": [
+        "Running bun run test before commits catches database schema mismatches early",
+        "Biome auto-fixes most formatting issues with bun run lint:fix",
+        "Reading all related files upfront (both backend and frontend) prevents incomplete implementations"
+      ]
+    },
+    "friction": [
+      "Test database schema divergence caused initial test failures - no automatic migration system for test DBs",
+      "Three lint formatting issues required auto-fix run after implementation",
+      "TypeScript error for missing crossFileIssues field required an extra iteration after initial typecheck"
+    ],
+    "open_items": []
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-14T18:06:25.899972Z",
+    "agent_lines": 489,
+    "human_added": 1113,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 1602,
+    "agent_percentage": 30.52434456928839
+  }
+}
