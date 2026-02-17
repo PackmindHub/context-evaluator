@@ -153,8 +153,10 @@ export function RemediateTab({
 					logs: [],
 				});
 				setPhase("progress");
+			} else if (data.status === "failed") {
+				setRemediationId(data.id);
+				setExecuteError(data.error?.message ?? "Previous remediation failed");
 			}
-			// "failed" or anything else: stay in config phase
 		}
 
 		loadExistingRemediation();
@@ -415,9 +417,21 @@ export function RemediateTab({
 			setProgressState({ status: "queued", logs: [] });
 			setPhase("progress");
 		} catch (err) {
-			setExecuteError(
-				err instanceof Error ? err.message : "Failed to start remediation",
-			);
+			const message =
+				err instanceof Error ? err.message : "Failed to start remediation";
+			setExecuteError(message);
+
+			// If a stale record blocks execution, fetch its ID so the delete button works
+			if (message.includes("already exists") && evaluationId) {
+				try {
+					const existing = await api.getRemediationForEvaluation(evaluationId);
+					if (existing?.id) {
+						setRemediationId(existing.id);
+					}
+				} catch {
+					// Ignore – the error message is already shown
+				}
+			}
 		} finally {
 			setIsExecuting(false);
 		}
@@ -846,7 +860,18 @@ export function RemediateTab({
 				</div>
 
 				{executeError && (
-					<p className="text-sm text-red-400 mt-2">{executeError}</p>
+					<div className="flex items-center gap-3 mt-2">
+						<p className="text-sm text-red-400">{executeError}</p>
+						{remediationId && !cloudMode && (
+							<button
+								onClick={handleDeleteRemediation}
+								disabled={isDeleting}
+								className="btn-secondary text-red-400 hover:text-red-300 flex-shrink-0"
+							>
+								{isDeleting ? "Deleting..." : "Delete & Retry"}
+							</button>
+						)}
+					</div>
 				)}
 				{generateError && (
 					<p className="text-sm text-red-400 mt-2">{generateError}</p>
