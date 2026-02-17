@@ -1,0 +1,61 @@
+Implement the following plan:
+
+# Fix Skill Placement Paths in Remediation Prompts
+
+## Context
+
+The remediation system generates prompts for AI agents to fix documentation issues (errors) and enrich missing documentation (suggestions). When generating suggestion prompts, skills are created in target-specific directories. Currently, the skill directory paths are wrong for `claude-code` and `agents-md` targets — both incorrectly use `.agent/skills` instead of their proper paths. The reference markdown documentation is also outdated.
+
+## Changes
+
+### 1. Fix `src/shared/remediation/prompt-generator.ts`
+
+**`getSkillInstructions()` (lines 231-233)** — Replace ternary with a map:
+
+```typescript
+// Before
+const skillDir = targetAgent === "github-copilot" ? ".github/skills" : ".agent/skills";
+
+// After
+const skillDirMap: Record<TargetAgent, string> = {
+    "agents-md": ".agents/skills",
+    "claude-code": ".claude/skills",
+    "github-copilot": ".github/skills",
+};
+const skillDir = skillDirMap[targetAgent];
+```
+
+Also enrich the skill creation instructions in the return string (currently just mentions YAML frontmatter) to include key guidance from the skill creation reference: metadata quality, progressive disclosure, writing style, and resource types.
+
+**`getAgentContextDescription()` (lines 119-122)** — Fix skill paths:
+- `agents-md`: `.agent/skills` → `.agents/skills`
+- `claude-code`: `.agent/skills` → `.claude/skills`
+
+### 2. Fix `src/shared/remediation/prompt-generator.test.ts`
+
+Update two assertions that expect wrong paths:
+- Line 314: `.agent/skills/<skill-name>/` → `.agents/skills/<skill-name>/`
+- Line 338: `.agent/skills/<skill-name>/` → `.claude/skills/<skill-name>/`
+
+### 3. Update `prompts/context-remediation/packmind-remediation-prompt.md`
+
+Replace line 92's single-target reference with all three target paths:
+```
+Skill placement varies by target agent:
+- **AGENTS.md**: `.agents/skills/<skill-name>/`
+- **Claude Code**: `.claude/skills/<skill-name>/`
+- **GitHub Copilot**: `.github/skills/<skill-name>/`
+```
+
+### 4. Update `prompts/context-remediation/packmind-remediation-skill-creation.md`
+
+Add a "Skill Placement by Target Agent" section (after "Skill Anatomy") with a table documenting all three target-specific paths.
+
+## Verification
+
+1. `bun run test` — existing + updated assertions pass
+2. `bun run lint` — no lint issues
+3. `bun run typecheck` — types valid (Record<TargetAgent, string> enforces exhaustiveness)
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
