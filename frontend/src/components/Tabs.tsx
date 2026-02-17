@@ -5,6 +5,7 @@ export interface TabItem {
 	label: string;
 	icon?: React.ReactNode;
 	count?: number;
+	countClassName?: string;
 }
 
 interface TabsProps {
@@ -84,7 +85,7 @@ export const Tabs: React.FC<TabsProps> = ({ tabs, activeTab, onTabChange }) => {
 						<span>{tab.label}</span>
 						{tab.count !== undefined && (
 							<span
-								className={`tab-count ${isActive ? "tab-count-active" : ""}`}
+								className={`tab-count ${isActive ? "tab-count-active" : ""} ${tab.countClassName ?? ""}`}
 							>
 								{tab.count}
 							</span>

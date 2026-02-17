@@ -1043,6 +1043,30 @@
 		@apply bg-white/20 text-white;
 	}
 
+	.tab-count-errors {
+		@apply bg-red-500/20 text-red-300;
+	}
+
+	.tab-count-errors.tab-count-active {
+		@apply bg-red-400/30 text-white;
+	}
+
+	.tab-count-suggestions {
+		@apply bg-amber-500/20 text-amber-300;
+	}
+
+	.tab-count-suggestions.tab-count-active {
+		@apply bg-amber-400/30 text-white;
+	}
+
+	.tab-count-remediate {
+		@apply bg-emerald-500/20 text-emerald-300;
+	}
+
+	.tab-count-remediate.tab-count-active {
+		@apply bg-emerald-400/30 text-white;
+	}
+
 	/* Tab content transition */
 	.tab-content-enter {
 		animation: tabFadeIn 0.25s ease-out;

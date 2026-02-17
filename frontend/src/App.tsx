@@ -1667,6 +1667,7 @@ function AppContent() {
 					</svg>
 				),
 				count: filteredErrorsCount,
+				countClassName: "tab-count-errors",
 			},
 			{
 				id: "suggestions",
@@ -1687,6 +1688,7 @@ function AppContent() {
 					</svg>
 				),
 				count: filteredSuggestionsCount,
+				countClassName: "tab-count-suggestions",
 			},
 			{
 				id: "remediate",
@@ -1707,6 +1709,7 @@ function AppContent() {
 					</svg>
 				),
 				count: selectedIssueKeys.size > 0 ? selectedIssueKeys.size : undefined,
+				countClassName: "tab-count-remediate",
 			},
 		];
 
