@@ -1,0 +1,70 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "188f64dd752f",
+  "session_id": "93db84f8-1b8c-499a-9692-1865cb6f9160",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-17T14:23:28.839873Z",
+  "branch": "main",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "CHANGELOG.md",
+    "frontend/src/components/RemediateTab.tsx",
+    "frontend/src/components/RemediationHistory.tsx",
+    "frontend/src/components/RemediationHistoryCard.tsx",
+    "frontend/src/hooks/useEvaluationApi.ts",
+    "frontend/src/types/remediation.ts",
+    "src/api/db/remediation-repository.ts",
+    "src/api/index.ts",
+    "src/api/routes/remediation.ts"
+  ],
+  "agent": "Claude Code",
+  "token_usage": {
+    "input_tokens": 50,
+    "cache_creation_tokens": 250559,
+    "cache_read_tokens": 4094624,
+    "output_tokens": 621,
+    "api_call_count": 44
+  },
+  "summary": {
+    "intent": "Implement multi-remediation support to allow users to run multiple independent remediations per evaluation, with each remediation stored in history and producing its own downloadable patch.",
+    "outcome": "Successfully implemented full multi-remediation support: removed 1:1 evaluation-remediation constraint, added history UI with collapsible cards showing past remediations with diffs, rewrote RemediateTab to 2-phase model with persistent config access, and updated backend to support listing all remediations. All 1226 tests pass, lint clean, committed.",
+    "learnings": {
+      "repo": [
+        "RemediateTab used a 3-phase system (config/progress/results) that blocked config access after completion - replaced with 2-phase (idle/progress) to keep config always visible",
+        "The 409 guard in remediation.ts (lines 219-228) enforced 1:1 evaluation-remediation relationship by blocking new remediations when any completed one existed",
+        "Repository layer uses rowToRecord() private method for DB-to-model mapping, reusable for list queries",
+        "FileChangeCard and DiffViewer components are designed to be reusable for displaying remediation results in multiple contexts"
+      ],
+      "code": [
+        {
+          "path": "src/api/routes/remediation.ts",
+          "line": 219,
+          "end_line": 228,
+          "finding": "Removed completed-remediation guard that blocked new remediations when any completed one existed; kept only active-job guard for filesystem safety"
+        },
+        {
+          "path": "frontend/src/components/RemediateTab.tsx",
+          "finding": "Replaced 3-phase state model (config/progress/results) with 2-phase (idle/progress) so config area remains accessible after completion while history displays above"
+        }
+      ],
+      "workflow": [
+        "Biome auto-fix (biome check --write) handles both formatting and lint issues in one pass",
+        "Pre-commit hooks in this repo run full test suite + lint + typecheck, ensuring commit quality",
+        "Breaking down large rewrites into parallel file reads at the start speeds up initial context gathering"
+      ]
+    },
+    "friction": [
+      "Unused variable activeRemediationId required manual fix after Biome auto-fix (only setter was needed, not getter)"
+    ],
+    "open_items": []
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-17T14:23:12.226052Z",
+    "agent_lines": 727,
+    "human_added": 1113,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 1840,
+    "agent_percentage": 39.51086956521739
+  }
+}

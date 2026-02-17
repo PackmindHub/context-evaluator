@@ -1,0 +1,147 @@
+Implement the following plan:
+
+# Multi-Remediation Support
+
+## Context
+
+Currently, the remediation system enforces a 1:1 relationship between evaluations and remediations. A 409 guard blocks creating a new remediation if any completed one exists. This prevents users from running multiple independent remediations (e.g., fixing security issues in one pass, then addressing code style in another). Each remediation should run independently from the current git state and produce its own downloadable patch.
+
+## Design Decisions (from user input)
+
+- **History layout**: Collapsible section above the config area
+- **Result detail**: Compact cards with expand-to-full-details
+- **Post-run basket**: Clear selection after completion (current behavior)
+- **Retention**: Keep remediations even when evaluation is re-run; auto-generated labels
+- **Labels**: "Remediation #N - X errors, Y suggestions" + timestamp
+
+---
+
+## Implementation Plan
+
+### Step 1: Backend — Repository Layer
+
+**File**: `src/api/db/remediation-repository.ts`
+
+- Add `getRemediationsByEvaluationId(evaluationId: string): IRemediationRecord[]` — returns all remediations ordered by `created_at DESC` (no LIMIT)
+- Reuse existing `rowToRecord()` private method for mapping
+
+### Step 2: Backend — API Route Changes
+
+**File**: `src/api/routes/remediation.ts`
+
+- **Remove the completed-remediation 409 guard** (lines 219-228): Delete the `existingRecord` check that blocks new remediations when a completed one exists
+- **Keep the active-job guard** (lines 210-218): Still prevent concurrent remediations for filesystem safety, but change error code from `REMEDIATION_EXISTS` to `REMEDIATION_ACTIVE`
+- **Add `getRemediationsForEvaluation()` handler**: New GET endpoint returning `{ remediations: IRemediationRecord[], activeJob: {...} | null }`
+  - Fetches all DB records via `getRemediationsByEvaluationId()`
+  - Checks job manager for active in-memory job (queued/running)
+
+### Step 3: Backend — Route Registration
+
+**File**: `src/api/index.ts`
+
+- Register `GET /api/remediation/list-for-evaluation/:evaluationId` — insert before the existing `for-evaluation` route (line 307) to avoid regex conflict
+
+### Step 4: Frontend — Types
+
+**File**: `frontend/src/types/remediation.ts`
+
+- Add `RemediationHistoryItem` interface (mirrors `IRemediationRecord` shape with frontend-friendly field names)
+
+### Step 5: Frontend — API Hook
+
+**File**: `frontend/src/hooks/useEvaluationApi.ts`
+
+- Add `getRemediationsForEvaluation(evaluationId)` method returning `{ remediations, activeJob }`
+
+### Step 6: Frontend — RemediationHistoryCard Component
+
+**New file**: `frontend/src/components/RemediationHistoryCard.tsx`
+
+Compact card for each past remediation:
+- **Collapsed**: Label (#N), timestamp, stats (errors/suggestions, files changed, +/-), status dot, download patch button, delete button, expand chevron
+- **Expanded**: Full results — action summary + file change cards with diffs (reuse existing `FileChangeCard` and `DiffViewer`)
+
+### Step 7: Frontend — RemediationHistory Component
+
+**New file**: `frontend/src/components/RemediationHistory.tsx`
+
+Collapsible container:
+- Header: "Past Remediations (N)" with toggle chevron
+- Lists `RemediationHistoryCard` components
+- Accordion behavior (expanding one collapses others)
+- Delete confirmation modal per card
+
+### Step 8: Frontend — RemediateTab Rewrite
+
+**File**: `frontend/src/components/RemediateTab.tsx`
+
+Major state model change:
+
+**Remove**: Single `result` state, single `remediationId`, 3-phase system (config/progress/results)
+
+**Add**:
+- `remediations: RemediationHistoryItem[]` — full list from API
+- `activeRemediationId: string | null` — ID of running job
+- `expandedHistoryId: string | null` — which history card is expanded
+- `newRemPhase: "idle" | "progress"` — only 2 phases now (no "results" phase)
+
+**Key behavior changes**:
+1. **On mount**: Call `getRemediationsForEvaluation()` → populate list. If active job, connect SSE and set phase to "progress"
+2. **Config always visible** when idle (no "results" blocking the config)
+3. **On complete**: Refresh remediation list, reset to idle, clear basket
+4. **On failure**: Refresh list (failed remediations appear in history too), reset to idle, show error
+5. **Delete**: Remove from list by ID, refresh
+
+**Layout**:
+```
+[RemediationHistory — collapsible, only if remediations exist]
+[RemediationProgress — only during "progress" phase]
+[Config area — only during "idle" phase (target, provider, issues, buttons)]
+```
+
+### Step 9: Tests
+
+- Repository: test `getRemediationsByEvaluationId()` returns multiple records in order
+- Routes: test execute endpoint allows new remediation when completed one exists, still blocks concurrent
+- Frontend: update existing RemediateTab tests for new state model
+
+---
+
+## Critical Files
+
+| File | Change |
+|------|--------|
+| `src/api/db/remediation-repository.ts` | Add `getRemediationsByEvaluationId()` |
+| `src/api/routes/remediation.ts` | Remove 409 guard, add list endpoint |
+| `src/api/index.ts` | Register new route |
+| `frontend/src/types/remediation.ts` | Add `RemediationHistoryItem` |
+| `frontend/src/hooks/useEvaluationApi.ts` | Add list API method |
+| `frontend/src/components/RemediationHistoryCard.tsx` | New: compact/expandable card |
+| `frontend/src/components/RemediationHistory.tsx` | New: collapsible history section |
+| `frontend/src/components/RemediateTab.tsx` | Rewrite state model and layout |
+
+## Reusable Existing Components
+
+- `FileChangeCard` (`frontend/src/components/FileChangeCard.tsx`) — for expanded view diffs
+- `DiffViewer` (`frontend/src/components/DiffViewer.tsx`) — syntax-highlighted diffs
+- `PatchDownload` (`frontend/src/components/PatchDownload.tsx`) — download button per remediation
+- `RemediationProgress` (`frontend/src/components/RemediationProgress.tsx`) — progress display
+
+## Verification
+
+1. Run `bun run test` after each step
+2. Start dev server (`bun run dev`), run an evaluation, select issues, execute remediation
+3. After completion, verify remediation appears in history section
+4. Select different issues, run another remediation — verify both appear in history
+5. Expand a history card — verify full diffs and action summary display
+6. Download patch from history card — verify correct patch
+7. Delete a remediation from history — verify it's removed
+8. Refresh page — verify all remediations are restored from DB
+9. Run `bun run lint` at the end
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+commit and update changelog.md
