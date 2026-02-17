@@ -16,6 +16,10 @@ const VALID_STATUSES: Record<string, IRemediationAction["status"]> = {
 	ignored: "skipped",
 };
 
+const VALID_OUTPUT_TYPES = new Set<
+	NonNullable<IRemediationAction["outputType"]>
+>(["standard", "skill", "generic"]);
+
 interface ParseResult {
 	actions: IRemediationAction[];
 	parsed: boolean;
@@ -144,11 +148,19 @@ function parseActionsFromJson(
 					summary = `${summary.slice(0, MAX_SUMMARY_LENGTH - 3)}...`;
 				}
 
+				const rawOutputType = String(a.outputType ?? "").toLowerCase();
+				const outputType = VALID_OUTPUT_TYPES.has(
+					rawOutputType as NonNullable<IRemediationAction["outputType"]>,
+				)
+					? (rawOutputType as NonNullable<IRemediationAction["outputType"]>)
+					: undefined;
+
 				return {
 					issueIndex: a.issueIndex as number,
 					status,
 					file: typeof a.file === "string" ? a.file : undefined,
 					summary,
+					...(outputType && { outputType }),
 				};
 			});
 	} catch {

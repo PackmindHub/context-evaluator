@@ -228,6 +228,14 @@ function CompactActionSummary({
 							<span className="text-green-400 mt-0.5">✓</span>
 						)}
 						<span className="text-slate-400 flex-1">{action.summary}</span>
+						{action.outputType && (
+							<span
+								className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium flex-shrink-0 output-type-${action.outputType}`}
+							>
+								{action.outputType.charAt(0).toUpperCase() +
+									action.outputType.slice(1)}
+							</span>
+						)}
 						{action.file && (
 							<span className="text-slate-600 font-mono">{action.file}</span>
 						)}

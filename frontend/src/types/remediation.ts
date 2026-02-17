@@ -18,6 +18,7 @@ export interface RemediationAction {
 	file?: string;
 	summary: string;
 	issueTitle?: string;
+	outputType?: "standard" | "skill" | "generic";
 }
 
 export interface RemediationSummary {

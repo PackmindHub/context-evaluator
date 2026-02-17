@@ -53,6 +53,7 @@ export interface IRemediationAction {
 	file?: string;
 	summary: string;
 	issueTitle?: string;
+	outputType?: "standard" | "skill" | "generic";
 }
 
 export interface IRemediationSummary {

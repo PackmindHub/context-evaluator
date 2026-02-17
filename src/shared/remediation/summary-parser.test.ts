@@ -156,6 +156,87 @@ Done! Here's the summary:
 		});
 	});
 
+	describe("outputType preservation", () => {
+		it("preserves valid outputType 'standard'", () => {
+			const response = `\`\`\`json
+{
+  "actions": [
+    { "issueIndex": 1, "status": "added", "summary": "Added section", "outputType": "standard" }
+  ]
+}
+\`\`\``;
+
+			const result = parseActionSummary(response, "suggestion_enrich");
+			expect(result.actions[0]!.outputType).toBe("standard");
+		});
+
+		it("preserves valid outputType 'skill'", () => {
+			const response = `\`\`\`json
+{
+  "actions": [
+    { "issueIndex": 1, "status": "added", "summary": "Added section", "outputType": "skill" }
+  ]
+}
+\`\`\``;
+
+			const result = parseActionSummary(response, "suggestion_enrich");
+			expect(result.actions[0]!.outputType).toBe("skill");
+		});
+
+		it("preserves valid outputType 'generic'", () => {
+			const response = `\`\`\`json
+{
+  "actions": [
+    { "issueIndex": 1, "status": "added", "summary": "Added section", "outputType": "generic" }
+  ]
+}
+\`\`\``;
+
+			const result = parseActionSummary(response, "suggestion_enrich");
+			expect(result.actions[0]!.outputType).toBe("generic");
+		});
+
+		it("normalizes outputType to lowercase", () => {
+			const response = `\`\`\`json
+{
+  "actions": [
+    { "issueIndex": 1, "status": "added", "summary": "Added section", "outputType": "Skill" }
+  ]
+}
+\`\`\``;
+
+			const result = parseActionSummary(response, "suggestion_enrich");
+			expect(result.actions[0]!.outputType).toBe("skill");
+		});
+
+		it("drops unknown outputType values", () => {
+			const response = `\`\`\`json
+{
+  "actions": [
+    { "issueIndex": 1, "status": "added", "summary": "Added section", "outputType": "unknown_type" }
+  ]
+}
+\`\`\``;
+
+			const result = parseActionSummary(response, "suggestion_enrich");
+			expect(result.actions[0]!.outputType).toBeUndefined();
+		});
+
+		it("omits outputType when not provided", () => {
+			const response = `\`\`\`json
+{
+  "actions": [
+    { "issueIndex": 1, "status": "added", "summary": "Added section" }
+  ]
+}
+\`\`\``;
+
+			const result = parseActionSummary(response, "suggestion_enrich");
+			expect(result.actions[0]!.outputType).toBeUndefined();
+			expect("outputType" in result.actions[0]!).toBe(false);
+		});
+	});
+
 	describe("fallback behavior", () => {
 		it("returns parsed: false for undefined input", () => {
 			const result = parseActionSummary(undefined, "error_fix");
