@@ -117,9 +117,9 @@ function formatSuggestionIssueBlock(
 function getAgentContextDescription(targetAgent: TargetAgent): string {
 	switch (targetAgent) {
 		case "agents-md":
-			return "AGENTS.md is a universal AI agent documentation file. Standards are added as inline sections. Skills are placed in `.agent/skills/<skill-name>/`.";
+			return "AGENTS.md is a universal AI agent documentation file. Standards are added as inline sections. Skills are placed in `.agents/skills/<skill-name>/`.";
 		case "claude-code":
-			return "Claude Code uses CLAUDE.md as its main documentation file. Standards are stored as rule files in `.claude/rules/<standard-slug>.md` with YAML frontmatter. Skills are placed in `.agent/skills/<skill-name>/`.";
+			return "Claude Code uses CLAUDE.md as its main documentation file. Standards are stored as rule files in `.claude/rules/<standard-slug>.md` with YAML frontmatter. Skills are placed in `.claude/skills/<skill-name>/`.";
 		case "github-copilot":
 			return "GitHub Copilot uses `.github/copilot-instructions.md` as its main documentation file. Standards are stored as instruction files in `.github/instructions/<standard-slug>.md` with YAML frontmatter. Skills are placed in `.github/skills/<skill-name>/`.";
 	}
@@ -191,13 +191,33 @@ Append a section specific to the coding standards and guidelines in AGENTS.md, a
 		case "claude-code":
 			return `### Standard (Claude Code Rule)
 
-Create a rule file at \`.claude/rules/<standard-slug>.md\`:
+Create a rule file at \`.claude/rules/<standard-slug>.md\`.
 
+Choose one of two scoping modes in the YAML frontmatter:
+- **Path-scoped** (\`paths: [...]\`): Rule applies only when working with files matching the glob patterns. Prefer this when the suggestions target specific file types or directories.
+- **Always apply** (\`alwaysApply: true\`): Rule is loaded unconditionally. Use for universal constraints.
+
+Supported glob patterns: \`**/*.ts\`, \`src/**/*\`, \`src/**/*.{ts,tsx}\`, \`{src,lib}/**/*.ts\`.
+
+Path-scoped example:
 \`\`\`md
 ---
-name: <Standard Name>
+paths:
+  - "<glob pattern, e.g. src/**/*.ts>"
+---
+
+## Standard: <Standard Name>
+
+<One-sentence summary describing the purpose and rationale of these rules.>
+
+- <Rule 1, starting with a verb>
+- <Rule 2, starting with a verb>
+\`\`\`
+
+Always-apply example:
+\`\`\`md
+---
 alwaysApply: true
-description: <When to apply this standard>
 ---
 
 ## Standard: <Standard Name>
@@ -229,8 +249,12 @@ applyTo: '<glob pattern, e.g. **/*.ts>'
 }
 
 function getSkillInstructions(targetAgent: TargetAgent): string {
-	const skillDir =
-		targetAgent === "github-copilot" ? ".github/skills" : ".agent/skills";
+	const skillDirMap: Record<TargetAgent, string> = {
+		"agents-md": ".agents/skills",
+		"claude-code": ".claude/skills",
+		"github-copilot": ".github/skills",
+	};
+	const skillDir = skillDirMap[targetAgent];
 
 	return `### Skill
 
@@ -242,7 +266,15 @@ ${skillDir}/<skill-name>/
 └── Optional: scripts/, references/, assets/ directories
 \`\`\`
 
-The SKILL.md must include YAML frontmatter with \`name\` and \`description\` fields, followed by markdown instructions written in imperative/infinitive form.`;
+**SKILL.md requirements:**
+- YAML frontmatter with \`name\` and \`description\` fields. The description determines when the agent activates the skill — be specific about what it does and when to use it. Use third-person voice (e.g., "This skill should be used when…").
+- Markdown body written in imperative/infinitive form (verb-first instructions, not second person).
+- Keep the body concise (<5k words); move detailed schemas, API docs, and domain knowledge into \`references/\` files.
+
+**Bundled resource types:**
+- \`scripts/\` — Executable code for tasks requiring deterministic reliability.
+- \`references/\` — Documentation loaded into context as needed.
+- \`assets/\` — Files used in output (templates, icons, boilerplate).`;
 }
 
 function buildErrorFixPrompt(input: RemediationInput): string {

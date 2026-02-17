@@ -31,13 +31,33 @@ Extract **rules** into a standard and **procedures** into a skill. A single reme
 
 ### Claude Code
 
-Create file at `.claude/rules/<standard-slug>.md`:
+Create file at `.claude/rules/<standard-slug>.md`.
+
+**Frontmatter options** — use one of two scoping modes:
+
+- **Always apply** (`alwaysApply: true`): Rule is loaded unconditionally into every session.
+- **Path-scoped** (`paths: [...]`): Rule is loaded only when Claude works with files matching the glob patterns.
+
+When the suggestions target specific file types or directories, prefer `paths` with glob patterns. When the rules are universal constraints, use `alwaysApply: true`.
+
+Supported glob patterns:
+
+| Pattern                | Matches                                  |
+| ---------------------- | ---------------------------------------- |
+| `**/*.ts`              | All TypeScript files in any directory    |
+| `src/**/*`             | All files under `src/` directory         |
+| `*.md`                 | Markdown files in the project root       |
+| `src/components/*.tsx` | React components in a specific directory |
+| `src/**/*.{ts,tsx}`    | TypeScript and TSX files under `src/`    |
+| `{src,lib}/**/*.ts`    | TypeScript files under `src/` or `lib/`  |
+
+#### Example with path-scoped globs
 
 ```md
 ---
-name: Domain Events
-alwaysApply: true
-description: Use when creating domain events, emitting events from use cases, or implementing listeners.
+paths:
+  - "src/domain/**/events/**/*.ts"
+  - "src/listeners/**/*.ts"
 ---
 
 ## Standard: Domain Events
@@ -54,6 +74,22 @@ Use when creating domain events, emitting events from use cases, or implementing
 - Use `static override readonly eventName` with `domain.entity.action` pattern
 - Use `this.subscribe(EventClass, this.handlerMethod)` to register handlers
 - Use arrow functions for handlers to preserve `this` binding
+```
+
+#### Example with alwaysApply
+
+```md
+---
+alwaysApply: true
+---
+
+## Standard: Git Commit Conventions
+
+Write clear, conventional commit messages for consistent repository history. :
+
+- Use conventional commit prefixes: feat, fix, refactor, docs, test, chore
+- Write imperative mood in subject line ("Add feature" not "Added feature")
+- Limit subject line to 72 characters
 ```
 
 ### AGENTS.md
@@ -84,11 +120,14 @@ applyTo: '**/*.ts'
 Adopt TypeScript code standards by prefixing interfaces with "I" and abstract classes with "Abstract" while choosing "Type" for plain objects and "Interface" for implementations to enhance clarity and maintainability when writing .ts files. :
 * Prefix abstract classes with Abstract
 * Prefix interfaces with I
-* Use Type for plain objects, Interface when implmentation is required
+* Use Type for plain objects, Interface when implementation is required
 ```
 
 ## Skill Creation
 
-For AGENTS.md targets, skills are placed in the `.agent/skills/` directory.
+Skill placement varies by target agent:
+- **AGENTS.md**: `.agents/skills/<skill-name>/`
+- **Claude Code**: `.claude/skills/<skill-name>/`
+- **GitHub Copilot**: `.github/skills/<skill-name>/`
 
 For skill creation, follow the complete process in [packmind-remediation-skill-creation.md](packmind-remediation-skill-creation.md).

@@ -311,7 +311,7 @@ describe("prompt-generator", () => {
 				"Append a section specific to the coding standards",
 			);
 			expect(result.suggestionEnrichPrompt).toContain(
-				".agent/skills/<skill-name>/",
+				".agents/skills/<skill-name>/",
 			);
 		});
 
@@ -333,9 +333,10 @@ describe("prompt-generator", () => {
 			expect(result.suggestionEnrichPrompt).toContain(
 				".claude/rules/<standard-slug>.md",
 			);
+			expect(result.suggestionEnrichPrompt).toContain("paths:");
 			expect(result.suggestionEnrichPrompt).toContain("alwaysApply: true");
 			expect(result.suggestionEnrichPrompt).toContain(
-				".agent/skills/<skill-name>/",
+				".claude/skills/<skill-name>/",
 			);
 		});
 
