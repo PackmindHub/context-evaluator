@@ -3,8 +3,9 @@
   "checkpoint_id": "3dda33aeff7e",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 2,
+  "checkpoints_count": 3,
   "files_touched": [
+    "skills/context-remediation/SKILL.md",
     "skills/context-remediation/packmind-remediation-prompt.md",
     "skills/context-remediation/packmind-remediation-skill-creation.md"
   ],
@@ -15,13 +16,20 @@
       "context": "/3d/da33aeff7e/0/context.md",
       "content_hash": "/3d/da33aeff7e/0/content_hash.txt",
       "prompt": "/3d/da33aeff7e/0/prompt.txt"
+    },
+    {
+      "metadata": "/3d/da33aeff7e/1/metadata.json",
+      "transcript": "/3d/da33aeff7e/1/full.jsonl",
+      "context": "/3d/da33aeff7e/1/context.md",
+      "content_hash": "/3d/da33aeff7e/1/content_hash.txt",
+      "prompt": "/3d/da33aeff7e/1/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 14,
-    "cache_creation_tokens": 27885,
-    "cache_read_tokens": 401252,
-    "output_tokens": 74,
-    "api_call_count": 10
+    "input_tokens": 22,
+    "cache_creation_tokens": 43986,
+    "cache_read_tokens": 585414,
+    "output_tokens": 82,
+    "api_call_count": 16
   }
 }

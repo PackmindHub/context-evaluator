@@ -1,0 +1,55 @@
+Implement the following plan:
+
+# Plan: Update SKILL.md with skills vs standards guidance
+
+## Context
+
+The `skills/context-remediation/SKILL.md` file has an empty "When to create skills and standards" section. During remediations, the AI agent needs clear decision criteria to determine whether a gap should be remediated as a **skill** (on-demand procedural knowledge) or a **standard** (always-loaded rules). The user provided verbal guidance, two reference URLs, and the requirement that instructions be agent-agnostic.
+
+## Research findings
+
+- **Skills** (from [agentskills.io](https://agentskills.io/home)): folders of instructions + scripts + resources, loaded on-demand via progressive disclosure when a task matches. For workflows, procedures, domain expertise.
+- **Standards** (from [Claude Code rules docs](https://code.claude.com/docs/en/memory#modular-rules-with-claude%2Frules%2F)): single files of short declarative rules, always loaded (unconditionally or path-scoped). For conventions, constraints, guardrails.
+
+## Changes
+
+**Single file to edit**: `skills/context-remediation/SKILL.md`
+
+Replace the empty `# When to create skills and standards` section (lines 8-9) with content containing:
+
+### 1. "What is a standard" subsection
+- Short declarative rules always loaded into agent context
+- Use for: coding conventions, naming patterns, architectural constraints, guardrails
+- Reference link to Claude Code rules doc as an example of agent-specific implementation
+
+### 2. "What is a skill" subsection
+- Folder of instructions/scripts/resources loaded on-demand when task matches
+- Progressive disclosure: only description at startup, full content when activated
+- Use for: multi-step workflows, procedural knowledge, domain expertise, tool integrations
+- Reference link to agentskills.io
+
+### 3. "Decision criteria" subsection — 4 yes/no questions
+1. **Must the agent always know this?** → always = standard, task-specific = skill
+2. **Is it a constraint or a capability?** → constraint = standard, capability/workflow = skill
+3. **Does it need bundled resources?** → scripts/templates/assets = skill, single file = standard
+4. **Is it short and declarative?** → bullet-point rules = standard, procedural paragraphs = skill
+
+### 4. "When the boundary is unclear" subsection
+- Heuristic: extract **rules** into a standard, extract **procedures** into a skill
+- Worked example: "testing" remediation → standard for "use AAA pattern" + skill for full test infrastructure setup workflow
+- Default: when in doubt, prefer a standard (simpler, always available)
+
+### Design principles applied
+- **Agent-agnostic language**: no "Claude Code rule" or "Copilot instruction" — only "standard" and "skill"
+- **Reference links provided but not central**: URLs included as "Reference:" notes
+- **Concise**: ~350 words total for the new section
+- **Tone**: imperative/instructional, matching existing files
+
+## Verification
+
+1. `bun run test` — ensure no regressions
+2. `bun run lint` — ensure formatting passes
+3. Manual review: read the updated SKILL.md to confirm it flows naturally with existing sections
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
