@@ -7,7 +7,7 @@
  *   with structured output routing (standard, skill, or generic update)
  */
 
-import type { TargetAgent } from "@shared/types/remediation";
+import { TARGET_AGENTS, type TargetAgent } from "@shared/types/remediation";
 
 export interface RemediationIssue {
 	evaluatorName: string;
@@ -49,7 +49,87 @@ function formatIssueDescription(issue: RemediationIssue): string {
 }
 
 function formatIssueFix(issue: RemediationIssue): string {
-	return issue.fix || issue.recommendation || "Review and fix this issue";
+	const raw = issue.fix || issue.recommendation || "Review and fix this issue";
+	return raw
+		.replace(/\s*You can use Packmind to achieve this\.?\s*$/i, "")
+		.trimEnd();
+}
+
+interface SnippetEntry {
+	label: string;
+	file?: string;
+	snippet: string;
+}
+
+/**
+ * Builds an index of snippets that appear 2+ times across issues.
+ * Returns a map keyed by `file + "\n" + snippet` with assigned labels [A], [B], etc.
+ */
+function buildSnippetIndex(
+	issues: RemediationIssue[],
+): Map<string, SnippetEntry> {
+	// Count occurrences
+	const counts = new Map<string, { file?: string; snippet: string }>();
+	for (const issue of issues) {
+		if (!issue.snippet) continue;
+		const key = `${issue.location.file ?? ""}\n${issue.snippet}`;
+		if (!counts.has(key)) {
+			counts.set(key, { file: issue.location.file, snippet: issue.snippet });
+		}
+	}
+
+	// Count actual occurrences
+	const occurrences = new Map<string, number>();
+	for (const issue of issues) {
+		if (!issue.snippet) continue;
+		const key = `${issue.location.file ?? ""}\n${issue.snippet}`;
+		occurrences.set(key, (occurrences.get(key) ?? 0) + 1);
+	}
+
+	// Only index snippets appearing 2+ times
+	const index = new Map<string, SnippetEntry>();
+	let labelIdx = 0;
+	for (const [key, entry] of counts) {
+		if ((occurrences.get(key) ?? 0) >= 2) {
+			const label = String.fromCharCode(65 + labelIdx); // A, B, C...
+			index.set(key, { label, file: entry.file, snippet: entry.snippet });
+			labelIdx++;
+		}
+	}
+
+	return index;
+}
+
+/** Renders the `## Referenced Content` section for deduplicated snippets. */
+function buildReferencedContentSection(
+	index: Map<string, SnippetEntry>,
+): string {
+	if (index.size === 0) return "";
+	const blocks: string[] = [];
+	for (const entry of index.values()) {
+		const fileLabel = entry.file ? ` (${entry.file})` : "";
+		blocks.push(
+			`**[${entry.label}]**${fileLabel}:\n> ${entry.snippet.split("\n").join("\n> ")}`,
+		);
+	}
+	return `## Referenced Content\n\n${blocks.join("\n\n")}`;
+}
+
+/**
+ * Returns the snippet rendering for an issue block.
+ * If the snippet is deduplicated, returns a "See [X]" reference; otherwise returns the inline block.
+ */
+function getSnippetRef(
+	issue: RemediationIssue,
+	index: Map<string, SnippetEntry>,
+): string | null {
+	if (!issue.snippet) return null;
+	const key = `${issue.location.file ?? ""}\n${issue.snippet}`;
+	const entry = index.get(key);
+	if (entry) {
+		return `**Current content**: See [${entry.label}]`;
+	}
+	return `**Current content**:\n> ${issue.snippet.split("\n").join("\n> ")}`;
 }
 
 function formatProjectLine(
@@ -62,9 +142,13 @@ function formatProjectLine(
 	return parts.length > 0 ? parts.join(" | ") : "Not identified";
 }
 
-function formatErrorIssueBlock(issue: RemediationIssue, index: number): string {
+function formatErrorIssueBlock(
+	issue: RemediationIssue,
+	idx: number,
+	snippetIndex: Map<string, SnippetEntry>,
+): string {
 	const lines: string[] = [];
-	lines.push(`### ${index + 1}. ${issue.evaluatorName}: ${issue.category}`);
+	lines.push(`### ${idx + 1}. ${issue.evaluatorName}: ${issue.category}`);
 	lines.push(`**Severity**: ${issue.severity ?? "N/A"}/10`);
 
 	if (issue.location.file) {
@@ -75,10 +159,8 @@ function formatErrorIssueBlock(issue: RemediationIssue, index: number): string {
 
 	lines.push(`**Problem**: ${formatIssueDescription(issue)}`);
 
-	if (issue.snippet) {
-		lines.push("**Current content**:");
-		lines.push(`> ${issue.snippet.split("\n").join("\n> ")}`);
-	}
+	const ref = getSnippetRef(issue, snippetIndex);
+	if (ref) lines.push(ref);
 
 	lines.push(`**Fix**: ${formatIssueFix(issue)}`);
 
@@ -87,10 +169,11 @@ function formatErrorIssueBlock(issue: RemediationIssue, index: number): string {
 
 function formatSuggestionIssueBlock(
 	issue: RemediationIssue,
-	index: number,
+	idx: number,
+	snippetIndex: Map<string, SnippetEntry>,
 ): string {
 	const lines: string[] = [];
-	lines.push(`### ${index + 1}. ${issue.evaluatorName}: ${issue.category}`);
+	lines.push(`### ${idx + 1}. ${issue.evaluatorName}: ${issue.category}`);
 	lines.push(`**Impact**: ${issue.impactLevel ?? "N/A"}`);
 
 	if (issue.isPhantomFile && issue.location.file) {
@@ -103,10 +186,8 @@ function formatSuggestionIssueBlock(
 
 	lines.push(`**Gap**: ${formatIssueDescription(issue)}`);
 
-	if (issue.snippet) {
-		lines.push("**Current content**:");
-		lines.push(`> ${issue.snippet.split("\n").join("\n> ")}`);
-	}
+	const ref = getSnippetRef(issue, snippetIndex);
+	if (ref) lines.push(ref);
 
 	lines.push(`**Recommendation**: ${formatIssueFix(issue)}`);
 
@@ -150,7 +231,7 @@ For each suggestion, decide on ONE output type based on the decision criteria be
 
 **Standard** — A short, declarative rule file always loaded into context. Defines constraints and conventions the agent must follow at all times.
 
-**Skill** — A folder with instructions, scripts, and resources loaded on-demand via progressive disclosure. Provides procedural knowledge activated when a task matches its description.
+**Skill** — A folder with a SKILL.md file loaded on-demand via progressive disclosure. Provides procedural knowledge activated when a task matches its description. Skills can contain additional documentation about project structure, context, and resources that go beyond the bullet-point rules of standards.
 
 **Generic Update** — A direct addition or edit to \`${genericFile}\`. Use for content that doesn't fit standards or skills (e.g., project structure, setup steps, architecture notes).
 
@@ -158,8 +239,7 @@ For each suggestion, decide on ONE output type based on the decision criteria be
 
 1. **Must the agent always know this?** If yes -> standard. If only relevant during a specific task -> skill.
 2. **Is it a constraint or a capability?** Constraints and guardrails -> standard. Capabilities and workflows -> skill.
-3. **Does it need bundled resources?** If it requires scripts, templates, or assets -> skill. If a single file of rules suffices -> standard.
-4. **Is it short and declarative?** Bullet-point rules -> standard. Procedural paragraphs with sequenced steps -> skill.
+3. **Is it short and declarative?** Bullet-point rules -> standard. Procedural paragraphs with sequenced steps -> skill.
 
 When in doubt, prefer a standard. A single suggestion can produce both a standard (rules) and a skill (procedures).
 
@@ -258,23 +338,26 @@ function getSkillInstructions(targetAgent: TargetAgent): string {
 
 	return `### Skill
 
-Create the skill folder at \`${skillDir}/<skill-name>/\`:
+Create a \`SKILL.md\` file at \`${skillDir}/<skill-name>/SKILL.md\`:
 
-\`\`\`
-${skillDir}/<skill-name>/
-├── SKILL.md (required - YAML frontmatter with name + description, then markdown instructions)
-└── Optional: scripts/, references/, assets/ directories
-\`\`\`
+\`\`\`md
+---
+name: <Skill Name>
+description: <When the agent should activate this skill. Be specific. Use third-person voice.>
+---
 
-**SKILL.md requirements:**
-- YAML frontmatter with \`name\` and \`description\` fields. The description determines when the agent activates the skill — be specific about what it does and when to use it. Use third-person voice (e.g., "This skill should be used when…").
-- Markdown body written in imperative/infinitive form (verb-first instructions, not second person).
-- Keep the body concise (<5k words); move detailed schemas, API docs, and domain knowledge into \`references/\` files.
+## Purpose
 
-**Bundled resource types:**
-- \`scripts/\` — Executable code for tasks requiring deterministic reliability.
-- \`references/\` — Documentation loaded into context as needed.
-- \`assets/\` — Files used in output (templates, icons, boilerplate).`;
+<One or two sentences explaining what the skill does and why it exists.>
+
+## When to Use
+
+<Describe the triggers: what task, file type, or user request should activate this skill.>
+
+## Instructions
+
+<Step-by-step procedural instructions in imperative/infinitive form (verb-first, not second person). Keep concise, under 5k words.>
+\`\`\``;
 }
 
 function buildErrorFixPrompt(input: RemediationInput): string {
@@ -287,12 +370,14 @@ function buildErrorFixPrompt(input: RemediationInput): string {
 		(a, b) => (b.severity ?? 0) - (a.severity ?? 0),
 	);
 
+	const snippetIndex = buildSnippetIndex(sorted);
 	const contextFilesList = input.contextFilePaths
 		.map((p) => `- ${p}`)
 		.join("\n");
 	const issueBlocks = sorted
-		.map((issue, i) => formatErrorIssueBlock(issue, i))
+		.map((issue, i) => formatErrorIssueBlock(issue, i, snippetIndex))
 		.join("\n\n");
+	const refSection = buildReferencedContentSection(snippetIndex);
 
 	return `# Fix Documentation Issues
 
@@ -306,7 +391,7 @@ ${contextFilesList}
 ${input.technicalInventorySection ? `## Technical Context\n${input.technicalInventorySection}\n` : ""}## Project
 ${formatProjectLine(input.projectSummary)}
 
-## Issues to Fix (${input.errors.length})
+${refSection ? `${refSection}\n\n` : ""}## Issues to Fix (${input.errors.length})
 
 ${issueBlocks}
 
@@ -342,20 +427,23 @@ function buildSuggestionEnrichPrompt(input: RemediationInput): string {
 			(impactOrder[b.impactLevel ?? "Low"] ?? 2),
 	);
 
+	const snippetIndex = buildSnippetIndex(sorted);
 	const contextFilesList = input.contextFilePaths
 		.map((p) => `- ${p}`)
 		.join("\n");
 	const issueBlocks = sorted
-		.map((issue, i) => formatSuggestionIssueBlock(issue, i))
+		.map((issue, i) => formatSuggestionIssueBlock(issue, i, snippetIndex))
 		.join("\n\n");
+	const refSection = buildReferencedContentSection(snippetIndex);
 
+	const agentDisplayName = TARGET_AGENTS[input.targetAgent];
 	const agentDescription = getAgentContextDescription(input.targetAgent);
 	const outputTypeInstructions = getOutputTypeInstructions(input.targetAgent);
 
 	return `# Enrich Documentation
 
 ## Role
-You are enriching AI agent documentation for the target: **${agentDescription.split(".")[0]}**.
+You are enriching AI agent documentation for the target: **${agentDisplayName}**.
 ${agentDescription}
 
 ## Context Files
@@ -364,7 +452,7 @@ ${contextFilesList}
 ${input.technicalInventorySection ? `## Technical Context\n${input.technicalInventorySection}\n` : ""}## Project
 ${formatProjectLine(input.projectSummary)}
 
-## Documentation Gaps (${input.suggestions.length})
+${refSection ? `${refSection}\n\n` : ""}## Documentation Gaps (${input.suggestions.length})
 
 ${issueBlocks}
 
@@ -377,11 +465,12 @@ Evaluator-suggested file paths (e.g., \`packages/api/AGENTS.md\`) may not match 
 1. Read the target files and scan the codebase before making changes
 2. Use your own judgment to assess each gap: these were produced by an automated evaluator and some may be false positives or irrelevant given the actual codebase. Skip any suggestion that is not genuinely useful after reviewing the code
 3. For each remaining gap, decide the output type (standard, skill, or generic update) using the decision criteria above
-4. Address each gap, highest impact first
-5. Add concise, accurate documentation based on actual codebase analysis
-6. Preserve all correct existing content
-7. Keep additions minimal — only add what's needed to close the gap
-8. After making all changes, output a JSON summary:
+4. When multiple gaps target the same file and related topics, consolidate them into well-organized sections rather than creating many small isolated additions
+5. Address each gap, highest impact first
+6. Add concise, accurate documentation based on actual codebase analysis
+7. Preserve all correct existing content
+8. Keep additions minimal — only add what's needed to close the gap
+9. After making all changes, output a JSON summary:
 \`\`\`json
 {
   "actions": [

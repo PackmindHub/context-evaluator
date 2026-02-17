@@ -387,9 +387,6 @@ describe("prompt-generator", () => {
 					"Is it a constraint or a capability?",
 				);
 				expect(result.suggestionEnrichPrompt).toContain(
-					"Does it need bundled resources?",
-				);
-				expect(result.suggestionEnrichPrompt).toContain(
 					"Is it short and declarative?",
 				);
 			}
@@ -424,6 +421,32 @@ describe("prompt-generator", () => {
 			expect(result.suggestionEnrichPrompt).toContain('"generic"');
 		});
 
+		test("role line uses clean display name per target agent", () => {
+			const expectations: Record<string, string> = {
+				"agents-md": "**AGENTS.md**",
+				"claude-code": "**Claude Code**",
+				"github-copilot": "**GitHub Copilot**",
+			};
+
+			for (const [target, expectedName] of Object.entries(expectations)) {
+				const input: RemediationInput = {
+					...baseInput,
+					targetAgent: target as "agents-md" | "claude-code" | "github-copilot",
+					suggestions: [makeSuggestion()],
+				};
+
+				const result = generateRemediationPrompts(input);
+
+				expect(result.suggestionEnrichPrompt).toContain(
+					`for the target: ${expectedName}`,
+				);
+				// Should NOT contain a sentence fragment from split(".")
+				expect(result.suggestionEnrichPrompt).not.toMatch(
+					/for the target: \*\*[^*]+uses [A-Z]/,
+				);
+			}
+		});
+
 		test("generic update references correct file per target agent", () => {
 			const expectations: Record<string, string> = {
 				"agents-md": "AGENTS.md",
@@ -443,6 +466,186 @@ describe("prompt-generator", () => {
 				expect(result.suggestionEnrichPrompt).toContain(`### Generic Update`);
 				expect(result.suggestionEnrichPrompt).toContain(`\`${expectedFile}\``);
 			}
+		});
+	});
+
+	describe("Packmind boilerplate stripping", () => {
+		test("strips 'You can use Packmind to achieve this.' from fix field", () => {
+			const input: RemediationInput = {
+				...baseInput,
+				errors: [
+					makeError({
+						fix: "Add testing commands to the documentation. You can use Packmind to achieve this.",
+					}),
+				],
+			};
+
+			const result = generateRemediationPrompts(input);
+
+			expect(result.errorFixPrompt).toContain(
+				"Add testing commands to the documentation",
+			);
+			expect(result.errorFixPrompt).not.toContain("Packmind");
+		});
+
+		test("strips 'You can use Packmind to achieve this' from recommendation field", () => {
+			const input: RemediationInput = {
+				...baseInput,
+				suggestions: [
+					makeSuggestion({
+						recommendation:
+							"Document the testing patterns. You can use Packmind to achieve this.",
+					}),
+				],
+			};
+
+			const result = generateRemediationPrompts(input);
+
+			expect(result.suggestionEnrichPrompt).toContain(
+				"Document the testing patterns",
+			);
+			expect(result.suggestionEnrichPrompt).not.toContain("Packmind");
+		});
+
+		test("handles Packmind text without trailing period", () => {
+			const input: RemediationInput = {
+				...baseInput,
+				errors: [
+					makeError({
+						fix: "Fix the issue. You can use Packmind to achieve this",
+					}),
+				],
+			};
+
+			const result = generateRemediationPrompts(input);
+
+			expect(result.errorFixPrompt).toContain("Fix the issue");
+			expect(result.errorFixPrompt).not.toContain("Packmind");
+		});
+	});
+
+	describe("snippet deduplication", () => {
+		test("deduplicates snippets appearing in 3+ suggestions", () => {
+			const sharedSnippet = "# Project Setup\nRun npm install";
+			const input: RemediationInput = {
+				...baseInput,
+				suggestions: [
+					makeSuggestion({
+						category: "Gap A",
+						snippet: sharedSnippet,
+						location: { file: "AGENTS.md", start: 1, end: 5 },
+					}),
+					makeSuggestion({
+						category: "Gap B",
+						snippet: sharedSnippet,
+						location: { file: "AGENTS.md", start: 1, end: 5 },
+					}),
+					makeSuggestion({
+						category: "Gap C",
+						snippet: sharedSnippet,
+						location: { file: "AGENTS.md", start: 1, end: 5 },
+					}),
+				],
+			};
+
+			const result = generateRemediationPrompts(input);
+
+			// Referenced Content section should appear
+			expect(result.suggestionEnrichPrompt).toContain("## Referenced Content");
+			// Label [A] should be used
+			expect(result.suggestionEnrichPrompt).toContain("**[A]**");
+			// Issue blocks should reference the label
+			expect(result.suggestionEnrichPrompt).toContain("See [A]");
+			// The actual snippet text should appear only once (in Referenced Content)
+			const snippetOccurrences =
+				result.suggestionEnrichPrompt.split("# Project Setup").length - 1;
+			expect(snippetOccurrences).toBe(1);
+		});
+
+		test("deduplicates snippets in error fix prompt", () => {
+			const sharedSnippet = "Bad content here";
+			const input: RemediationInput = {
+				...baseInput,
+				errors: [
+					makeError({
+						category: "Issue A",
+						snippet: sharedSnippet,
+						severity: 9,
+					}),
+					makeError({
+						category: "Issue B",
+						snippet: sharedSnippet,
+						severity: 8,
+					}),
+				],
+			};
+
+			const result = generateRemediationPrompts(input);
+
+			expect(result.errorFixPrompt).toContain("## Referenced Content");
+			expect(result.errorFixPrompt).toContain("See [A]");
+		});
+
+		test("keeps snippets inline when all are unique", () => {
+			const input: RemediationInput = {
+				...baseInput,
+				suggestions: [
+					makeSuggestion({
+						category: "Gap A",
+						snippet: "Unique snippet 1",
+						location: { file: "AGENTS.md", start: 1, end: 5 },
+					}),
+					makeSuggestion({
+						category: "Gap B",
+						snippet: "Unique snippet 2",
+						location: { file: "AGENTS.md", start: 10, end: 15 },
+					}),
+					makeSuggestion({
+						category: "Gap C",
+						snippet: "Unique snippet 3",
+						location: { file: "AGENTS.md", start: 20, end: 25 },
+					}),
+				],
+			};
+
+			const result = generateRemediationPrompts(input);
+
+			// No Referenced Content section
+			expect(result.suggestionEnrichPrompt).not.toContain(
+				"## Referenced Content",
+			);
+			// Snippets appear inline
+			expect(result.suggestionEnrichPrompt).toContain("> Unique snippet 1");
+			expect(result.suggestionEnrichPrompt).toContain("> Unique snippet 2");
+			expect(result.suggestionEnrichPrompt).toContain("> Unique snippet 3");
+			// No "See [X]" references
+			expect(result.suggestionEnrichPrompt).not.toContain("See [");
+		});
+	});
+
+	describe("consolidation instruction", () => {
+		test("suggestion prompt includes consolidation guidance", () => {
+			const input: RemediationInput = {
+				...baseInput,
+				suggestions: [makeSuggestion()],
+			};
+
+			const result = generateRemediationPrompts(input);
+
+			expect(result.suggestionEnrichPrompt).toContain(
+				"consolidate them into well-organized sections",
+			);
+		});
+
+		test("error fix prompt does not include consolidation guidance", () => {
+			const input: RemediationInput = {
+				...baseInput,
+				errors: [makeError()],
+			};
+
+			const result = generateRemediationPrompts(input);
+
+			expect(result.errorFixPrompt).not.toContain("consolidate");
 		});
 	});
 });
