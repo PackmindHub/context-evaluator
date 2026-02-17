@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
 	ProviderName,
-	RemediationForEvaluationResponse,
 	RemediationPromptsResponse,
 	TargetAgent,
 } from "../hooks/useEvaluationApi";
@@ -21,51 +20,16 @@ import {
 	getSeverityLevel,
 } from "../types/evaluation";
 import type {
-	FileChange,
 	IRemediationProgressState,
-	RemediationAction,
+	RemediationHistoryItem,
 	RemediationResult,
 } from "../types/remediation";
-import { FileChangeCard } from "./FileChangeCard";
-import { PatchDownload } from "./PatchDownload";
+import { RemediationHistory } from "./RemediationHistory";
 import { RemediationProgress } from "./RemediationProgress";
 import { CopyButton } from "./shared/CopyButton";
 import { Modal } from "./shared/Modal";
 
-/**
- * Transform a remediation API response (which may be an in-memory job or DB record)
- * into the frontend RemediationResult shape.
- */
-function toRemediationResult(
-	data: RemediationForEvaluationResponse,
-): RemediationResult | null {
-	// In-memory job wraps result under `result`
-	if (data.result) {
-		return data.result;
-	}
-
-	// DB record has flat fields
-	if (data.fileChanges !== undefined) {
-		return {
-			fullPatch: data.fullPatch ?? "",
-			fileChanges: data.fileChanges ?? [],
-			totalAdditions: data.totalAdditions ?? 0,
-			totalDeletions: data.totalDeletions ?? 0,
-			filesChanged: data.filesChanged ?? 0,
-			totalDurationMs: data.totalDurationMs ?? 0,
-			totalCostUsd: data.totalCostUsd ?? 0,
-			totalInputTokens: data.totalInputTokens ?? 0,
-			totalOutputTokens: data.totalOutputTokens ?? 0,
-			summary: data.summary ?? undefined,
-			errorFixStats: data.promptStats?.errorFixStats,
-			suggestionEnrichStats: data.promptStats?.suggestionEnrichStats,
-		};
-	}
-
-	return null;
-}
-
-type Phase = "config" | "progress" | "results";
+type Phase = "idle" | "progress";
 
 interface RemediateTabProps {
 	evaluationId: string | null;
@@ -89,28 +53,29 @@ export function RemediateTab({
 	const api = useEvaluationApi();
 	const providerDetection = useProviderDetection();
 
-	const [phase, setPhase] = useState<Phase>("config");
+	// Phase: idle (config visible) or progress (SSE running)
+	const [phase, setPhase] = useState<Phase>("idle");
 	const [targetAgent, setTargetAgent] = useState<TargetAgent>("agents-md");
 	const [selectedProvider, setSelectedProvider] =
 		useState<ProviderName>("claude");
 	const [isExecuting, setIsExecuting] = useState(false);
 	const [showConfirmModal, setShowConfirmModal] = useState(false);
-	const [showDeleteModal, setShowDeleteModal] = useState(false);
-	const [isDeleting, setIsDeleting] = useState(false);
 	const [executeError, setExecuteError] = useState<string | null>(null);
+
+	// History state
+	const [remediations, setRemediations] = useState<RemediationHistoryItem[]>(
+		[],
+	);
 
 	// SSE state
 	const [sseUrl, setSseUrl] = useState<string | null>(null);
-	const [remediationId, setRemediationId] = useState<string | null>(null);
+	const [, setActiveRemediationId] = useState<string | null>(null);
 	const [progressState, setProgressState] = useState<IRemediationProgressState>(
 		{
 			status: "queued",
 			logs: [],
 		},
 	);
-
-	// Results state
-	const [result, setResult] = useState<RemediationResult | null>(null);
 
 	// Legacy prompt generation state
 	const [isGenerating, setIsGenerating] = useState(false);
@@ -126,52 +91,45 @@ export function RemediateTab({
 		}
 	}, [providerDetection]);
 
-	// Restore existing remediation on mount / evaluationId change
+	// Load remediation history on mount / evaluationId change
+	const refreshHistory = useCallback(async () => {
+		if (!evaluationId) return;
+		const data = await api.getRemediationsForEvaluation(evaluationId);
+		setRemediations(data.remediations);
+		return data;
+	}, [evaluationId, api]);
+
 	useEffect(() => {
 		if (!evaluationId) return;
 
 		let cancelled = false;
 
-		async function loadExistingRemediation() {
-			const data = await api.getRemediationForEvaluation(evaluationId!);
-			if (cancelled || !data) return;
+		async function loadRemediations() {
+			const data = await api.getRemediationsForEvaluation(evaluationId!);
+			if (cancelled) return;
 
-			if (data.status === "completed") {
-				const restoredResult = toRemediationResult(data);
-				if (restoredResult) {
-					setRemediationId(data.id);
-					setResult(restoredResult);
-					setPhase("results");
-				}
-			} else if (data.status === "running" || data.status === "queued") {
-				setRemediationId(data.id);
+			setRemediations(data.remediations);
+
+			// If there's an active job, connect SSE
+			if (data.activeJob) {
+				setActiveRemediationId(data.activeJob.id);
 				setSseUrl(
-					`${window.location.origin}/api/remediation/${data.id}/progress`,
+					`${window.location.origin}/api/remediation/${data.activeJob.id}/progress`,
 				);
 				setProgressState({
-					status: data.status as "queued" | "running",
+					status: data.activeJob.status as "queued" | "running",
 					logs: [],
 				});
 				setPhase("progress");
-			} else if (data.status === "failed") {
-				setRemediationId(data.id);
-				setExecuteError(data.error?.message ?? "Previous remediation failed");
 			}
 		}
 
-		loadExistingRemediation();
+		loadRemediations();
 
 		return () => {
 			cancelled = true;
 		};
 	}, [evaluationId, api]);
-
-	// Clear selection basket when remediation completes (fresh or restored)
-	useEffect(() => {
-		if (phase === "results") {
-			onClearAll();
-		}
-	}, [phase, onClearAll]);
 
 	// Available providers for the selector
 	const availableProviders = useMemo(() => {
@@ -283,7 +241,9 @@ export function RemediateTab({
 						...prev,
 						currentStep: event.data?.step,
 						batchInfo: bi,
-						...(issueSummaries && { currentBatchIssues: issueSummaries }),
+						...(issueSummaries && {
+							currentBatchIssues: issueSummaries,
+						}),
 						logs: [
 							...prev.logs,
 							{
@@ -346,21 +306,21 @@ export function RemediateTab({
 				}
 
 				case "remediation.completed": {
-					const remResult = event.data?.result as RemediationResult | undefined;
 					setProgressState((prev) => ({
 						...prev,
 						status: "completed",
-						result: remResult,
+						result: event.data?.result as RemediationResult | undefined,
 						logs: [
 							...prev.logs,
 							{ timestamp, message: "Remediation completed" },
 						],
 					}));
-					if (remResult) {
-						setResult(remResult);
-					}
-					setPhase("results");
+					// Reset to idle, refresh history, clear selection
 					setSseUrl(null);
+					setActiveRemediationId(null);
+					setPhase("idle");
+					onClearAll();
+					refreshHistory();
 					break;
 				}
 
@@ -378,12 +338,14 @@ export function RemediateTab({
 						],
 					}));
 					setExecuteError(event.data?.error?.message || "Remediation failed");
-					setPhase("config");
 					setSseUrl(null);
+					setActiveRemediationId(null);
+					setPhase("idle");
+					refreshHistory();
 					break;
 			}
 		},
-		[],
+		[onClearAll, refreshHistory],
 	);
 
 	useSSE({
@@ -412,7 +374,7 @@ export function RemediateTab({
 				selectedProvider,
 			);
 
-			setRemediationId(response.remediationId);
+			setActiveRemediationId(response.remediationId);
 			setSseUrl(response.sseUrl);
 			setProgressState({ status: "queued", logs: [] });
 			setPhase("progress");
@@ -420,18 +382,6 @@ export function RemediateTab({
 			const message =
 				err instanceof Error ? err.message : "Failed to start remediation";
 			setExecuteError(message);
-
-			// If a stale record blocks execution, fetch its ID so the delete button works
-			if (message.includes("already exists") && evaluationId) {
-				try {
-					const existing = await api.getRemediationForEvaluation(evaluationId);
-					if (existing?.id) {
-						setRemediationId(existing.id);
-					}
-				} catch {
-					// Ignore – the error message is already shown
-				}
-			}
 		} finally {
 			setIsExecuting(false);
 		}
@@ -479,25 +429,14 @@ export function RemediateTab({
 		api,
 	]);
 
-	const handleDeleteRemediation = useCallback(async () => {
-		if (!remediationId) return;
-		setIsDeleting(true);
-		try {
+	// Delete a remediation from history
+	const handleDeleteRemediation = useCallback(
+		async (remediationId: string) => {
 			await api.deleteRemediation(remediationId);
-			setPhase("config");
-			setResult(null);
-			setRemediationId(null);
-			setSseUrl(null);
-			setProgressState({ status: "queued", logs: [] });
-			setShowDeleteModal(false);
-		} catch (err) {
-			setExecuteError(
-				err instanceof Error ? err.message : "Failed to delete remediation",
-			);
-		} finally {
-			setIsDeleting(false);
-		}
-	}, [remediationId, api]);
+			setRemediations((prev) => prev.filter((r) => r.id !== remediationId));
+		},
+		[api],
+	);
 
 	if (!evaluationData) {
 		return (
@@ -510,41 +449,6 @@ export function RemediateTab({
 		);
 	}
 
-	if (totalSelected === 0 && phase === "config") {
-		return (
-			<div className="space-y-6">
-				<div className="card">
-					<h2 className="text-heading text-slate-100">Remediation</h2>
-					<p className="text-body-muted mt-1">
-						Execute remediation to fix issues automatically
-					</p>
-				</div>
-				<div className="card text-center py-12">
-					<svg
-						className="w-12 h-12 text-slate-600 mx-auto mb-4"
-						fill="none"
-						stroke="currentColor"
-						viewBox="0 0 24 24"
-					>
-						<path
-							strokeLinecap="round"
-							strokeLinejoin="round"
-							strokeWidth={1.5}
-							d="M12 4v16m8-8H4"
-						/>
-					</svg>
-					<p className="text-body-muted">
-						No issues selected. Use the{" "}
-						<span className="inline-flex items-center justify-center w-5 h-5 rounded bg-slate-700 text-slate-300 text-xs align-middle mx-0.5">
-							+
-						</span>{" "}
-						button on issue cards in the Errors and Suggestions tabs.
-					</p>
-				</div>
-			</div>
-		);
-	}
-
 	// ─── PROGRESS PHASE ────────────────────────────────────────────────
 	if (phase === "progress") {
 		return (
@@ -552,7 +456,8 @@ export function RemediateTab({
 				<div className="card">
 					<h2 className="text-heading text-slate-100">Executing Remediation</h2>
 					<p className="text-body-muted mt-1">
-						Running {selectedProvider} agent to fix {totalSelected} issue
+						Running {selectedProvider} agent to fix{" "}
+						{totalSelected > 0 ? totalSelected : "selected"} issue
 						{totalSelected !== 1 ? "s" : ""}...
 					</p>
 				</div>
@@ -575,147 +480,7 @@ export function RemediateTab({
 		);
 	}
 
-	// ─── RESULTS PHASE ─────────────────────────────────────────────────
-	if (phase === "results" && result) {
-		const hasPerPromptStats =
-			result.errorFixStats || result.suggestionEnrichStats;
-
-		return (
-			<div className="space-y-6">
-				<div className="card">
-					<div className="flex items-center justify-between">
-						<div>
-							<h2 className="text-heading text-slate-100">
-								Remediation Complete
-							</h2>
-							<p className="text-body-muted mt-1">
-								{result.filesChanged} file
-								{result.filesChanged !== 1 ? "s" : ""} changed
-								<span className="text-green-400 ml-2">
-									+{result.totalAdditions}
-								</span>
-								<span className="text-red-400 ml-1">
-									-{result.totalDeletions}
-								</span>
-								{result.totalDurationMs > 0 && (
-									<span className="text-slate-500 ml-2">
-										in {Math.round(result.totalDurationMs / 1000)}s
-									</span>
-								)}
-								{result.totalCostUsd > 0 && (
-									<span className="text-slate-500 ml-2">
-										(${result.totalCostUsd.toFixed(4)})
-									</span>
-								)}
-							</p>
-							{(result.totalInputTokens > 0 ||
-								result.totalOutputTokens > 0) && (
-								<p className="text-caption mt-1">
-									{result.totalInputTokens.toLocaleString()} input /{" "}
-									{result.totalOutputTokens.toLocaleString()} output tokens
-									{hasPerPromptStats && (
-										<span className="text-slate-500">
-											{" "}
-											&mdash;{" "}
-											{result.errorFixStats && (
-												<span>
-													Error fix: $
-													{(result.errorFixStats.costUsd ?? 0).toFixed(4)}
-													{result.suggestionEnrichStats && " | "}
-												</span>
-											)}
-											{result.suggestionEnrichStats && (
-												<span>
-													Enrich: $
-													{(result.suggestionEnrichStats.costUsd ?? 0).toFixed(
-														4,
-													)}
-												</span>
-											)}
-										</span>
-									)}
-								</p>
-							)}
-						</div>
-						<div className="flex items-center gap-2">
-							{remediationId && <PatchDownload remediationId={remediationId} />}
-							{!cloudMode && (
-								<button
-									onClick={() => setShowDeleteModal(true)}
-									disabled={isDeleting}
-									className="btn-secondary text-red-400 hover:text-red-300"
-								>
-									{isDeleting ? "Deleting..." : "Delete & Start Over"}
-								</button>
-							)}
-						</div>
-					</div>
-				</div>
-
-				{result.summary?.parsed && (
-					<ActionSummarySection summary={result.summary} />
-				)}
-
-				{result.fileChanges.length === 0 ? (
-					<div className="card text-center py-8">
-						<p className="text-body-muted">
-							No file changes were made by the agent.
-						</p>
-					</div>
-				) : (
-					<div className="space-y-3">
-						{result.fileChanges.map((file: FileChange) => {
-							const fileSummaries = getFileSummaries(file.path, result);
-							return (
-								<FileChangeCard
-									key={file.path}
-									file={file}
-									defaultExpanded={result.fileChanges.length <= 3}
-									summaries={fileSummaries}
-								/>
-							);
-						})}
-					</div>
-				)}
-
-				{executeError && <p className="text-sm text-red-400">{executeError}</p>}
-
-				{/* Delete Confirmation Modal */}
-				<Modal
-					isOpen={showDeleteModal}
-					onClose={() => setShowDeleteModal(false)}
-					title="Delete Remediation"
-					maxWidth="max-w-md"
-				>
-					<div className="space-y-4">
-						<p className="text-sm text-slate-300">
-							This will permanently delete the remediation result for this
-							evaluation. You can then re-run remediation with a fresh git
-							state.
-						</p>
-						<div className="flex justify-end gap-3 pt-2">
-							<button
-								onClick={() => setShowDeleteModal(false)}
-								className="btn-secondary"
-								disabled={isDeleting}
-							>
-								Cancel
-							</button>
-							<button
-								onClick={handleDeleteRemediation}
-								disabled={isDeleting}
-								className="btn-primary bg-red-600 hover:bg-red-500"
-							>
-								{isDeleting ? "Deleting..." : "Delete"}
-							</button>
-						</div>
-					</div>
-				</Modal>
-			</div>
-		);
-	}
-
-	// ─── CONFIG PHASE ──────────────────────────────────────────────────
+	// ─── IDLE PHASE (config + history) ─────────────────────────────────
 	return (
 		<div className="space-y-6">
 			<div className="card">
@@ -726,157 +491,182 @@ export function RemediateTab({
 				</p>
 			</div>
 
-			<div className="card space-y-5">
-				{/* Target Agent */}
-				<div>
-					<label className="text-label text-slate-300 block mb-2">
-						Target agent
-					</label>
-					<div className="flex gap-2">
-						{(
-							[
-								["agents-md", "AGENTS.md"],
-								["claude-code", "Claude Code"],
-								["github-copilot", "GitHub Copilot"],
-							] as const
-						).map(([value, label]) => (
-							<button
-								key={value}
-								onClick={() => setTargetAgent(value)}
-								className={`px-3 py-1.5 rounded text-sm transition-colors ${
-									targetAgent === value
-										? "bg-blue-600 text-white"
-										: "bg-slate-700 text-slate-300 hover:bg-slate-600"
-								}`}
-							>
-								{label}
-							</button>
-						))}
-					</div>
-				</div>
+			{/* Past Remediations History */}
+			<RemediationHistory
+				remediations={remediations}
+				onDelete={handleDeleteRemediation}
+				cloudMode={cloudMode}
+			/>
 
-				{/* Provider Selector */}
-				<div>
-					<label className="text-label text-slate-300 block mb-2">
-						AI Provider
-					</label>
-					{providerDetection.status === "detecting" ? (
-						<div className="text-sm text-slate-400">Detecting providers...</div>
-					) : availableProviders.length > 0 ? (
-						<div className="flex flex-wrap gap-2">
-							{availableProviders.map((p) => (
+			{/* Empty state when no issues selected */}
+			{totalSelected === 0 ? (
+				<div className="card text-center py-12">
+					<svg
+						className="w-12 h-12 text-slate-600 mx-auto mb-4"
+						fill="none"
+						stroke="currentColor"
+						viewBox="0 0 24 24"
+					>
+						<path
+							strokeLinecap="round"
+							strokeLinejoin="round"
+							strokeWidth={1.5}
+							d="M12 4v16m8-8H4"
+						/>
+					</svg>
+					<p className="text-body-muted">
+						No issues selected. Use the{" "}
+						<span className="inline-flex items-center justify-center w-5 h-5 rounded bg-slate-700 text-slate-300 text-xs align-middle mx-0.5">
+							+
+						</span>{" "}
+						button on issue cards in the Errors and Suggestions tabs.
+					</p>
+				</div>
+			) : (
+				<div className="card space-y-5">
+					{/* Target Agent */}
+					<div>
+						<label className="text-label text-slate-300 block mb-2">
+							Target for markdown file rendering
+						</label>
+						<div className="flex gap-2">
+							{(
+								[
+									["agents-md", "AGENTS.md"],
+									["claude-code", "Claude Code"],
+									["github-copilot", "GitHub Copilot"],
+								] as const
+							).map(([value, label]) => (
 								<button
-									key={p.name}
-									onClick={() => setSelectedProvider(p.name)}
+									key={value}
+									onClick={() => setTargetAgent(value)}
 									className={`px-3 py-1.5 rounded text-sm transition-colors ${
-										selectedProvider === p.name
+										targetAgent === value
 											? "bg-blue-600 text-white"
 											: "bg-slate-700 text-slate-300 hover:bg-slate-600"
 									}`}
 								>
-									{p.displayName}
+									{label}
 								</button>
 							))}
 						</div>
-					) : (
-						<div className="text-sm text-slate-400">
-							No providers detected. Defaulting to Claude.
-						</div>
-					)}
-				</div>
+					</div>
 
-				{/* Selected Issues */}
-				<div className="space-y-4">
-					{errorEntries.length > 0 && (
-						<IssueSection
-							title="Errors"
-							count={errorEntries.length}
-							entries={errorEntries}
-							onRemove={onRemoveIssue}
-						/>
-					)}
-					{suggestionEntries.length > 0 && (
-						<IssueSection
-							title="Suggestions"
-							count={suggestionEntries.length}
-							entries={suggestionEntries}
-							onRemove={onRemoveIssue}
-						/>
-					)}
-					<div className="flex items-center justify-between">
-						<span className="text-caption">
-							{totalSelected} issue{totalSelected !== 1 ? "s" : ""} selected
-						</span>
+					{/* Provider Selector */}
+					<div>
+						<label className="text-label text-slate-300 block mb-2">
+							Pick the AI agent to execute the remediation
+						</label>
+						{providerDetection.status === "detecting" ? (
+							<div className="text-sm text-slate-400">
+								Detecting providers...
+							</div>
+						) : availableProviders.length > 0 ? (
+							<div className="flex flex-wrap gap-2">
+								{availableProviders.map((p) => (
+									<button
+										key={p.name}
+										onClick={() => setSelectedProvider(p.name)}
+										className={`px-3 py-1.5 rounded text-sm transition-colors ${
+											selectedProvider === p.name
+												? "bg-blue-600 text-white"
+												: "bg-slate-700 text-slate-300 hover:bg-slate-600"
+										}`}
+									>
+										{p.displayName}
+									</button>
+								))}
+							</div>
+						) : (
+							<div className="text-sm text-slate-400">
+								No providers detected. Defaulting to Claude.
+							</div>
+						)}
+					</div>
+
+					{/* Selected Issues */}
+					<div className="space-y-4">
+						{errorEntries.length > 0 && (
+							<IssueSection
+								title="Errors"
+								count={errorEntries.length}
+								entries={errorEntries}
+								onRemove={onRemoveIssue}
+							/>
+						)}
+						{suggestionEntries.length > 0 && (
+							<IssueSection
+								title="Suggestions"
+								count={suggestionEntries.length}
+								entries={suggestionEntries}
+								onRemove={onRemoveIssue}
+							/>
+						)}
+						<div className="flex items-center justify-between">
+							<span className="text-caption">
+								{totalSelected} issue
+								{totalSelected !== 1 ? "s" : ""} selected
+							</span>
+							<button
+								onClick={onClearAll}
+								className="text-sm text-slate-400 hover:text-slate-200 transition-colors"
+							>
+								Clear all
+							</button>
+						</div>
+					</div>
+
+					{/* Action Buttons */}
+					<div className="flex flex-wrap gap-3">
 						<button
-							onClick={onClearAll}
-							className="text-sm text-slate-400 hover:text-slate-200 transition-colors"
+							onClick={() => setShowConfirmModal(true)}
+							disabled={isExecuting || isGenerating}
+							className="btn-primary"
 						>
-							Clear all
+							{isExecuting ? (
+								<span className="flex items-center gap-2">
+									<svg
+										className="animate-spin h-4 w-4"
+										fill="none"
+										viewBox="0 0 24 24"
+									>
+										<circle
+											className="opacity-25"
+											cx="12"
+											cy="12"
+											r="10"
+											stroke="currentColor"
+											strokeWidth="4"
+										/>
+										<path
+											className="opacity-75"
+											fill="currentColor"
+											d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+										/>
+									</svg>
+									Starting...
+								</span>
+							) : (
+								`Execute Remediation (${totalSelected})`
+							)}
+						</button>
+						<button
+							onClick={handleGeneratePrompts}
+							disabled={isExecuting || isGenerating}
+							className="btn-secondary"
+						>
+							{isGenerating ? "Generating..." : "Generate Prompts"}
 						</button>
 					</div>
-				</div>
 
-				{/* Action Buttons */}
-				<div className="flex flex-wrap gap-3">
-					<button
-						onClick={() => setShowConfirmModal(true)}
-						disabled={isExecuting || isGenerating}
-						className="btn-primary"
-					>
-						{isExecuting ? (
-							<span className="flex items-center gap-2">
-								<svg
-									className="animate-spin h-4 w-4"
-									fill="none"
-									viewBox="0 0 24 24"
-								>
-									<circle
-										className="opacity-25"
-										cx="12"
-										cy="12"
-										r="10"
-										stroke="currentColor"
-										strokeWidth="4"
-									/>
-									<path
-										className="opacity-75"
-										fill="currentColor"
-										d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-									/>
-								</svg>
-								Starting...
-							</span>
-						) : (
-							`Execute Remediation (${totalSelected})`
-						)}
-					</button>
-					<button
-						onClick={handleGeneratePrompts}
-						disabled={isExecuting || isGenerating}
-						className="btn-secondary"
-					>
-						{isGenerating ? "Generating..." : "Generate Prompts"}
-					</button>
+					{executeError && (
+						<p className="text-sm text-red-400 mt-2">{executeError}</p>
+					)}
+					{generateError && (
+						<p className="text-sm text-red-400 mt-2">{generateError}</p>
+					)}
 				</div>
-
-				{executeError && (
-					<div className="flex items-center gap-3 mt-2">
-						<p className="text-sm text-red-400">{executeError}</p>
-						{remediationId && !cloudMode && (
-							<button
-								onClick={handleDeleteRemediation}
-								disabled={isDeleting}
-								className="btn-secondary text-red-400 hover:text-red-300 flex-shrink-0"
-							>
-								{isDeleting ? "Deleting..." : "Delete & Retry"}
-							</button>
-						)}
-					</div>
-				)}
-				{generateError && (
-					<p className="text-sm text-red-400 mt-2">{generateError}</p>
-				)}
-			</div>
+			)}
 
 			{/* Confirmation Modal */}
 			<Modal
@@ -906,7 +696,7 @@ export function RemediateTab({
 							</div>
 						)}
 						<div className="flex justify-between text-slate-300">
-							<span>Target agent</span>
+							<span>Target for markdown file rendering</span>
 							<span className="font-semibold">
 								{targetAgent === "agents-md"
 									? "AGENTS.md"
@@ -1052,130 +842,5 @@ function PromptDisplay({ title, content }: { title: string; content: string }) {
 				{content}
 			</div>
 		</div>
-	);
-}
-
-function getGroupDisplayName(issueTitle: string): string {
-	const colonIndex = issueTitle.indexOf(": ");
-	return colonIndex >= 0 ? issueTitle.slice(colonIndex + 2) : issueTitle;
-}
-
-function ActionSummarySection({
-	summary,
-}: {
-	summary: NonNullable<RemediationResult["summary"]>;
-}) {
-	const groupedActions = useMemo(() => {
-		const allActions = [
-			...summary.errorFixActions,
-			...summary.suggestionEnrichActions,
-		];
-		const groups = new Map<string, RemediationAction[]>();
-		for (const action of allActions) {
-			const key = action.issueTitle ?? "Other";
-			const existing = groups.get(key);
-			if (existing) existing.push(action);
-			else groups.set(key, [action]);
-		}
-		return groups;
-	}, [summary.errorFixActions, summary.suggestionEnrichActions]);
-
-	return (
-		<div className="card">
-			<div className="flex items-center justify-between mb-3">
-				<h3 className="text-subheading text-slate-200">Action Summary</h3>
-				<span className="text-caption">
-					{summary.addressedCount} addressed
-					{summary.skippedCount > 0 && (
-						<span className="text-slate-500">
-							, {summary.skippedCount} skipped
-						</span>
-					)}
-				</span>
-			</div>
-			<div className="space-y-3">
-				{[...groupedActions.entries()].map(([issueTitle, actions]) => (
-					<div key={issueTitle}>
-						<div className="flex items-center justify-between mb-1 px-1">
-							<span className="text-sm font-medium text-slate-300">
-								{getGroupDisplayName(issueTitle)}
-							</span>
-							<span className="text-xs text-slate-500">
-								{actions.length} {actions.length === 1 ? "action" : "actions"}
-							</span>
-						</div>
-						<div className="pl-4 border-l border-slate-700/50 space-y-1">
-							{actions.map((action) => (
-								<div
-									key={`${action.issueIndex}-${action.status}`}
-									className="flex items-start gap-2 py-1 px-1"
-								>
-									{action.status === "skipped" ? (
-										<span className="text-slate-500 flex-shrink-0 mt-0.5">
-											<svg
-												className="w-4 h-4"
-												fill="none"
-												viewBox="0 0 24 24"
-												stroke="currentColor"
-											>
-												<path
-													strokeLinecap="round"
-													strokeLinejoin="round"
-													strokeWidth={2}
-													d="M20 12H4"
-												/>
-											</svg>
-										</span>
-									) : (
-										<span className="text-green-400 flex-shrink-0 mt-0.5">
-											<svg
-												className="w-4 h-4"
-												fill="none"
-												viewBox="0 0 24 24"
-												stroke="currentColor"
-											>
-												<path
-													strokeLinecap="round"
-													strokeLinejoin="round"
-													strokeWidth={2}
-													d="M5 13l4 4L19 7"
-												/>
-											</svg>
-										</span>
-									)}
-									<span className="text-sm text-slate-300 flex-1">
-										{action.summary}
-									</span>
-									{action.file && (
-										<span className="text-xs text-slate-500 font-mono flex-shrink-0">
-											{action.file}
-										</span>
-									)}
-								</div>
-							))}
-						</div>
-					</div>
-				))}
-			</div>
-		</div>
-	);
-}
-
-/**
- * Get action summaries relevant to a specific file path.
- */
-function getFileSummaries(
-	filePath: string,
-	result: RemediationResult,
-): RemediationAction[] {
-	if (!result.summary?.parsed) return [];
-
-	const allActions = [
-		...result.summary.errorFixActions,
-		...result.summary.suggestionEnrichActions,
-	];
-
-	return allActions.filter(
-		(a) => a.file && a.status !== "skipped" && filePath.endsWith(a.file),
 	);
 }

@@ -237,6 +237,17 @@ export class RemediationRepository {
 		return this.rowToRecord(row);
 	}
 
+	getRemediationsByEvaluationId(evaluationId: string): IRemediationRecord[] {
+		const db = getDatabase();
+
+		const stmt = db.prepare<RemediationRow, string>(
+			`SELECT * FROM remediations WHERE evaluation_id = ? ORDER BY created_at DESC`,
+		);
+		const rows = stmt.all(evaluationId);
+
+		return rows.map((row) => this.rowToRecord(row));
+	}
+
 	private rowToRecord(row: RemediationRow): IRemediationRecord {
 		let fileChanges: IFileChange[] = [];
 		if (row.file_changes_json) {

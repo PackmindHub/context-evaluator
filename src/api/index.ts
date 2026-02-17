@@ -305,6 +305,16 @@ export class APIServer {
 			return this.remediationRoutes.execute(req);
 		}
 		if (
+			path.match(/^\/api\/remediation\/list-for-evaluation\/[^/]+$/) &&
+			req.method === "GET"
+		) {
+			const evaluationId = path.split("/").pop()!;
+			return this.remediationRoutes.getRemediationsForEvaluation(
+				req,
+				evaluationId,
+			);
+		}
+		if (
 			path.match(/^\/api\/remediation\/for-evaluation\/[^/]+$/) &&
 			req.method === "GET"
 		) {

@@ -206,23 +206,13 @@ export class RemediationRoutes {
 				return errorResponse("provider is required", "INVALID_REQUEST", 400);
 			}
 
-			// Guard: one remediation per evaluation
+			// Guard: prevent concurrent remediations for filesystem safety
 			if (
 				this.remediationJobManager.hasActiveJobForEvaluation(body.evaluationId)
 			) {
 				return errorResponse(
 					"A remediation is already in progress for this evaluation",
-					"REMEDIATION_EXISTS",
-					409,
-				);
-			}
-			const existingRecord = remediationRepository.getRemediationByEvaluationId(
-				body.evaluationId,
-			);
-			if (existingRecord) {
-				return errorResponse(
-					"A remediation already exists for this evaluation",
-					"REMEDIATION_EXISTS",
+					"REMEDIATION_ACTIVE",
 					409,
 				);
 			}
@@ -237,6 +227,50 @@ export class RemediationRoutes {
 		} catch (err: unknown) {
 			console.error("[RemediationRoutes] Error executing remediation:", err);
 			return internalErrorResponse("Failed to start remediation execution");
+		}
+	}
+
+	/**
+	 * GET /api/remediation/list-for-evaluation/:evaluationId — Get all remediations for an evaluation
+	 */
+	async getRemediationsForEvaluation(
+		_req: Request,
+		evaluationId: string,
+	): Promise<Response> {
+		try {
+			const remediations =
+				remediationRepository.getRemediationsByEvaluationId(evaluationId);
+
+			// Check for active in-memory job
+			let activeJob: {
+				id: string;
+				status: string;
+				currentStep?: string;
+				createdAt: string;
+			} | null = null;
+
+			if (this.remediationJobManager) {
+				const job =
+					this.remediationJobManager.getJobByEvaluationId(evaluationId);
+				if (job && (job.status === "queued" || job.status === "running")) {
+					activeJob = {
+						id: job.id,
+						status: job.status,
+						currentStep: job.currentStep,
+						createdAt: job.createdAt.toISOString(),
+					};
+				}
+			}
+
+			return okResponse({ remediations, activeJob });
+		} catch (err: unknown) {
+			console.error(
+				"[RemediationRoutes] Error listing remediations for evaluation:",
+				err,
+			);
+			return internalErrorResponse(
+				"Failed to list remediations for evaluation",
+			);
 		}
 	}
 

@@ -76,6 +76,34 @@ export interface IRemediationProgressState {
 	};
 }
 
+export interface RemediationHistoryItem {
+	id: string;
+	evaluationId: string;
+	status: "completed" | "failed";
+	provider: string;
+	targetAgent: string;
+	selectedIssueCount: number;
+	errorCount: number;
+	suggestionCount: number;
+	fullPatch: string | null;
+	fileChanges: FileChange[];
+	totalAdditions: number;
+	totalDeletions: number;
+	filesChanged: number;
+	totalDurationMs: number;
+	totalCostUsd: number;
+	totalInputTokens: number;
+	totalOutputTokens: number;
+	summary: RemediationSummary | null;
+	promptStats: {
+		errorFixStats?: PromptStats;
+		suggestionEnrichStats?: PromptStats;
+	} | null;
+	errorMessage: string | null;
+	createdAt: string;
+	completedAt: string | null;
+}
+
 export interface DiffLine {
 	type: "addition" | "deletion" | "context" | "header";
 	content: string;

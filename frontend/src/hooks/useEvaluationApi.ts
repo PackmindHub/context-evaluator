@@ -6,7 +6,10 @@ import type {
 	IEvaluateResponse,
 	IJobStatusResponse,
 } from "../types/job";
-import type { RemediationResult } from "../types/remediation";
+import type {
+	RemediationHistoryItem,
+	RemediationResult,
+} from "../types/remediation";
 
 /** Supported AI provider names */
 export type ProviderName =
@@ -71,6 +74,16 @@ export interface RemediationForEvaluationResponse {
 	errorMessage?: string | null;
 }
 
+export interface RemediationsListResponse {
+	remediations: RemediationHistoryItem[];
+	activeJob: {
+		id: string;
+		status: string;
+		currentStep?: string;
+		createdAt: string;
+	} | null;
+}
+
 export interface ImportReportResponse {
 	evaluationId: string;
 	repositoryUrl: string;
@@ -116,6 +129,9 @@ interface IUseEvaluationApiReturn {
 	getRemediationForEvaluation: (
 		evaluationId: string,
 	) => Promise<RemediationForEvaluationResponse | null>;
+	getRemediationsForEvaluation: (
+		evaluationId: string,
+	) => Promise<RemediationsListResponse>;
 	deleteRemediation: (remediationId: string) => Promise<void>;
 	downloadPatch: (remediationId: string) => Promise<void>;
 	importReport: (reportJson: unknown) => Promise<ImportReportResponse>;
@@ -443,6 +459,31 @@ export function useEvaluationApi(): IUseEvaluationApiReturn {
 		[],
 	);
 
+	const getRemediationsForEvaluation = useCallback(
+		async (evaluationId: string): Promise<RemediationsListResponse> => {
+			try {
+				const response = await fetch(
+					`/api/remediation/list-for-evaluation/${evaluationId}`,
+					{
+						method: "GET",
+						headers: { "Content-Type": "application/json" },
+					},
+				);
+
+				if (!response.ok) {
+					const errorData = await response.json().catch(() => ({}));
+					throw new Error(errorData.error || `HTTP error ${response.status}`);
+				}
+
+				return (await response.json()) as RemediationsListResponse;
+			} catch (err) {
+				console.warn("[API] Failed to fetch remediations for evaluation:", err);
+				return { remediations: [], activeJob: null };
+			}
+		},
+		[],
+	);
+
 	const deleteRemediation = useCallback(
 		async (remediationId: string): Promise<void> => {
 			try {
@@ -538,6 +579,7 @@ export function useEvaluationApi(): IUseEvaluationApiReturn {
 			executeRemediation,
 			getRemediationResult,
 			getRemediationForEvaluation,
+			getRemediationsForEvaluation,
 			deleteRemediation,
 			downloadPatch,
 			importReport,
@@ -555,6 +597,7 @@ export function useEvaluationApi(): IUseEvaluationApiReturn {
 			executeRemediation,
 			getRemediationResult,
 			getRemediationForEvaluation,
+			getRemediationsForEvaluation,
 			deleteRemediation,
 			downloadPatch,
 			importReport,

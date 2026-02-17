@@ -2,6 +2,7 @@
 
 ## Added
 
+- **Multi-remediation support**: Users can now run multiple independent remediations per evaluation. Each remediation runs from the current git state and produces its own downloadable patch. Past remediations are displayed in a collapsible history section above the config area, with compact cards that expand to show full diffs and action summaries. The 409 guard blocking new remediations when a completed one exists has been removed; only concurrent remediations are prevented.
 - **Target agent selection for remediation**: Replace 2-option file type selector (AGENTS.md/CLAUDE.md) with 3 target agents (AGENTS.md, Claude Code, GitHub Copilot). Suggestion remediation now routes output to structured artifacts (standards, skills, or generic updates) with per-agent file path conventions and format templates. Error fix prompt is now target-agnostic.
 - **Import JSON reports in Web UI**: Upload CLI-generated JSON reports (`--report json`) into the Web UI for viewing and persistence without re-running the evaluation. Available in non-cloud mode via the "Import JSON" tab on the home page. Imported evaluations are marked with an "Imported" badge in the history list.
 - **Re-run evaluation from summary page**: "Re-run" button in the evaluation summary header allows re-running the same repository without navigating back to the home page, with an inline provider selector in non-cloud mode
