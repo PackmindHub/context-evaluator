@@ -1,0 +1,32 @@
+# Session Context
+
+## User Prompts
+
+### Prompt 1
+
+I think we should update the layout of the header bar containing a report summary. Currently in the headers, we have summary, errors, suggestions, remédiaire, debugging and cost analysis. I think we should add a little bit of color in errors and suggestion number. Currently, it's kind of gray. It's not very visible. And I think we should make it more visible. And same for Remediat. In the Remediat, I think we should use a kind of green color. So let me know if you have any questions.
+
+### Prompt 2
+
+[Request interrupted by user for tool use]
+
+### Prompt 3
+
+Continue
+
+### Prompt 4
+
+Are you sure? Chceck http://localhost:3000/evaluation/dd283666-3a94-43cd-8565-7dff030c01d1?tab=summary
+
+### Prompt 5
+
+[Request interrupted by user]
+
+### Prompt 6
+
+ok now it works
+
+### Prompt 7
+
+commit
+
