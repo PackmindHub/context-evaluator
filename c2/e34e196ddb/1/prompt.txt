@@ -1,0 +1,60 @@
+Implement the following plan:
+
+# Fix: Remediation deletion not available for failed remediations
+
+## Context
+
+When a remediation fails (status "failed"), the user gets stuck in a dead-end state:
+- The UI stays in the **config phase** (no "Delete & Start Over" button — that only exists in the results phase)
+- Attempting to execute a new remediation returns **409 "A remediation already exists for this evaluation"**
+- The user has no way to clear the failed record
+
+Root cause: the `loadExistingRemediation` effect only handles "completed" and "running"/"queued" statuses. The "failed" status falls through silently, staying in config phase without setting `remediationId` — making deletion impossible.
+
+## Changes
+
+**Single file**: `frontend/src/components/RemediateTab.tsx`
+
+### 1. Handle "failed" status in the mount/restore effect (line ~156)
+
+Add an `else if (data.status === "failed")` branch that:
+- Sets `remediationId` to the failed record's ID (enabling the delete handler)
+- Sets `executeError` with the failure message
+- Stays in config phase (no phase change)
+
+### 2. Add "Delete & Retry" button to the config phase error display (line ~848)
+
+Replace the plain error text with a flex container that includes:
+- The error message (existing)
+- A "Delete & Retry" button (when `remediationId` is set and `!cloudMode`)
+- Uses existing `handleDeleteRemediation` handler, which already resets all state
+
+### 3. Fetch blocking remediation ID on 409 error during execution (line ~417)
+
+In the `handleExecute` catch block, when the error message indicates "already exists":
+- Call `api.getRemediationForEvaluation()` to fetch the blocking record's ID
+- Set `remediationId` so the delete button becomes available
+
+This handles the edge case where `loadExistingRemediation` didn't fire but a stale record blocks execution.
+
+## Why no other changes needed
+
+- **Backend**: `DELETE /api/remediation/:id` already works for failed remediations (only blocks queued/running)
+- **State management**: Reuses existing `remediationId`, `executeError`, `isDeleting` state
+- **Styles**: Uses existing `btn-secondary text-red-400 hover:text-red-300` pattern (same as results phase delete button)
+- **No modal**: Failed remediations have nothing to lose, so inline button is sufficient (vs. confirmation modal for completed results)
+
+## Verification
+
+1. Start dev server: `bun run dev`
+2. Run an evaluation, select issues, execute remediation, let it fail (or simulate via DB)
+3. Verify the config phase shows error message with "Delete & Retry" button
+4. Click "Delete & Retry" — verify the record is deleted and user can re-execute
+5. Run `bun run test` and `bun run lint`
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+commit
