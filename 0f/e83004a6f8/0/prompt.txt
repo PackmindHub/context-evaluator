@@ -1,0 +1,40 @@
+Implement the following plan:
+
+# Auto-expand latest remediation after completion
+
+## Context
+When a remediation finishes, the UI returns to idle phase with issues cleared. The user sees the empty "No issues selected" state with "Past Remediations" collapsed above. The latest remediation result is hidden and requires manual clicks to view. We want the latest remediation to be automatically visible when remediation completes.
+
+## Approach
+Add an `autoExpandId` prop to `RemediationHistory` that, when set, forces the section to uncollapse and expands the specified card. `RemediateTab` tracks this ID on completion and passes it down.
+
+## Changes
+
+### 1. `RemediateTab.tsx` - Track completed remediation ID
+- Add state: `const [autoExpandRemediationId, setAutoExpandRemediationId] = useState<string | null>(null)`
+- In the `remediation.completed` handler (~line 308), capture the active remediation ID before clearing it:
+  ```ts
+  setAutoExpandRemediationId(activeRemediationId);
+  ```
+- Pass `autoExpandId={autoExpandRemediationId}` prop to `<RemediationHistory>`
+- Add a callback `onAutoExpandHandled` to clear the state after the history component has applied it (prevents re-triggering on re-renders)
+
+### 2. `RemediationHistory.tsx` - Accept and apply auto-expand
+- Add props: `autoExpandId?: string | null`, `onAutoExpandHandled?: () => void`
+- Add `useEffect` that watches `autoExpandId`: when set, uncollapse the section (`setCollapsed(false)`) and expand the matching card (`setExpandedId(autoExpandId)`), then call `onAutoExpandHandled()`
+
+## Files to modify
+- `frontend/src/components/RemediateTab.tsx`
+- `frontend/src/components/RemediationHistory.tsx`
+
+## Verification
+1. Run `bun run test` to ensure no regressions
+2. Run `bun run lint` to check formatting
+3. Manual test: start a remediation, wait for completion, verify the history section auto-expands with the latest card visible
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+commit this
