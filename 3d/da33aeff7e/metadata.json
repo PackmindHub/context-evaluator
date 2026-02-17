@@ -1,0 +1,27 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "3dda33aeff7e",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "skills/context-remediation/packmind-remediation-prompt.md",
+    "skills/context-remediation/packmind-remediation-skill-creation.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/3d/da33aeff7e/0/metadata.json",
+      "transcript": "/3d/da33aeff7e/0/full.jsonl",
+      "context": "/3d/da33aeff7e/0/context.md",
+      "content_hash": "/3d/da33aeff7e/0/content_hash.txt",
+      "prompt": "/3d/da33aeff7e/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 14,
+    "cache_creation_tokens": 27885,
+    "cache_read_tokens": 401252,
+    "output_tokens": 74,
+    "api_call_count": 10
+  }
+}

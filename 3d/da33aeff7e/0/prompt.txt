@@ -1,0 +1,91 @@
+Implement the following plan:
+
+# Plan: Create `packmind-remediation-prompt.md`
+
+## Context
+
+The `skills/context-remediation/` directory contains ~390 lines across 3 source files (SKILL.md, standard-creation.md, packmind-create-skill/SKILL.md) plus 2 Python scripts. A remediation module needs a condensed, actionable prompt that consolidates all this knowledge. Currently the content is spread across files designed for human reading and progressive disclosure — not optimized for a single AI module consumption.
+
+## File Structure
+
+Create **2 new files** (no existing files modified):
+
+```
+skills/context-remediation/
+  packmind-remediation-prompt.md          # Main: decision logic + standard creation (~100 lines)
+  packmind-remediation-skill-creation.md  # Companion: skill creation process (~110 lines)
+```
+
+**Rationale for the split**: The decision logic first determines the path (standard vs skill). Standards are the simpler/default path and belong with the decision logic. Skill creation is more complex and only loaded when needed — matching the progressive disclosure principle.
+
+## File 1: `packmind-remediation-prompt.md` (~100 lines)
+
+### Sections
+
+1. **Rendering Modes** — 1 line: enumerate Claude Code, AGENTS.md, GitHub Copilot
+2. **Decision: Standard vs Skill**
+   - Definitions (condensed to ~2 lines each)
+   - 4 decision criteria (verbatim from SKILL.md lines 30-33)
+   - Boundary rule (condensed: extract rules → standard, procedures → skill, when in doubt prefer standard)
+3. **Standard Creation**
+   - Generic rules (verbatim: one-sentence summary, verb-first bullets, scoped globs)
+   - Platform: Claude Code — path directive + full template code block (verbatim)
+   - Platform: AGENTS.md — append directive + full example code block (verbatim)
+   - Platform: GitHub Copilot — path directive + full template code block (verbatim)
+4. **Skill Creation** — 2-line pointer to companion file `packmind-remediation-skill-creation.md`
+
+### What's condensed/eliminated
+- External doc links (code.claude.com, agentskills.io) → removed
+- Worked "testing" example → removed (rule is sufficient)
+- Surrounding prose around templates → reduced to 1-line directives
+
+## File 2: `packmind-remediation-skill-creation.md` (~110 lines)
+
+### Sections
+
+1. **Skill Anatomy** — directory tree (verbatim) + 1-line per component
+2. **Progressive Disclosure** — 3-line numbered list (metadata → SKILL.md → resources)
+3. **Metadata Quality** — 2 lines (name+description determine triggering; use third person)
+4. **Prerequisites** — 4 lines (python3, packmind-cli check+install)
+5. **8-Step Process** (condensed):
+   - Step 1: Understand Usage (3 lines — drop example questions)
+   - Step 2: Plan Resources (4 lines — drop 3 worked examples)
+   - Step 3: Initialize (5 lines — exact `init_skill.py` command preserved)
+   - Step 4: Edit (~15 lines — writing style rules verbatim, resource workflow preserved)
+   - Step 5: Validate (4 lines — exact `quick_validate.py` command preserved)
+   - Step 6: Iterate (3 lines)
+   - Step 7: Distribute (5 lines — exact `packmind-cli skills add` command preserved)
+   - Step 8: Package Assignment (~10 lines — full logic + all 3 CLI commands preserved)
+
+### What's condensed/eliminated
+- "About Skills" intro prose → removed (redundant with main file's definitions)
+- "What Skills Provide" list → removed (implied by anatomy)
+- Example questions in Step 1 → removed (AI can generate its own)
+- 3 worked examples in Step 2 (pdf-editor, frontend-webapp-builder, big-query) → removed
+- "Examples from other skills" in resource descriptions → removed
+- External documentation links → removed
+
+## Verbatim Preservation Rules
+
+These items must NOT be reworded:
+- All 3 platform template code blocks from standard-creation.md
+- The 4 decision criteria questions
+- All CLI/script commands (`init_skill.py`, `quick_validate.py`, `packmind-cli` invocations)
+- Writing style rule: "imperative/infinitive form, verb-first, not second person"
+- Skill anatomy directory tree
+- "When in doubt, prefer a standard"
+
+## Verification
+
+1. Confirm both files are created in `skills/context-remediation/`
+2. Verify all 3 platform templates are present and verbatim
+3. Verify all script/CLI commands are correct
+4. Verify the 4 decision criteria are intact
+5. Run `bun run test` and `bun run lint` (no code changes, but good hygiene)
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+Mention also that that for AGENTS.md target, the skills should be in ".agent/skills" directory
