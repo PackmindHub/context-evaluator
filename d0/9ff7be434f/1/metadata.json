@@ -1,0 +1,63 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "d09ff7be434f",
+  "session_id": "8cd2424f-f8be-4fc4-9ca9-520883bbc5ed",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-17T16:04:18.633453Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "prompts/context-remediation/packmind-remediation-prompt.md",
+    "src/shared/remediation/prompt-generator.test.ts",
+    "src/shared/remediation/prompt-generator.ts"
+  ],
+  "agent": "Claude Code",
+  "transcript_identifier_at_start": "52ea916f-1f34-45d5-ba2c-184f94820d0c",
+  "token_usage": {
+    "input_tokens": 19,
+    "cache_creation_tokens": 32523,
+    "cache_read_tokens": 584552,
+    "output_tokens": 428,
+    "api_call_count": 15
+  },
+  "summary": {
+    "intent": "Update the packmind remediation prompt template to document Claude Code's support for glob patterns in rules, specifically the `paths` frontmatter field for scoping rules to specific files.",
+    "outcome": "Successfully updated the prompt template, the prompt generator implementation, and tests to support both path-scoped rules (using glob patterns) and always-apply rules. All changes committed with passing tests and lint checks.",
+    "learnings": {
+      "repo": [
+        "The packmind-remediation-prompt.md template drives the prompt-generator.ts implementation and its tests",
+        "Claude Code rules support two scoping modes: path-scoped with glob patterns in `paths` array, and global with `alwaysApply: true`",
+        "The codebase uses a consistent pattern of updating template → implementation → tests when modifying prompt generation"
+      ],
+      "code": [
+        {
+          "path": "src/shared/remediation/prompt-generator.ts",
+          "line": 1,
+          "end_line": 200,
+          "finding": "The prompt generator hardcoded alwaysApply: true for Claude Code rules, now supports both paths glob patterns (preferred for file-specific suggestions) and alwaysApply mode"
+        },
+        {
+          "path": "prompts/context-remediation/packmind-remediation-prompt.md",
+          "line": 1,
+          "end_line": 300,
+          "finding": "Template structure includes a comprehensive glob pattern reference table with common patterns like **/*.ts, src/**/* and brace expansion examples"
+        }
+      ],
+      "workflow": [
+        "When updating prompt templates, check for dependent code in prompt generators and tests",
+        "Always verify changes with both test suite and lint before committing"
+      ]
+    },
+    "friction": [],
+    "open_items": []
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-17T16:04:07.138708Z",
+    "agent_lines": 88,
+    "human_added": 1113,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 1201,
+    "agent_percentage": 7.327227310574521
+  }
+}

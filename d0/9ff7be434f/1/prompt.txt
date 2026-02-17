@@ -1,0 +1,5 @@
+Update @prompts/context-remediation/packmind-remediation-prompt.md so that claude rules can include globs like this : 'https://code.claude.com/docs/en/memory#glob-patterns'
+
+---
+
+commit this
