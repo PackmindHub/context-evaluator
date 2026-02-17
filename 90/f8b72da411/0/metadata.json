@@ -1,0 +1,73 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "90f8b72da411",
+  "session_id": "90499da5-31f8-4177-a6ca-95705254e7f9",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-17T14:36:07.970837Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "frontend/src/components/RemediationHistoryCard.tsx",
+    "frontend/src/styles.css",
+    "frontend/src/types/remediation.ts",
+    "src/shared/remediation/summary-parser.test.ts",
+    "src/shared/remediation/summary-parser.ts",
+    "src/shared/types/remediation.ts"
+  ],
+  "agent": "Claude Code",
+  "token_usage": {
+    "input_tokens": 47,
+    "cache_creation_tokens": 70447,
+    "cache_read_tokens": 2905671,
+    "output_tokens": 2118,
+    "api_call_count": 43
+  },
+  "summary": {
+    "intent": "Add outputType field to remediation actions to display strategy badges (standard/skill/generic) in the Action Summary UI for suggestions.",
+    "outcome": "Successfully implemented outputType field across the full stack (types, parser, CSS, UI component), added 6 tests, and committed all changes. All 1232 tests pass, lint clean, types compile.",
+    "learnings": {
+      "repo": [
+        "Project uses tabs for indentation, not spaces",
+        "Biome linter enforces collapsed multi-line expressions",
+        "Test command 'bun test src/' can still pick up tests from tmp/clones/ directories outside src/",
+        "Badge CSS pattern uses bg-{color}/10 text-{color} border border-{color}/20 for consistency"
+      ],
+      "code": [
+        {
+          "path": "src/shared/remediation/summary-parser.ts",
+          "line": 138,
+          "end_line": 153,
+          "finding": "parseActionsFromJson uses validation pattern with VALID_OUTPUT_TYPES Set, normalizes to lowercase, and only spreads field when valid"
+        },
+        {
+          "path": "frontend/src/components/RemediationHistoryCard.tsx",
+          "line": 220,
+          "end_line": 235,
+          "finding": "CompactActionSummary uses conditional rendering for badges with flex-shrink-0 to prevent wrapping"
+        }
+      ],
+      "workflow": [
+        "When committing specific feature changes, explicitly stage only related files to avoid including unintended changes",
+        "Pre-commit hooks can fail on leftover test files in tmp/ directories - clean up clones after evaluations"
+      ]
+    },
+    "friction": [
+      "Initial Edit attempts failed due to tab vs space mismatch - had to use Write to overwrite entire file",
+      "Pre-commit hook picked up failing tests from leftover tmp/clones/ directory, blocking commit",
+      "Had to manually remove tmp/clones/packdotmd-pack directory to unblock commit"
+    ],
+    "open_items": [
+      "Manual verification needed: run a remediation with suggestions to verify badges render correctly",
+      "Manual verification needed: check old remediations still render without errors (backward compatibility)"
+    ]
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-17T14:35:53.167784Z",
+    "agent_lines": 116,
+    "human_added": 4,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 120,
+    "agent_percentage": 96.66666666666667
+  }
+}

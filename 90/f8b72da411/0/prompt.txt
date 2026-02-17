@@ -1,0 +1,84 @@
+Implement the following plan:
+
+# Show Remediation Strategy in Action Summary
+
+## Context
+
+The suggestion enrich prompt already asks the AI to include an `outputType` field (`"standard"`, `"skill"`, or `"generic"`) in its JSON response for each addressed suggestion. However, the summary parser drops this field, the types don't include it, and the UI doesn't display it. The goal is to flow `outputType` through the full stack so it appears as a badge in the Action Summary section of the Remediation History card.
+
+Only **suggestions** get a strategy badge — error fixes edit existing content and don't involve a strategy decision.
+
+## Changes
+
+### 1. Add `outputType` to shared type
+
+**File**: `src/shared/types/remediation.ts`
+
+Add to `IRemediationAction` (line 50-56):
+```typescript
+outputType?: "standard" | "skill" | "generic";
+```
+
+### 2. Add `outputType` to frontend type
+
+**File**: `frontend/src/types/remediation.ts`
+
+Add to `RemediationAction` (line 15-21):
+```typescript
+outputType?: "standard" | "skill" | "generic";
+```
+
+### 3. Update summary parser to preserve `outputType`
+
+**File**: `src/shared/remediation/summary-parser.ts`
+
+In `parseActionsFromJson` (line 138-153), add `outputType` validation and preservation in the `.map()` callback:
+- Normalize to lowercase
+- Only accept `"standard"`, `"skill"`, `"generic"` — drop unknown values
+- Spread into the returned object only when valid
+
+### 4. Add output type badge CSS classes
+
+**File**: `frontend/src/styles.css`
+
+Add three badge classes following the existing `change-badge-*` pattern (`bg-{color}/10 text-{color} border border-{color}/20`):
+- `.output-type-standard` — indigo (primary accent, always-loaded rules)
+- `.output-type-skill` — emerald (additive/procedural)
+- `.output-type-generic` — slate (neutral, simplest type)
+
+### 5. Render badge in CompactActionSummary
+
+**File**: `frontend/src/components/RemediationHistoryCard.tsx`
+
+In `CompactActionSummary` (line 220-235), add a badge between the summary text and file path:
+- Only render when `action.outputType` is defined
+- Display capitalized label: "Standard", "Skill", "Generic"
+- Use `flex-shrink-0` to prevent wrapping
+
+### 6. Rebuild CSS
+
+```bash
+cd frontend && bun run css:build
+```
+
+## No changes needed in
+
+- `prompt-generator.ts` — already requests `outputType` from AI
+- `engine.ts` — batch remapping uses spread which preserves all fields
+- `remediation-repository.ts` — stores summary as opaque JSON
+- Database schema — no migration needed (optional field, backward compatible)
+
+## Verification
+
+1. `bun run test` — all existing + new parser tests pass
+2. `bun run lint` — no lint errors
+3. `bun run typecheck` — types compile
+4. Manual: run a remediation with suggestions, verify badges appear in Action Summary
+5. Manual: check old remediations still render correctly (no badges, no errors)
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+commit this
