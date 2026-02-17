@@ -3,11 +3,22 @@
   "checkpoint_id": "3dda33aeff7e",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 3,
+  "checkpoints_count": 5,
   "files_touched": [
+    "CHANGELOG.md",
+    "frontend/src/components/RemediateTab.tsx",
+    "frontend/src/hooks/useEvaluationApi.ts",
+    "prompts/context-remediation/packmind-remediation-skill-creation.md",
     "skills/context-remediation/SKILL.md",
     "skills/context-remediation/packmind-remediation-prompt.md",
-    "skills/context-remediation/packmind-remediation-skill-creation.md"
+    "skills/context-remediation/packmind-remediation-skill-creation.md",
+    "src/api/db/remediation-repository.ts",
+    "src/api/jobs/remediation-job-manager.ts",
+    "src/api/routes/remediation.ts",
+    "src/shared/remediation/engine.ts",
+    "src/shared/remediation/prompt-generator.test.ts",
+    "src/shared/remediation/prompt-generator.ts",
+    "src/shared/types/remediation.ts"
   ],
   "sessions": [
     {
@@ -23,13 +34,20 @@
       "context": "/3d/da33aeff7e/1/context.md",
       "content_hash": "/3d/da33aeff7e/1/content_hash.txt",
       "prompt": "/3d/da33aeff7e/1/prompt.txt"
+    },
+    {
+      "metadata": "/3d/da33aeff7e/2/metadata.json",
+      "transcript": "/3d/da33aeff7e/2/full.jsonl",
+      "context": "/3d/da33aeff7e/2/context.md",
+      "content_hash": "/3d/da33aeff7e/2/content_hash.txt",
+      "prompt": "/3d/da33aeff7e/2/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 22,
-    "cache_creation_tokens": 43986,
-    "cache_read_tokens": 585414,
-    "output_tokens": 82,
-    "api_call_count": 16
+    "input_tokens": 88,
+    "cache_creation_tokens": 155029,
+    "cache_read_tokens": 6880454,
+    "output_tokens": 2337,
+    "api_call_count": 78
   }
 }

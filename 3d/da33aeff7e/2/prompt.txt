@@ -1,0 +1,163 @@
+Implement the following plan:
+
+# Remediation Module Update: Target Agents + Suggestion Routing
+
+## Context
+
+The remediation module currently has a simple `targetFileType: "AGENTS.md" | "CLAUDE.md"` selector. Suggestions just add content to those files. We need to:
+1. Replace targetFileType with 3 target agents (AGENTS.md, Claude Code, GitHub Copilot)
+2. Route suggestion remediation to create structured artifacts (standards, skills, or generic updates) based on the target agent
+3. Clean up the skill creation prompt to remove packmind-cli references
+
+Error-type issues remain unchanged (fix-in-place behavior).
+
+---
+
+## Design Decisions
+
+- **TargetAgent type**: `const` object + string union (`"agents-md" | "claude-code" | "github-copilot"`), matching ProviderName convention
+- **Error fix prompt**: Becomes target-agnostic — references "the AI agent documentation files listed below" instead of a specific file type
+- **Suggestion prompt**: Major rewrite — includes decision criteria (standard vs skill vs generic) inline, with per-agent file path conventions and format templates. Only the selected agent's instructions are included (not all 3) to save tokens
+- **Phantom file remapping**: The prompt instructs the AI to ignore evaluator-suggested paths and create files at the correct location per target agent
+- **GitHub Copilot skills**: Supported, placed in `.github/skills/<skill-name>/` directory
+- **DB column**: Keep `target_file_type` column name for backward compatibility; just store new string values
+- **Skill creation**: AI creates SKILL.md + folder structure directly — no packmind-cli or Python scripts
+
+---
+
+## Implementation Plan
+
+### Step 1: Clean up skill creation prompt
+
+**File**: `prompts/context-remediation/packmind-remediation-skill-creation.md`
+- Remove Prerequisites section (Python 3, packmind-cli)
+- Remove Step 3 (Initialize) — references `python3 scripts/init_skill.py`
+- Remove Step 5 (Validate) — references `python3 scripts/quick_validate.py`
+- Remove Step 7 (Distribute) — references `packmind-cli skills add`
+- Remove Step 8 (Package Assignment) — references `packmind-cli install`
+- Keep: Skill Anatomy, Progressive Disclosure, Metadata Quality, Step 1 (Understand), Step 2 (Plan Resources), Step 4 (Edit the Skill), Step 6 (Iterate)
+- Renumber remaining steps
+
+### Step 2: Add TargetAgent type
+
+**File**: `src/shared/types/remediation.ts`
+- Add `TARGET_AGENTS` const and `TargetAgent` type
+- Change `IRemediationRequest.targetFileType` → `targetAgent: TargetAgent`
+
+### Step 3: Update prompt generator (core logic)
+
+**File**: `src/shared/remediation/prompt-generator.ts`
+
+- Change `RemediationInput.targetFileType` → `targetAgent: TargetAgent`
+- **`buildErrorFixPrompt()`**: Replace `"fixing issues in ${input.targetFileType} files"` with `"fixing issues in the AI agent documentation files listed below"`
+- **`buildSuggestionEnrichPrompt()`**: Full rewrite:
+  - Add `getAgentContextDescription(targetAgent)` — short summary of the target
+  - Add `getOutputTypeInstructions(targetAgent)` — per-agent instructions for:
+    - **Standard**: file path, format (YAML frontmatter for Claude Code/Copilot, inline section for AGENTS.md), rules structure
+    - **Skill**: file path + SKILL.md format (`.agent/skills/` for AGENTS.md/Claude Code, `.github/skills/` for GitHub Copilot)
+    - **Generic update**: which file to update (AGENTS.md / CLAUDE.md / `.github/copilot-instructions.md`)
+  - Include 4 decision criteria inline (from packmind-remediation-prompt.md)
+  - Add phantom file remapping instruction
+  - Updated JSON output format with optional `outputType` field
+- Add helper functions: `getAgentContextDescription()`, `getOutputTypeInstructions()`, `getGenericUpdateFile()`
+
+### Step 4: Update remediation engine
+
+**File**: `src/shared/remediation/engine.ts`
+- Line ~203: `targetFileType: request.targetFileType` → `targetAgent: request.targetAgent`
+- Line ~245: Progress event `targetFileType` → `targetAgent`
+
+### Step 5: Update API routes
+
+**File**: `src/api/routes/remediation.ts`
+- Import `TargetAgent`, `TARGET_AGENTS` from `@shared/types/remediation`
+- Update `GeneratePromptsRequest` interface: `targetFileType` → `targetAgent: TargetAgent`
+- Update validation: check `body.targetAgent` is one of the 3 valid values
+- Update `execute` endpoint: same changes
+- Update `RemediationInput` construction: `targetFileType` → `targetAgent`
+
+### Step 6: Update remediation job manager
+
+**File**: `src/api/jobs/remediation-job-manager.ts`
+- Update log message: `target: ${request.targetFileType}` → `target: ${request.targetAgent}`
+
+### Step 7: Update database repository
+
+**File**: `src/api/db/remediation-repository.ts`
+- `IRemediationRecord`: rename `targetFileType` → `targetAgent`
+- `saveRemediation`: `$targetFileType: request.targetFileType` → `$targetFileType: request.targetAgent` (column name stays for backward compat)
+- `saveFailedRemediation`: same change
+- `rowToRecord`: `targetFileType: row.target_file_type` → `targetAgent: row.target_file_type`
+
+### Step 8: Update frontend API hooks
+
+**File**: `frontend/src/hooks/useEvaluationApi.ts`
+- Add `TargetAgent` type export
+- Update `generateRemediationPrompts()`: param `targetFileType` → `targetAgent: TargetAgent`, body field change
+- Update `executeRemediation()`: param `targetFileType` → `targetAgent: TargetAgent`, body field change
+- Update `IUseEvaluationApiReturn` interface
+
+### Step 9: Update frontend UI
+
+**File**: `frontend/src/components/RemediateTab.tsx`
+- Import `TargetAgent` from hooks
+- Replace state: `targetFileType` → `targetAgent` with default `"agents-md"`
+- Replace 2-button toggle with 3-button selector: AGENTS.md | Claude Code | GitHub Copilot
+- Update `handleExecute`: pass `targetAgent`
+- Update `handleGeneratePrompts`: pass `targetAgent`
+- Update confirmation modal: show target agent display name
+- Add helper for display names: `agents-md` → "AGENTS.md", `claude-code` → "Claude Code", `github-copilot` → "GitHub Copilot"
+- Update `useCallback` dependency arrays
+
+### Step 10: Update tests
+
+**File**: `src/shared/remediation/prompt-generator.test.ts`
+- Update `baseInput`: `targetFileType` → `targetAgent: "agents-md"`
+- Update existing tests referencing `"AGENTS.md files"` or `"CLAUDE.md files"`
+- Add new tests:
+  - Suggestion prompt includes decision criteria for each target agent
+  - Claude Code target includes `.claude/rules/` path instructions
+  - GitHub Copilot target includes `.github/instructions/` for standards and `.github/skills/` for skills
+  - AGENTS.md target includes inline standard instructions
+  - Phantom file remapping instruction present
+
+**Other test files**: Update any tests in engine/routes that reference `targetFileType`
+
+### Step 11: Run tests, lint, typecheck
+
+```bash
+bun run test
+bun run lint:fix
+bun run typecheck
+```
+
+---
+
+## Key Files
+
+| File | Change |
+|------|--------|
+| `prompts/context-remediation/packmind-remediation-skill-creation.md` | Remove packmind-cli refs |
+| `src/shared/types/remediation.ts` | Add TargetAgent type, update IRemediationRequest |
+| `src/shared/remediation/prompt-generator.ts` | Core rewrite of suggestion prompt + helpers |
+| `src/shared/remediation/prompt-generator.test.ts` | Update + add tests |
+| `src/shared/remediation/engine.ts` | Rename field passthrough |
+| `src/api/routes/remediation.ts` | Validation + field rename |
+| `src/api/jobs/remediation-job-manager.ts` | Log message update |
+| `src/api/db/remediation-repository.ts` | Record field rename |
+| `frontend/src/hooks/useEvaluationApi.ts` | API hook param rename + type |
+| `frontend/src/components/RemediateTab.tsx` | 3-button selector, state rename |
+
+## Verification
+
+1. `bun run test` — all tests pass
+2. `bun run typecheck` — no type errors
+3. `bun run lint` — no lint issues
+4. Manual: `bun run dev` → run evaluation → select issues → verify 3 target agents in UI → execute remediation → verify generated prompt includes decision criteria and target-specific paths
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+commit and update changelog
