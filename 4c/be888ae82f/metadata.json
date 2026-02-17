@@ -1,0 +1,29 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "4cbe888ae82f",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "prompts/context-remediation/packmind-remediation-prompt.md",
+    "prompts/context-remediation/packmind-remediation-skill-creation.md",
+    "src/shared/remediation/prompt-generator.test.ts",
+    "src/shared/remediation/prompt-generator.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/4c/be888ae82f/0/metadata.json",
+      "transcript": "/4c/be888ae82f/0/full.jsonl",
+      "context": "/4c/be888ae82f/0/context.md",
+      "content_hash": "/4c/be888ae82f/0/content_hash.txt",
+      "prompt": "/4c/be888ae82f/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 25,
+    "cache_creation_tokens": 13667,
+    "cache_read_tokens": 1315590,
+    "output_tokens": 819,
+    "api_call_count": 23
+  }
+}

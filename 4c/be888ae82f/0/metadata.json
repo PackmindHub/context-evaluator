@@ -1,0 +1,35 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "4cbe888ae82f",
+  "session_id": "8cd2424f-f8be-4fc4-9ca9-520883bbc5ed",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-17T21:23:57.85048Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "prompts/context-remediation/packmind-remediation-prompt.md",
+    "prompts/context-remediation/packmind-remediation-skill-creation.md",
+    "src/shared/remediation/prompt-generator.test.ts",
+    "src/shared/remediation/prompt-generator.ts"
+  ],
+  "agent": "Claude Code",
+  "transcript_identifier_at_start": "0295d6ac-5f8c-49da-9967-372082967d5a",
+  "checkpoint_transcript_start": 79,
+  "transcript_lines_at_start": 79,
+  "token_usage": {
+    "input_tokens": 25,
+    "cache_creation_tokens": 13667,
+    "cache_read_tokens": 1315590,
+    "output_tokens": 819,
+    "api_call_count": 23
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-17T21:23:55.879226Z",
+    "agent_lines": 336,
+    "human_added": 1231,
+    "human_modified": 39,
+    "human_removed": 0,
+    "total_committed": 1598,
+    "agent_percentage": 21.026282853566958
+  }
+}
