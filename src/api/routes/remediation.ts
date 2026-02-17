@@ -9,7 +9,11 @@ import {
 	type RemediationIssue,
 } from "@shared/remediation/prompt-generator";
 import type { Issue } from "@shared/types/evaluation";
-import type { IRemediationRequest } from "@shared/types/remediation";
+import {
+	type IRemediationRequest,
+	TARGET_AGENTS,
+	type TargetAgent,
+} from "@shared/types/remediation";
 import { evaluationRepository } from "../db/evaluation-repository";
 import { remediationRepository } from "../db/remediation-repository";
 import type { JobManager } from "../jobs/job-manager";
@@ -25,7 +29,7 @@ import {
 interface GeneratePromptsRequest {
 	evaluationId: string;
 	issues: (Issue & { evaluatorName?: string })[];
-	targetFileType: "AGENTS.md" | "CLAUDE.md";
+	targetAgent: TargetAgent;
 }
 
 function issueToRemediationIssue(
@@ -81,9 +85,12 @@ export class RemediationRoutes {
 					400,
 				);
 			}
-			if (!body.targetFileType) {
+			if (
+				!body.targetAgent ||
+				!Object.keys(TARGET_AGENTS).includes(body.targetAgent)
+			) {
 				return errorResponse(
-					"targetFileType is required",
+					"targetAgent must be one of: agents-md, claude-code, github-copilot",
 					"INVALID_REQUEST",
 					400,
 				);
@@ -139,7 +146,7 @@ export class RemediationRoutes {
 
 			// Step 6: Generate prompts
 			const input: RemediationInput = {
-				targetFileType: body.targetFileType,
+				targetAgent: body.targetAgent,
 				contextFilePaths,
 				errors,
 				suggestions,
@@ -185,9 +192,12 @@ export class RemediationRoutes {
 					400,
 				);
 			}
-			if (!body.targetFileType) {
+			if (
+				!body.targetAgent ||
+				!Object.keys(TARGET_AGENTS).includes(body.targetAgent)
+			) {
 				return errorResponse(
-					"targetFileType is required",
+					"targetAgent must be one of: agents-md, claude-code, github-copilot",
 					"INVALID_REQUEST",
 					400,
 				);

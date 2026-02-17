@@ -201,7 +201,7 @@ export async function executeRemediation(
 		};
 
 		const input: RemediationInput = {
-			targetFileType: request.targetFileType,
+			targetAgent: request.targetAgent,
 			contextFilePaths,
 			errors,
 			suggestions,
@@ -242,7 +242,7 @@ export async function executeRemediation(
 				totalBatches: totalGlobalBatches,
 				completedBatches: 0,
 				provider: request.provider,
-				targetFileType: request.targetFileType,
+				targetAgent: request.targetAgent,
 				phase: errors.length > 0 ? "errors" : "suggestions",
 				runningTotalDurationMs: 0,
 				runningTotalCostUsd: 0,

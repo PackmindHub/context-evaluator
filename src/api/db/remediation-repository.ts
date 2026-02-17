@@ -16,7 +16,7 @@ export interface IRemediationRecord {
 	evaluationId: string;
 	status: "completed" | "failed";
 	provider: string;
-	targetFileType: string;
+	targetAgent: string;
 	selectedIssueCount: number;
 	errorCount: number;
 	suggestionCount: number;
@@ -120,7 +120,7 @@ export class RemediationRepository {
 			$evaluationId: request.evaluationId,
 			$status: "completed",
 			$provider: request.provider,
-			$targetFileType: request.targetFileType,
+			$targetFileType: request.targetAgent,
 			$selectedIssueCount: request.issues.length,
 			$errorCount: errorCount,
 			$suggestionCount: suggestionCount,
@@ -182,7 +182,7 @@ export class RemediationRepository {
 			$evaluationId: request.evaluationId,
 			$status: "failed",
 			$provider: request.provider,
-			$targetFileType: request.targetFileType,
+			$targetFileType: request.targetAgent,
 			$selectedIssueCount: request.issues.length,
 			$errorCount: errorCount,
 			$suggestionCount: suggestionCount,
@@ -273,7 +273,7 @@ export class RemediationRepository {
 			evaluationId: row.evaluation_id,
 			status: row.status as "completed" | "failed",
 			provider: row.provider,
-			targetFileType: row.target_file_type,
+			targetAgent: row.target_file_type,
 			selectedIssueCount: row.selected_issue_count,
 			errorCount: row.error_count,
 			suggestionCount: row.suggestion_count,

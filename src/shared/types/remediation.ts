@@ -4,6 +4,14 @@
 
 import type { ProviderName } from "../providers/types";
 
+export const TARGET_AGENTS = {
+	"agents-md": "AGENTS.md",
+	"claude-code": "Claude Code",
+	"github-copilot": "GitHub Copilot",
+} as const;
+
+export type TargetAgent = keyof typeof TARGET_AGENTS;
+
 export const REMEDIATION_BATCH_SIZE = 10;
 
 export type RemediationStatus = "queued" | "running" | "completed" | "failed";
@@ -89,7 +97,7 @@ export interface IRemediationRequest {
 		evaluatorName?: string;
 		isPhantomFile?: boolean;
 	}>;
-	targetFileType: "AGENTS.md" | "CLAUDE.md";
+	targetAgent: TargetAgent;
 	provider: ProviderName;
 }
 

@@ -35,7 +35,7 @@ function makeSuggestion(
 }
 
 const baseInput: RemediationInput = {
-	targetFileType: "AGENTS.md",
+	targetAgent: "agents-md",
 	contextFilePaths: ["AGENTS.md", "packages/api/AGENTS.md"],
 	errors: [],
 	suggestions: [],
@@ -77,6 +77,21 @@ describe("prompt-generator", () => {
 			expect(result.errorFixPrompt).toContain("Dependencies:** react, express");
 			expect(result.errorFixPrompt).toContain("Languages: TypeScript");
 			expect(result.errorFixPrompt).toContain("Issues to Fix (2)");
+		});
+
+		test("error fix prompt is target-agnostic", () => {
+			const input: RemediationInput = {
+				...baseInput,
+				errors: [makeError()],
+			};
+
+			const result = generateRemediationPrompts(input);
+
+			expect(result.errorFixPrompt).toContain(
+				"AI agent documentation files listed below",
+			);
+			expect(result.errorFixPrompt).not.toContain("AGENTS.md files");
+			expect(result.errorFixPrompt).not.toContain("CLAUDE.md files");
 		});
 
 		test("sorts errors by severity descending", () => {
@@ -148,20 +163,6 @@ describe("prompt-generator", () => {
 
 			expect(result.errorFixPrompt).toContain("> Some problematic content");
 			expect(result.errorFixPrompt).toContain("> with multiple lines");
-		});
-
-		test("handles CLAUDE.md target file type", () => {
-			const input: RemediationInput = {
-				...baseInput,
-				targetFileType: "CLAUDE.md",
-				errors: [makeError()],
-				suggestions: [makeSuggestion()],
-			};
-
-			const result = generateRemediationPrompts(input);
-
-			expect(result.errorFixPrompt).toContain("CLAUDE.md files");
-			expect(result.suggestionEnrichPrompt).toContain("CLAUDE.md files");
 		});
 
 		test("handles missing optional fields", () => {
@@ -287,6 +288,160 @@ describe("prompt-generator", () => {
 			expect(result.suggestionEnrichPrompt).toContain(
 				"**Action**: Create new file at `packages/api/AGENTS.md`",
 			);
+		});
+	});
+
+	describe("suggestion prompt - target agent routing", () => {
+		test("agents-md target includes AGENTS.md standard instructions", () => {
+			const input: RemediationInput = {
+				...baseInput,
+				targetAgent: "agents-md",
+				suggestions: [makeSuggestion()],
+			};
+
+			const result = generateRemediationPrompts(input);
+
+			expect(result.suggestionEnrichPrompt).toContain(
+				"AGENTS.md is a universal",
+			);
+			expect(result.suggestionEnrichPrompt).toContain(
+				"### Standard (AGENTS.md)",
+			);
+			expect(result.suggestionEnrichPrompt).toContain(
+				"Append a section specific to the coding standards",
+			);
+			expect(result.suggestionEnrichPrompt).toContain(
+				".agent/skills/<skill-name>/",
+			);
+		});
+
+		test("claude-code target includes .claude/rules/ path instructions", () => {
+			const input: RemediationInput = {
+				...baseInput,
+				targetAgent: "claude-code",
+				suggestions: [makeSuggestion()],
+			};
+
+			const result = generateRemediationPrompts(input);
+
+			expect(result.suggestionEnrichPrompt).toContain(
+				"Claude Code uses CLAUDE.md",
+			);
+			expect(result.suggestionEnrichPrompt).toContain(
+				"### Standard (Claude Code Rule)",
+			);
+			expect(result.suggestionEnrichPrompt).toContain(
+				".claude/rules/<standard-slug>.md",
+			);
+			expect(result.suggestionEnrichPrompt).toContain("alwaysApply: true");
+			expect(result.suggestionEnrichPrompt).toContain(
+				".agent/skills/<skill-name>/",
+			);
+		});
+
+		test("github-copilot target includes .github/instructions/ for standards and .github/skills/ for skills", () => {
+			const input: RemediationInput = {
+				...baseInput,
+				targetAgent: "github-copilot",
+				suggestions: [makeSuggestion()],
+			};
+
+			const result = generateRemediationPrompts(input);
+
+			expect(result.suggestionEnrichPrompt).toContain(
+				"GitHub Copilot uses `.github/copilot-instructions.md`",
+			);
+			expect(result.suggestionEnrichPrompt).toContain(
+				"### Standard (GitHub Copilot Instruction)",
+			);
+			expect(result.suggestionEnrichPrompt).toContain(
+				".github/instructions/<standard-slug>.md",
+			);
+			expect(result.suggestionEnrichPrompt).toContain(
+				".github/skills/<skill-name>/",
+			);
+		});
+
+		test("suggestion prompt includes decision criteria for all targets", () => {
+			for (const target of [
+				"agents-md",
+				"claude-code",
+				"github-copilot",
+			] as const) {
+				const input: RemediationInput = {
+					...baseInput,
+					targetAgent: target,
+					suggestions: [makeSuggestion()],
+				};
+
+				const result = generateRemediationPrompts(input);
+
+				expect(result.suggestionEnrichPrompt).toContain(
+					"### Decision Criteria",
+				);
+				expect(result.suggestionEnrichPrompt).toContain(
+					"Must the agent always know this?",
+				);
+				expect(result.suggestionEnrichPrompt).toContain(
+					"Is it a constraint or a capability?",
+				);
+				expect(result.suggestionEnrichPrompt).toContain(
+					"Does it need bundled resources?",
+				);
+				expect(result.suggestionEnrichPrompt).toContain(
+					"Is it short and declarative?",
+				);
+			}
+		});
+
+		test("phantom file remapping instruction is present", () => {
+			const input: RemediationInput = {
+				...baseInput,
+				suggestions: [makeSuggestion()],
+			};
+
+			const result = generateRemediationPrompts(input);
+
+			expect(result.suggestionEnrichPrompt).toContain(
+				"## Phantom File Remapping",
+			);
+			expect(result.suggestionEnrichPrompt).toContain(
+				"Ignore evaluator-suggested paths",
+			);
+		});
+
+		test("suggestion prompt includes outputType in JSON example", () => {
+			const input: RemediationInput = {
+				...baseInput,
+				suggestions: [makeSuggestion()],
+			};
+
+			const result = generateRemediationPrompts(input);
+
+			expect(result.suggestionEnrichPrompt).toContain('"outputType"');
+			expect(result.suggestionEnrichPrompt).toContain('"standard"');
+			expect(result.suggestionEnrichPrompt).toContain('"generic"');
+		});
+
+		test("generic update references correct file per target agent", () => {
+			const expectations: Record<string, string> = {
+				"agents-md": "AGENTS.md",
+				"claude-code": "CLAUDE.md",
+				"github-copilot": ".github/copilot-instructions.md",
+			};
+
+			for (const [target, expectedFile] of Object.entries(expectations)) {
+				const input: RemediationInput = {
+					...baseInput,
+					targetAgent: target as "agents-md" | "claude-code" | "github-copilot",
+					suggestions: [makeSuggestion()],
+				};
+
+				const result = generateRemediationPrompts(input);
+
+				expect(result.suggestionEnrichPrompt).toContain(`### Generic Update`);
+				expect(result.suggestionEnrichPrompt).toContain(`\`${expectedFile}\``);
+			}
 		});
 	});
 });

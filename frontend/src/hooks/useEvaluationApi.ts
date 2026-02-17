@@ -17,6 +17,9 @@ export type ProviderName =
 	| "github-copilot"
 	| "random";
 
+/** Target agent for remediation output */
+export type TargetAgent = "agents-md" | "claude-code" | "github-copilot";
+
 export interface RemediationPromptsResponse {
 	errorFixPrompt: string;
 	suggestionEnrichPrompt: string;
@@ -99,12 +102,12 @@ interface IUseEvaluationApiReturn {
 	generateRemediationPrompts: (
 		evaluationId: string,
 		issues: Issue[],
-		targetFileType: "AGENTS.md" | "CLAUDE.md",
+		targetAgent: TargetAgent,
 	) => Promise<RemediationPromptsResponse>;
 	executeRemediation: (
 		evaluationId: string,
 		issues: Issue[],
-		targetFileType: "AGENTS.md" | "CLAUDE.md",
+		targetAgent: TargetAgent,
 		provider: ProviderName,
 	) => Promise<ExecuteRemediationResponse>;
 	getRemediationResult: (
@@ -309,7 +312,7 @@ export function useEvaluationApi(): IUseEvaluationApiReturn {
 		async (
 			evaluationId: string,
 			issues: Issue[],
-			targetFileType: "AGENTS.md" | "CLAUDE.md",
+			targetAgent: TargetAgent,
 		): Promise<RemediationPromptsResponse> => {
 			try {
 				const response = await fetch("/api/remediation/generate-prompts", {
@@ -318,7 +321,7 @@ export function useEvaluationApi(): IUseEvaluationApiReturn {
 					body: JSON.stringify({
 						evaluationId,
 						issues,
-						targetFileType,
+						targetAgent,
 					}),
 				});
 
@@ -344,7 +347,7 @@ export function useEvaluationApi(): IUseEvaluationApiReturn {
 		async (
 			evaluationId: string,
 			issues: Issue[],
-			targetFileType: "AGENTS.md" | "CLAUDE.md",
+			targetAgent: TargetAgent,
 			provider: ProviderName,
 		): Promise<ExecuteRemediationResponse> => {
 			try {
@@ -354,7 +357,7 @@ export function useEvaluationApi(): IUseEvaluationApiReturn {
 					body: JSON.stringify({
 						evaluationId,
 						issues,
-						targetFileType,
+						targetAgent,
 						provider,
 					}),
 				});

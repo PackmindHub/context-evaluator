@@ -3,6 +3,7 @@ import type {
 	ProviderName,
 	RemediationForEvaluationResponse,
 	RemediationPromptsResponse,
+	TargetAgent,
 } from "../hooks/useEvaluationApi";
 import { useEvaluationApi } from "../hooks/useEvaluationApi";
 import {
@@ -89,9 +90,7 @@ export function RemediateTab({
 	const providerDetection = useProviderDetection();
 
 	const [phase, setPhase] = useState<Phase>("config");
-	const [targetFileType, setTargetFileType] = useState<
-		"AGENTS.md" | "CLAUDE.md"
-	>("AGENTS.md");
+	const [targetAgent, setTargetAgent] = useState<TargetAgent>("agents-md");
 	const [selectedProvider, setSelectedProvider] =
 		useState<ProviderName>("claude");
 	const [isExecuting, setIsExecuting] = useState(false);
@@ -407,7 +406,7 @@ export function RemediateTab({
 			const response = await api.executeRemediation(
 				evaluationId,
 				issues,
-				targetFileType,
+				targetAgent,
 				selectedProvider,
 			);
 
@@ -427,7 +426,7 @@ export function RemediateTab({
 		totalSelected,
 		errorEntries,
 		suggestionEntries,
-		targetFileType,
+		targetAgent,
 		selectedProvider,
 		api,
 	]);
@@ -447,7 +446,7 @@ export function RemediateTab({
 			const result = await api.generateRemediationPrompts(
 				evaluationId,
 				issues,
-				targetFileType,
+				targetAgent,
 			);
 			setPrompts(result);
 		} catch (err) {
@@ -462,7 +461,7 @@ export function RemediateTab({
 		totalSelected,
 		errorEntries,
 		suggestionEntries,
-		targetFileType,
+		targetAgent,
 		api,
 	]);
 
@@ -714,32 +713,31 @@ export function RemediateTab({
 			</div>
 
 			<div className="card space-y-5">
-				{/* Target File Type */}
+				{/* Target Agent */}
 				<div>
 					<label className="text-label text-slate-300 block mb-2">
-						Target file type
+						Target agent
 					</label>
 					<div className="flex gap-2">
-						<button
-							onClick={() => setTargetFileType("AGENTS.md")}
-							className={`px-3 py-1.5 rounded text-sm transition-colors ${
-								targetFileType === "AGENTS.md"
-									? "bg-blue-600 text-white"
-									: "bg-slate-700 text-slate-300 hover:bg-slate-600"
-							}`}
-						>
-							AGENTS.md
-						</button>
-						<button
-							onClick={() => setTargetFileType("CLAUDE.md")}
-							className={`px-3 py-1.5 rounded text-sm transition-colors ${
-								targetFileType === "CLAUDE.md"
-									? "bg-blue-600 text-white"
-									: "bg-slate-700 text-slate-300 hover:bg-slate-600"
-							}`}
-						>
-							CLAUDE.md
-						</button>
+						{(
+							[
+								["agents-md", "AGENTS.md"],
+								["claude-code", "Claude Code"],
+								["github-copilot", "GitHub Copilot"],
+							] as const
+						).map(([value, label]) => (
+							<button
+								key={value}
+								onClick={() => setTargetAgent(value)}
+								className={`px-3 py-1.5 rounded text-sm transition-colors ${
+									targetAgent === value
+										? "bg-blue-600 text-white"
+										: "bg-slate-700 text-slate-300 hover:bg-slate-600"
+								}`}
+							>
+								{label}
+							</button>
+						))}
 					</div>
 				</div>
 
@@ -883,8 +881,14 @@ export function RemediateTab({
 							</div>
 						)}
 						<div className="flex justify-between text-slate-300">
-							<span>Target file</span>
-							<span className="font-semibold">{targetFileType}</span>
+							<span>Target agent</span>
+							<span className="font-semibold">
+								{targetAgent === "agents-md"
+									? "AGENTS.md"
+									: targetAgent === "claude-code"
+										? "Claude Code"
+										: "GitHub Copilot"}
+							</span>
 						</div>
 						<div className="flex justify-between text-slate-300">
 							<span>Provider</span>

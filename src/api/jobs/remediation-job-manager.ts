@@ -53,7 +53,7 @@ export class RemediationJobManager {
 		).length;
 		const suggestionCount = request.issues.length - errorCount;
 		console.log(
-			`[RemediationJobManager] Job ${jobId} queued: ${request.issues.length} issues (${errorCount} errors, ${suggestionCount} suggestions), provider: ${request.provider}, target: ${request.targetFileType}`,
+			`[RemediationJobManager] Job ${jobId} queued: ${request.issues.length} issues (${errorCount} errors, ${suggestionCount} suggestions), provider: ${request.provider}, target: ${request.targetAgent}`,
 		);
 
 		// Start processing
