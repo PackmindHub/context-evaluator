@@ -1,0 +1,70 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "4cbe888ae82f",
+  "session_id": "5722d671-c77a-4342-9786-5d358e4c2080",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-17T21:24:21.141328Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "src/shared/remediation/prompt-generator.test.ts",
+    "src/shared/remediation/prompt-generator.ts"
+  ],
+  "agent": "Claude Code",
+  "token_usage": {
+    "input_tokens": 43,
+    "cache_creation_tokens": 56825,
+    "cache_read_tokens": 2060033,
+    "output_tokens": 2112,
+    "api_call_count": 39
+  },
+  "summary": {
+    "intent": "Improve the remediation prompt generator by stripping Packmind boilerplate, deduplicating repeated snippets, adding consolidation guidance, and fixing the Role line agent name extraction.",
+    "outcome": "All 4 improvements were implemented in prompt-generator.ts with corresponding tests added; 1241 tests pass and lint is clean, committed as 3478dc9.",
+    "learnings": {
+      "repo": [
+        "TARGET_AGENTS map (in src/shared/types/remediation.ts) already contains display names for each TargetAgent — reusable instead of building a separate name map",
+        "The project uses Biome for linting/formatting with an auto-fix step (bun run lint --apply or equivalent)",
+        "Test suite runs via bun run test; pre-commit hook runs tests + lint + typecheck automatically"
+      ],
+      "code": [
+        {
+          "path": "src/shared/remediation/prompt-generator.ts",
+          "line": 51,
+          "end_line": 54,
+          "finding": "formatIssueFix() now strips trailing 'You can use Packmind to achieve this.' boilerplate with a case-insensitive regex replace"
+        },
+        {
+          "path": "src/shared/remediation/prompt-generator.ts",
+          "line": 360,
+          "end_line": 360,
+          "finding": "Original Role line used .split('.')[0] producing fragments like 'Claude Code uses CLAUDE'; replaced with TARGET_AGENTS[input.targetAgent] lookup"
+        },
+        {
+          "path": "src/shared/remediation/prompt-generator.ts",
+          "finding": "buildSnippetIndex(), buildReferencedContentSection(), and getSnippetRef() helpers added for snippet deduplication; snippets appearing 2+ times get labeled [A],[B],... and hoisted into a ## Referenced Content section"
+        }
+      ],
+      "workflow": [
+        "Biome lint auto-fix was needed after tests passed — run lint fix before final verification to avoid an extra round-trip",
+        "Multiple sequential Edit calls were required to build up the deduplication layer; reading the full file mid-way helped verify intermediate state before continuing"
+      ]
+    },
+    "friction": [
+      "Multiple Edit tool calls were needed to incrementally build the snippet deduplication feature, requiring an intermediate file read to verify state — suggests the dedup change was the most complex and could have benefited from writing helpers first before touching call sites"
+    ],
+    "open_items": [
+      "Snippet deduplication only applies within a single prompt call — if the same snippet appears across multiple remediation sessions it will still be repeated",
+      "The consolidation instruction is static text; its effectiveness at guiding AI agents has not been measured"
+    ]
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-17T21:24:02.057546Z",
+    "agent_lines": 336,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 336,
+    "agent_percentage": 100
+  }
+}

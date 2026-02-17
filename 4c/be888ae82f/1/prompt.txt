@@ -1,0 +1,91 @@
+Implement the following plan:
+
+# Plan: Improve Remediation Prompt Quality
+
+## Context
+
+The remediation prompt generator (`src/shared/remediation/prompt-generator.ts`) produces prompts sent to AI agents to fix/enrich documentation. Several issues waste tokens and reduce prompt clarity:
+- Evaluator recommendations contain "You can use Packmind to achieve this" boilerplate that leaks into prompts
+- When multiple gaps reference the same snippet, it's repeated verbatim (7x duplication observed in real usage)
+- No guidance to consolidate related gaps into cohesive sections
+- The Role line uses `.split(".")[0]` producing awkward "Claude Code uses CLAUDE" fragment
+
+## Changes
+
+All changes in **`src/shared/remediation/prompt-generator.ts`**:
+
+### 1. Strip Packmind boilerplate from recommendations
+
+In `formatIssueFix()` (line 51), strip trailing "You can use Packmind to achieve this." before returning:
+
+```ts
+function formatIssueFix(issue: RemediationIssue): string {
+    const raw = issue.fix || issue.recommendation || "Review and fix this issue";
+    return raw.replace(/\s*You can use Packmind to achieve this\.?\s*$/i, "").trimEnd();
+}
+```
+
+### 2. Deduplicate repeated snippets
+
+Add a snippet deduplication layer used by both `buildErrorFixPrompt` and `buildSuggestionEnrichPrompt`:
+
+- **Collect** all unique `(file, snippet)` pairs across sorted issues
+- **Only deduplicate** snippets that appear 2+ times (single-use snippets stay inline)
+- **Assign labels** `[A]`, `[B]`, etc. to deduplicated snippets
+- **Render** a `## Referenced Content` section before the issue blocks listing each labeled snippet once
+- **In each issue block**, replace the inline snippet with `**Current content**: See [A]` when deduplicated
+
+Helper functions to add:
+- `buildSnippetIndex(issues)` → `Map<string, { label: string; file?: string; snippet: string }>` keyed by `file + "\n" + snippet`
+- `getSnippetRef(issue, index)` → returns either inline snippet block or `See [A]` reference
+
+### 3. Add consolidation guidance instruction
+
+In `buildSuggestionEnrichPrompt`, add instruction between steps 3 and 4 (renumber subsequent steps):
+
+```
+4. When multiple gaps target the same file and related topics, consolidate them into
+   well-organized sections rather than creating many small isolated additions
+```
+
+### 4. Fix Role sentence extraction
+
+Replace the `.split(".")[0]` approach in `buildSuggestionEnrichPrompt` (line 360) with a target agent display name map:
+
+```ts
+const targetNameMap: Record<TargetAgent, string> = {
+    "agents-md": "AGENTS.md",
+    "claude-code": "Claude Code",
+    "github-copilot": "GitHub Copilot",
+};
+```
+
+Role line becomes:
+```
+You are enriching AI agent documentation for the target: **Claude Code**.
+Claude Code uses CLAUDE.md as its main documentation file...
+```
+
+## Tests
+
+Update **`src/shared/remediation/prompt-generator.test.ts`**:
+
+1. **Packmind stripping**: Test that "You can use Packmind" text is removed from both error fix and recommendation fields
+2. **Snippet deduplication**: Test with 3+ suggestions sharing the same snippet → verify `## Referenced Content` section appears, labels are used, and snippet text appears only once
+3. **Snippet dedup skipped for unique snippets**: Test with all-unique snippets → verify no `Referenced Content` section, snippets stay inline
+4. **Consolidation instruction**: Verify "consolidate" instruction present in suggestion prompt
+5. **Role name**: Verify each target agent produces clean name ("Claude Code", "AGENTS.md", "GitHub Copilot") without sentence fragments
+
+## Verification
+
+```bash
+bun run test
+bun run lint
+```
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+commit
