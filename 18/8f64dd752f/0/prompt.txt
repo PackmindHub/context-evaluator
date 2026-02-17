@@ -1,0 +1,22 @@
+Implement the following plan:
+
+# Update Remediation Tab Labels
+
+## Context
+The "Target agent" and "AI Provider" labels in the remediation tab need clearer descriptions to help users understand what each selector does.
+
+## Changes
+
+**File**: `frontend/src/components/RemediateTab.tsx`
+
+1. **Line 733**: Change `Target agent` → `Target for markdown file rendering`
+2. **Line 761**: Change `AI Provider` → `Pick the AI agent to execute the remediation`
+3. **Line 909**: Change `Target agent` → `Target for markdown file rendering` (summary section)
+
+## Verification
+- `bun run test`
+- `bun run lint`
+- Visual check via `bun run dev:frontend`
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
