@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
 	ProviderName,
 	RemediationPromptsResponse,
@@ -70,6 +70,10 @@ export function RemediateTab({
 	// SSE state
 	const [sseUrl, setSseUrl] = useState<string | null>(null);
 	const [, setActiveRemediationId] = useState<string | null>(null);
+	const activeRemediationIdRef = useRef<string | null>(null);
+	const [autoExpandRemediationId, setAutoExpandRemediationId] = useState<
+		string | null
+	>(null);
 	const [progressState, setProgressState] = useState<IRemediationProgressState>(
 		{
 			status: "queued",
@@ -112,6 +116,7 @@ export function RemediateTab({
 
 			// If there's an active job, connect SSE
 			if (data.activeJob) {
+				activeRemediationIdRef.current = data.activeJob.id;
 				setActiveRemediationId(data.activeJob.id);
 				setSseUrl(
 					`${window.location.origin}/api/remediation/${data.activeJob.id}/progress`,
@@ -316,8 +321,13 @@ export function RemediateTab({
 						],
 					}));
 					// Reset to idle, refresh history, clear selection
-					setSseUrl(null);
+					// Capture completed remediation ID for auto-expand
+					if (activeRemediationIdRef.current) {
+						setAutoExpandRemediationId(activeRemediationIdRef.current);
+					}
+					activeRemediationIdRef.current = null;
 					setActiveRemediationId(null);
+					setSseUrl(null);
 					setPhase("idle");
 					onClearAll();
 					refreshHistory();
@@ -339,6 +349,7 @@ export function RemediateTab({
 					}));
 					setExecuteError(event.data?.error?.message || "Remediation failed");
 					setSseUrl(null);
+					activeRemediationIdRef.current = null;
 					setActiveRemediationId(null);
 					setPhase("idle");
 					refreshHistory();
@@ -374,6 +385,7 @@ export function RemediateTab({
 				selectedProvider,
 			);
 
+			activeRemediationIdRef.current = response.remediationId;
 			setActiveRemediationId(response.remediationId);
 			setSseUrl(response.sseUrl);
 			setProgressState({ status: "queued", logs: [] });
@@ -496,6 +508,8 @@ export function RemediateTab({
 				remediations={remediations}
 				onDelete={handleDeleteRemediation}
 				cloudMode={cloudMode}
+				autoExpandId={autoExpandRemediationId}
+				onAutoExpandHandled={() => setAutoExpandRemediationId(null)}
 			/>
 
 			{/* Empty state when no issues selected */}

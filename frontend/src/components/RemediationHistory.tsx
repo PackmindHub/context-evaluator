@@ -3,7 +3,7 @@
  * Accordion behavior: expanding one card collapses others.
  */
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { RemediationHistoryItem } from "../types/remediation";
 import { RemediationHistoryCard } from "./RemediationHistoryCard";
 import { Modal } from "./shared/Modal";
@@ -12,17 +12,30 @@ interface RemediationHistoryProps {
 	remediations: RemediationHistoryItem[];
 	onDelete: (id: string) => void;
 	cloudMode?: boolean;
+	autoExpandId?: string | null;
+	onAutoExpandHandled?: () => void;
 }
 
 export function RemediationHistory({
 	remediations,
 	onDelete,
 	cloudMode = false,
+	autoExpandId,
+	onAutoExpandHandled,
 }: RemediationHistoryProps) {
 	const [collapsed, setCollapsed] = useState(true);
 	const [expandedId, setExpandedId] = useState<string | null>(null);
 	const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 	const [isDeleting, setIsDeleting] = useState(false);
+
+	// Auto-expand a specific card when requested (e.g., after remediation completes)
+	useEffect(() => {
+		if (autoExpandId) {
+			setCollapsed(false);
+			setExpandedId(autoExpandId);
+			onAutoExpandHandled?.();
+		}
+	}, [autoExpandId, onAutoExpandHandled]);
 
 	const handleToggleCard = useCallback((id: string) => {
 		setExpandedId((prev) => (prev === id ? null : id));
