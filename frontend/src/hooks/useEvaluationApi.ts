@@ -21,7 +21,11 @@ export type ProviderName =
 	| "random";
 
 /** Target agent for remediation output */
-export type TargetAgent = "agents-md" | "claude-code" | "github-copilot";
+export type TargetAgent =
+	| "agents-md"
+	| "claude-code"
+	| "github-copilot"
+	| "cursor";
 
 export interface RemediationPromptsResponse {
 	errorFixPrompt: string;

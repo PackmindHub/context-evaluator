@@ -5,6 +5,8 @@ import {
 	findAgentsFiles,
 	findClaudeFiles,
 	findClaudeRulesFiles,
+	findCursorRulesFiles,
+	findSkillFiles,
 	getRelativePath,
 } from "./file-finder";
 
@@ -1077,6 +1079,224 @@ describe("File Finder", () => {
 			} finally {
 				console.log = originalLog;
 			}
+		});
+	});
+
+	describe("Cursor Rules Files Discovery", () => {
+		let testDir: string;
+
+		beforeEach(async () => {
+			testDir = join(
+				process.cwd(),
+				"test-temp",
+				`test-cursor-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+			);
+			await mkdir(testDir, { recursive: true });
+		});
+
+		afterEach(async () => {
+			await rm(testDir, { recursive: true, force: true });
+		});
+
+		test("should find .cursor/rules/*.md files", async () => {
+			const rulesDir = join(testDir, ".cursor", "rules");
+			await mkdir(rulesDir, { recursive: true });
+			await writeFile(join(rulesDir, "testing.md"), "# Testing Rules");
+
+			const files = await findCursorRulesFiles(testDir);
+
+			expect(files.length).toBe(1);
+			expect(files[0]).toContain(".cursor/rules/testing.md");
+		});
+
+		test("should find .cursor/rules/*.mdc files", async () => {
+			const rulesDir = join(testDir, ".cursor", "rules");
+			await mkdir(rulesDir, { recursive: true });
+			await writeFile(
+				join(rulesDir, "conventions.mdc"),
+				"---\nalwaysApply: true\n---\n# Conventions",
+			);
+
+			const files = await findCursorRulesFiles(testDir);
+
+			expect(files.length).toBe(1);
+			expect(files[0]).toContain(".cursor/rules/conventions.mdc");
+		});
+
+		test("should find both .md and .mdc files", async () => {
+			const rulesDir = join(testDir, ".cursor", "rules");
+			await mkdir(rulesDir, { recursive: true });
+			await writeFile(join(rulesDir, "rule1.md"), "# Rule 1");
+			await writeFile(join(rulesDir, "rule2.mdc"), "# Rule 2");
+
+			const files = await findCursorRulesFiles(testDir);
+
+			expect(files.length).toBe(2);
+			expect(files.some((f) => f.includes("rule1.md"))).toBe(true);
+			expect(files.some((f) => f.includes("rule2.mdc"))).toBe(true);
+		});
+
+		test("should exclude hidden directories within .cursor/rules", async () => {
+			const rulesDir = join(testDir, ".cursor", "rules");
+			await mkdir(rulesDir, { recursive: true });
+			await writeFile(join(rulesDir, "active.md"), "# Active Rule");
+
+			const hiddenDir = join(rulesDir, ".archived");
+			await mkdir(hiddenDir, { recursive: true });
+			await writeFile(join(hiddenDir, "old-rule.md"), "# Old Rule");
+
+			const files = await findCursorRulesFiles(testDir);
+
+			expect(files.length).toBe(1);
+			expect(files[0]).toContain("active.md");
+			expect(files.some((f) => f.includes(".archived"))).toBe(false);
+		});
+
+		test("should integrate cursor rules into findAgentsFiles", async () => {
+			await writeFile(join(testDir, "AGENTS.md"), "# AGENTS content");
+
+			const rulesDir = join(testDir, ".cursor", "rules");
+			await mkdir(rulesDir, { recursive: true });
+			await writeFile(join(rulesDir, "cursor-rule.mdc"), "# Cursor Rule");
+
+			const files = await findAgentsFiles(testDir);
+
+			expect(files.some((f) => f.endsWith("AGENTS.md"))).toBe(true);
+			expect(
+				files.some((f) => f.includes(".cursor/rules/cursor-rule.mdc")),
+			).toBe(true);
+		});
+	});
+
+	describe("Cursor Rules Deduplication", () => {
+		let testDir: string;
+
+		beforeEach(async () => {
+			testDir = join(
+				process.cwd(),
+				"test-temp",
+				`test-cursor-dedup-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+			);
+			await mkdir(testDir, { recursive: true });
+		});
+
+		afterEach(async () => {
+			await rm(testDir, { recursive: true, force: true });
+		});
+
+		test("should deduplicate cursor rule if identical to AGENTS.md", async () => {
+			const content = "# Same content";
+			await writeFile(join(testDir, "AGENTS.md"), content);
+
+			const rulesDir = join(testDir, ".cursor", "rules");
+			await mkdir(rulesDir, { recursive: true });
+			await writeFile(join(rulesDir, "duplicate.mdc"), content);
+
+			const files = await findAgentsFiles(testDir);
+
+			expect(files.length).toBe(1);
+			expect(files[0]).toContain("AGENTS.md");
+		});
+
+		test("should keep cursor rule if content differs", async () => {
+			await writeFile(join(testDir, "AGENTS.md"), "# AGENTS content");
+
+			const rulesDir = join(testDir, ".cursor", "rules");
+			await mkdir(rulesDir, { recursive: true });
+			await writeFile(join(rulesDir, "unique.mdc"), "# Unique cursor rule");
+
+			const files = await findAgentsFiles(testDir);
+
+			expect(files.some((f) => f.endsWith("AGENTS.md"))).toBe(true);
+			expect(files.some((f) => f.includes("unique.mdc"))).toBe(true);
+		});
+	});
+
+	describe("Skill Files Discovery", () => {
+		let testDir: string;
+
+		beforeEach(async () => {
+			testDir = join(
+				process.cwd(),
+				"test-temp",
+				`test-skills-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+			);
+			await mkdir(testDir, { recursive: true });
+		});
+
+		afterEach(async () => {
+			await rm(testDir, { recursive: true, force: true });
+		});
+
+		test("should find SKILL.md in .cursor/skills/", async () => {
+			const skillDir = join(testDir, ".cursor", "skills", "testing");
+			await mkdir(skillDir, { recursive: true });
+			await writeFile(join(skillDir, "SKILL.md"), "# Testing Skill");
+
+			const files = await findSkillFiles(testDir);
+
+			expect(files.length).toBe(1);
+			expect(files[0]).toContain(".cursor/skills/testing/SKILL.md");
+		});
+
+		test("should find SKILL.md in .claude/skills/", async () => {
+			const skillDir = join(testDir, ".claude", "skills", "deploy");
+			await mkdir(skillDir, { recursive: true });
+			await writeFile(join(skillDir, "SKILL.md"), "# Deploy Skill");
+
+			const files = await findSkillFiles(testDir);
+
+			expect(files.length).toBe(1);
+			expect(files[0]).toContain(".claude/skills/deploy/SKILL.md");
+		});
+
+		test("should find SKILL.md in .agents/skills/", async () => {
+			const skillDir = join(testDir, ".agents", "skills", "review");
+			await mkdir(skillDir, { recursive: true });
+			await writeFile(join(skillDir, "SKILL.md"), "# Review Skill");
+
+			const files = await findSkillFiles(testDir);
+
+			expect(files.length).toBe(1);
+			expect(files[0]).toContain(".agents/skills/review/SKILL.md");
+		});
+
+		test("should find SKILL.md in .github/skills/", async () => {
+			const skillDir = join(testDir, ".github", "skills", "lint");
+			await mkdir(skillDir, { recursive: true });
+			await writeFile(join(skillDir, "SKILL.md"), "# Lint Skill");
+
+			const files = await findSkillFiles(testDir);
+
+			expect(files.length).toBe(1);
+			expect(files[0]).toContain(".github/skills/lint/SKILL.md");
+		});
+
+		test("should find SKILL.md files from all agent directories", async () => {
+			for (const agent of [".cursor", ".claude", ".agents", ".github"]) {
+				const skillDir = join(testDir, agent, "skills", `${agent}-skill`);
+				await mkdir(skillDir, { recursive: true });
+				await writeFile(join(skillDir, "SKILL.md"), `# ${agent} Skill`);
+			}
+
+			const files = await findSkillFiles(testDir);
+
+			expect(files.length).toBe(4);
+		});
+
+		test("should integrate skill files into findAgentsFiles", async () => {
+			await writeFile(join(testDir, "AGENTS.md"), "# AGENTS content");
+
+			const skillDir = join(testDir, ".cursor", "skills", "testing");
+			await mkdir(skillDir, { recursive: true });
+			await writeFile(join(skillDir, "SKILL.md"), "# Testing Skill");
+
+			const files = await findAgentsFiles(testDir);
+
+			expect(files.some((f) => f.endsWith("AGENTS.md"))).toBe(true);
+			expect(
+				files.some((f) => f.includes(".cursor/skills/testing/SKILL.md")),
+			).toBe(true);
 		});
 	});
 });

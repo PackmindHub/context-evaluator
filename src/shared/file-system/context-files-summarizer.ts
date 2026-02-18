@@ -26,10 +26,25 @@ export interface IContextFilesSummaryResult {
 /**
  * Determine the type of context file based on its path and filename
  */
-function getContextFileType(
+export function getContextFileType(
 	filePath: string,
-): "agents" | "claude" | "copilot" | "rules" {
-	// Check for rules files first (path-based detection)
+): "agents" | "claude" | "copilot" | "rules" | "cursor-rules" | "skills" {
+	// Check for cursor rules first (path-based detection)
+	if (filePath.includes(".cursor/rules/")) {
+		return "cursor-rules";
+	}
+
+	// Check for skills files (path-based detection across all agent directories)
+	if (
+		filePath.includes(".cursor/skills/") ||
+		filePath.includes(".claude/skills/") ||
+		filePath.includes(".agents/skills/") ||
+		filePath.includes(".github/skills/")
+	) {
+		return "skills";
+	}
+
+	// Check for Claude Code rules files (path-based detection)
 	if (filePath.includes(".claude/rules/")) {
 		return "rules";
 	}
@@ -91,6 +106,53 @@ export function extractGlobsFromFrontmatter(
 		return value;
 	}
 
+	return undefined;
+}
+
+/**
+ * Extract description field from YAML frontmatter.
+ * Returns the raw description string for UI display.
+ */
+export function extractDescriptionFromFrontmatter(
+	content: string,
+): string | undefined {
+	const frontmatterMatch = content.match(/^---\s*\n([\s\S]*?)\n---/);
+	if (!frontmatterMatch) return undefined;
+
+	const yaml = frontmatterMatch[1];
+	if (!yaml) return undefined;
+
+	const match = yaml.match(/^description:\s*(.+)/m);
+	if (!match) return undefined;
+
+	const value = match[1]!.trim();
+	if (
+		(value.startsWith('"') && value.endsWith('"')) ||
+		(value.startsWith("'") && value.endsWith("'"))
+	) {
+		return value.slice(1, -1);
+	}
+	return value;
+}
+
+/**
+ * Extract alwaysApply boolean field from YAML frontmatter.
+ */
+export function extractAlwaysApplyFromFrontmatter(
+	content: string,
+): boolean | undefined {
+	const frontmatterMatch = content.match(/^---\s*\n([\s\S]*?)\n---/);
+	if (!frontmatterMatch) return undefined;
+
+	const yaml = frontmatterMatch[1];
+	if (!yaml) return undefined;
+
+	const match = yaml.match(/^alwaysApply:\s*(.+)/m);
+	if (!match) return undefined;
+
+	const value = match[1]!.trim().toLowerCase();
+	if (value === "true") return true;
+	if (value === "false") return false;
 	return undefined;
 }
 
@@ -169,15 +231,29 @@ export async function summarizeContextFiles(
 
 		const type = getContextFileType(filePath);
 
-		// Extract globs from frontmatter for rules files
+		// Extract globs from frontmatter for rules files and cursor rules
 		const globs =
-			type === "rules" ? extractGlobsFromFrontmatter(content) : undefined;
+			type === "rules" || type === "cursor-rules"
+				? extractGlobsFromFrontmatter(content)
+				: undefined;
+
+		// Extract cursor-rules specific frontmatter fields
+		const description =
+			type === "cursor-rules"
+				? extractDescriptionFromFrontmatter(content)
+				: undefined;
+		const alwaysApply =
+			type === "cursor-rules"
+				? extractAlwaysApplyFromFrontmatter(content)
+				: undefined;
 
 		contextFiles.push({
 			path: relativePath,
 			type,
 			content,
 			globs,
+			description,
+			alwaysApply,
 			// No AI summary - context files are structured for direct consumption
 		});
 	}

@@ -203,6 +203,8 @@ function getAgentContextDescription(targetAgent: TargetAgent): string {
 			return "Claude Code uses CLAUDE.md as its main documentation file. Standards are stored as rule files in `.claude/rules/<standard-slug>.md` with YAML frontmatter. Skills are placed in `.claude/skills/<skill-name>/`.";
 		case "github-copilot":
 			return "GitHub Copilot uses `.github/copilot-instructions.md` as its main documentation file. Standards are stored as instruction files in `.github/instructions/<standard-slug>.md` with YAML frontmatter. Skills are placed in `.github/skills/<skill-name>/`.";
+		case "cursor":
+			return "Cursor uses `.cursor/rules/` for rule files (.md or .mdc) with optional YAML frontmatter. Rules support 4 modes: alwaysApply, auto-attached (description-based), glob-scoped, and manual. Skills are placed in `.cursor/skills/<skill-name>/`.";
 	}
 }
 
@@ -215,6 +217,8 @@ function getGenericUpdateFile(targetAgent: TargetAgent): string {
 			return "CLAUDE.md";
 		case "github-copilot":
 			return ".github/copilot-instructions.md";
+		case "cursor":
+			return ".cursor/rules/general.mdc";
 	}
 }
 
@@ -334,6 +338,62 @@ applyTo: '<glob pattern, e.g. **/*.ts>'
 - <Rule 1, starting with a verb>
 - <Rule 2, starting with a verb>
 \`\`\``;
+
+		case "cursor":
+			return `### Standard (Cursor Rule)
+
+Create a rule file at \`.cursor/rules/<standard-slug>.mdc\`.
+
+Choose one of four rule modes in the YAML frontmatter:
+
+- **Always apply** (\`alwaysApply: true\`): Rule is loaded unconditionally. Use for universal constraints.
+- **Auto-attached** (\`description: "..."\` only, no globs, no alwaysApply): Cursor's AI decides when to include the rule based on the description. Prefer this when the rule targets a concept rather than specific files.
+- **Glob-scoped** (\`globs: "pattern"\`): Rule applies only when working with files matching the glob patterns. Prefer this when the rule targets specific file types or directories.
+- **Manual** (\`alwaysApply: false\`, no description, no globs): User must explicitly reference the rule with @ruleName.
+
+Supported glob patterns: \`**/*.ts\`, \`src/**/*\`, \`src/**/*.{ts,tsx}\`, \`{src,lib}/**/*.ts\`.
+
+Always-apply example:
+\`\`\`md
+---
+alwaysApply: true
+---
+
+## Standard: <Standard Name>
+
+<One-sentence summary describing the purpose and rationale of these rules.>
+
+- <Rule 1, starting with a verb>
+- <Rule 2, starting with a verb>
+\`\`\`
+
+Auto-attached example:
+\`\`\`md
+---
+description: <When this rule should be activated. Be specific.>
+---
+
+## Standard: <Standard Name>
+
+<One-sentence summary describing the purpose and rationale of these rules.>
+
+- <Rule 1, starting with a verb>
+- <Rule 2, starting with a verb>
+\`\`\`
+
+Glob-scoped example:
+\`\`\`md
+---
+globs: "<glob pattern, e.g. src/**/*.ts>"
+---
+
+## Standard: <Standard Name>
+
+<One-sentence summary describing the purpose and rationale of these rules.>
+
+- <Rule 1, starting with a verb>
+- <Rule 2, starting with a verb>
+\`\`\``;
 	}
 }
 
@@ -342,6 +402,7 @@ function getSkillInstructions(targetAgent: TargetAgent): string {
 		"agents-md": ".agents/skills",
 		"claude-code": ".claude/skills",
 		"github-copilot": ".github/skills",
+		cursor: ".cursor/skills",
 	};
 	const skillDir = skillDirMap[targetAgent];
 

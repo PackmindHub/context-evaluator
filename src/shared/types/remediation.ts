@@ -8,6 +8,7 @@ export const TARGET_AGENTS = {
 	"agents-md": "AGENTS.md",
 	"claude-code": "Claude Code",
 	"github-copilot": "GitHub Copilot",
+	cursor: "Cursor",
 } as const;
 
 export type TargetAgent = keyof typeof TARGET_AGENTS;

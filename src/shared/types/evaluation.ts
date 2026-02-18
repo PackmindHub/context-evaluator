@@ -95,20 +95,24 @@ export interface IFolderDescription {
 }
 
 /**
- * Represents a context file (AGENTS.md, CLAUDE.md, .claude/rules/*.md, or copilot-instructions.md)
+ * Represents a context file (AGENTS.md, CLAUDE.md, .claude/rules/*.md, .cursor/rules/*.md/.mdc, copilot-instructions.md, or SKILL.md)
  * with its content for browsing (no AI summarization needed)
  */
 export interface IContextFile {
 	/** Relative path from repository root */
 	path: string;
 	/** File type for categorization */
-	type: "agents" | "claude" | "copilot" | "rules";
+	type: "agents" | "claude" | "copilot" | "rules" | "cursor-rules" | "skills";
 	/** Raw file content */
 	content: string;
 	/** Optional summary (unused - context files don't need AI summaries) */
 	summary?: string;
 	/** Globs from frontmatter (for rules files, UI display only) */
 	globs?: string;
+	/** Description from frontmatter (for cursor rules, UI display only) */
+	description?: string;
+	/** Whether the rule is always applied (for cursor rules) */
+	alwaysApply?: boolean;
 }
 
 /**

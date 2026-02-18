@@ -1,7 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import type { IContextFile } from "@shared/types/evaluation";
 import {
+	extractAlwaysApplyFromFrontmatter,
+	extractDescriptionFromFrontmatter,
 	extractGlobsFromFrontmatter,
+	getContextFileType,
 	summarizeContextFiles,
 } from "./context-files-summarizer";
 
@@ -63,6 +66,71 @@ describe("Context Files Summarizer", () => {
 
 			expect(contextFile.type).toBe("rules");
 			expect(contextFile.globs).toBe("CHANGELOG.md");
+		});
+
+		test("should detect cursor-rules file type", async () => {
+			const contextFile: IContextFile = {
+				path: ".cursor/rules/conventions.mdc",
+				type: "cursor-rules",
+				content: "# Test",
+			};
+
+			expect(contextFile.type).toBe("cursor-rules");
+		});
+
+		test("should detect skills file type", async () => {
+			const contextFile: IContextFile = {
+				path: ".cursor/skills/testing/SKILL.md",
+				type: "skills",
+				content: "# Test",
+			};
+
+			expect(contextFile.type).toBe("skills");
+		});
+	});
+
+	describe("getContextFileType", () => {
+		test("should return cursor-rules for .cursor/rules/ paths", () => {
+			expect(getContextFileType(".cursor/rules/testing.md")).toBe(
+				"cursor-rules",
+			);
+			expect(getContextFileType(".cursor/rules/conventions.mdc")).toBe(
+				"cursor-rules",
+			);
+			expect(getContextFileType("packages/api/.cursor/rules/api.mdc")).toBe(
+				"cursor-rules",
+			);
+		});
+
+		test("should return skills for skill paths across all agents", () => {
+			expect(getContextFileType(".cursor/skills/testing/SKILL.md")).toBe(
+				"skills",
+			);
+			expect(getContextFileType(".claude/skills/deploy/SKILL.md")).toBe(
+				"skills",
+			);
+			expect(getContextFileType(".agents/skills/review/SKILL.md")).toBe(
+				"skills",
+			);
+			expect(getContextFileType(".github/skills/lint/SKILL.md")).toBe("skills");
+		});
+
+		test("should return rules for .claude/rules/ paths", () => {
+			expect(getContextFileType(".claude/rules/changelog.md")).toBe("rules");
+		});
+
+		test("should return agents for AGENTS.md", () => {
+			expect(getContextFileType("AGENTS.md")).toBe("agents");
+		});
+
+		test("should return claude for CLAUDE.md", () => {
+			expect(getContextFileType("CLAUDE.md")).toBe("claude");
+		});
+
+		test("should return copilot for copilot-instructions.md", () => {
+			expect(getContextFileType(".github/copilot-instructions.md")).toBe(
+				"copilot",
+			);
 		});
 	});
 
@@ -127,6 +195,82 @@ globs: 'docs/**/*.md'
 # Docs Rule`;
 			const globs = extractGlobsFromFrontmatter(content);
 			expect(globs).toBe("docs/**/*.md");
+		});
+	});
+
+	describe("extractDescriptionFromFrontmatter", () => {
+		test("should extract description from quoted value", () => {
+			const content = `---
+description: "When working with React components"
+---
+
+# React Rule`;
+			const desc = extractDescriptionFromFrontmatter(content);
+			expect(desc).toBe("When working with React components");
+		});
+
+		test("should extract description from unquoted value", () => {
+			const content = `---
+description: Apply when testing
+---
+
+# Test Rule`;
+			const desc = extractDescriptionFromFrontmatter(content);
+			expect(desc).toBe("Apply when testing");
+		});
+
+		test("should return undefined when no description", () => {
+			const content = `---
+alwaysApply: true
+---
+
+# Rule`;
+			const desc = extractDescriptionFromFrontmatter(content);
+			expect(desc).toBeUndefined();
+		});
+
+		test("should return undefined when no frontmatter", () => {
+			const content = "# No frontmatter";
+			const desc = extractDescriptionFromFrontmatter(content);
+			expect(desc).toBeUndefined();
+		});
+	});
+
+	describe("extractAlwaysApplyFromFrontmatter", () => {
+		test("should extract alwaysApply: true", () => {
+			const content = `---
+alwaysApply: true
+---
+
+# Rule`;
+			const result = extractAlwaysApplyFromFrontmatter(content);
+			expect(result).toBe(true);
+		});
+
+		test("should extract alwaysApply: false", () => {
+			const content = `---
+alwaysApply: false
+---
+
+# Rule`;
+			const result = extractAlwaysApplyFromFrontmatter(content);
+			expect(result).toBe(false);
+		});
+
+		test("should return undefined when no alwaysApply", () => {
+			const content = `---
+description: test
+---
+
+# Rule`;
+			const result = extractAlwaysApplyFromFrontmatter(content);
+			expect(result).toBeUndefined();
+		});
+
+		test("should return undefined when no frontmatter", () => {
+			const content = "# No frontmatter";
+			const result = extractAlwaysApplyFromFrontmatter(content);
+			expect(result).toBeUndefined();
 		});
 	});
 });

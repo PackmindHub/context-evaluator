@@ -10,14 +10,23 @@ interface ContextFilesBrowserModalProps {
 	onClose: () => void;
 	/** Context files to display */
 	contextFiles: IContextFile[];
-	/** Optional filter to show only files of a specific type. "claude-code" shows both claude and rules files */
-	filterType?: "agents" | "claude" | "copilot" | "rules" | "claude-code";
+	/** Optional filter to show only files of a specific type. "claude-code" shows both claude and rules files. "cursor" shows cursor rules. */
+	filterType?:
+		| "agents"
+		| "claude"
+		| "copilot"
+		| "rules"
+		| "claude-code"
+		| "cursor-rules"
+		| "skills";
 }
 
 /**
  * Get human-readable label for context file type
  */
-function getTypeLabel(type: "agents" | "claude" | "copilot" | "rules"): string {
+function getTypeLabel(
+	type: "agents" | "claude" | "copilot" | "rules" | "cursor-rules" | "skills",
+): string {
 	switch (type) {
 		case "agents":
 			return "AGENTS.md";
@@ -27,6 +36,10 @@ function getTypeLabel(type: "agents" | "claude" | "copilot" | "rules"): string {
 			return "Rules";
 		case "copilot":
 			return "Copilot";
+		case "cursor-rules":
+			return "Cursor Rule";
+		case "skills":
+			return "Skill";
 	}
 }
 
@@ -57,12 +70,19 @@ export const ContextFilesBrowserModal: React.FC<
 		);
 
 		return sortedFiles.map((file) => {
-			// Add globs info to description for rules files
+			// Add globs/description info for rules files
 			let description = file.summary;
-			if (file.type === "rules" && file.globs) {
+			if (
+				(file.type === "rules" || file.type === "cursor-rules") &&
+				file.globs
+			) {
 				description = description
 					? `Applies to: ${file.globs}\n\n${description}`
 					: `Applies to: ${file.globs}`;
+			}
+			if (file.type === "cursor-rules" && file.description) {
+				const descLine = `Description: ${file.description}`;
+				description = description ? `${descLine}\n${description}` : descLine;
 			}
 
 			return {

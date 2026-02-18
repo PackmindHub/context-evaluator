@@ -79,6 +79,149 @@ export async function findClaudeRulesFiles(
 }
 
 /**
+ * Find all Cursor rules files (.cursor/rules/ *.md and *.mdc) recursively.
+ * Excludes hidden directories within .cursor/rules (e.g., .archived/, .backup/).
+ * @param baseDir - The base directory to search in
+ * @param maxDepth - Maximum directory depth. undefined = unlimited
+ * @param verbose - If true, log debug information
+ * @returns Array of absolute paths to rules files
+ */
+export async function findCursorRulesFiles(
+	baseDir: string = process.cwd(),
+	maxDepth?: number,
+	verbose?: boolean,
+): Promise<string[]> {
+	const globOptions = {
+		cwd: baseDir,
+		absolute: true,
+		nocase: true,
+		dot: true,
+		ignore: [
+			"**/node_modules/**",
+			"**/dist/**",
+			"**/build/**",
+			"**/.git/**",
+			"**/vendor/**",
+			"**/coverage/**",
+		],
+	};
+
+	// Search for .cursor/rules/**/*.md and .cursor/rules/**/*.mdc at any depth
+	const [mdFiles, mdcFiles] = await Promise.all([
+		glob("**/.cursor/rules/**/*.md", globOptions),
+		glob("**/.cursor/rules/**/*.mdc", globOptions),
+	]);
+
+	const rulesFiles = [...mdFiles, ...mdcFiles];
+
+	// Filter out hidden directories within .cursor/rules
+	const filteredFiles = rulesFiles.filter((file) => {
+		const rulesIndex = file.indexOf(".cursor/rules/");
+		if (rulesIndex === -1) return true;
+
+		const afterRulesPath = file.slice(rulesIndex + ".cursor/rules/".length);
+		const segments = afterRulesPath.split("/");
+
+		for (let i = 0; i < segments.length - 1; i++) {
+			if (segments[i]!.startsWith(".")) {
+				if (verbose) {
+					console.log(
+						`[FileFinder] Excluded hidden directory: ${file} (segment: ${segments[i]})`,
+					);
+				}
+				return false;
+			}
+		}
+		return true;
+	});
+
+	// Filter by depth if maxDepth is specified
+	let result = filteredFiles;
+	if (maxDepth !== undefined) {
+		const normalizedBaseDir = resolve(baseDir);
+		result = filteredFiles.filter((file) => {
+			const relativePath = file.slice(normalizedBaseDir.length + 1);
+			const depth = relativePath.split("/").length - 1;
+			return depth <= maxDepth;
+		});
+	}
+
+	if (verbose && result.length > 0) {
+		console.log(`[FileFinder] Found ${result.length} Cursor rules file(s)`);
+	}
+
+	return result;
+}
+
+/**
+ * Find all SKILL.md files across all agent skill directories.
+ * Searches: .cursor/skills/, .claude/skills/, .agents/skills/, .github/skills/
+ * @param baseDir - The base directory to search in
+ * @param maxDepth - Maximum directory depth. undefined = unlimited
+ * @param verbose - If true, log debug information
+ * @returns Array of absolute paths to SKILL.md files
+ */
+export async function findSkillFiles(
+	baseDir: string = process.cwd(),
+	maxDepth?: number,
+	verbose?: boolean,
+): Promise<string[]> {
+	const globOptions = {
+		cwd: baseDir,
+		absolute: true,
+		nocase: true,
+		dot: true,
+		ignore: [
+			"**/node_modules/**",
+			"**/dist/**",
+			"**/build/**",
+			"**/.git/**",
+			"**/vendor/**",
+			"**/coverage/**",
+		],
+	};
+
+	const [cursorSkills, claudeSkills, agentsSkills, githubSkills] =
+		await Promise.all([
+			glob("**/.cursor/skills/**/SKILL.md", globOptions),
+			glob("**/.claude/skills/**/SKILL.md", globOptions),
+			glob("**/.agents/skills/**/SKILL.md", globOptions),
+			glob("**/.github/skills/**/SKILL.md", globOptions),
+		]);
+
+	const allSkillFiles = [
+		...cursorSkills,
+		...claudeSkills,
+		...agentsSkills,
+		...githubSkills,
+	];
+
+	// Filter by depth if maxDepth is specified
+	let result = allSkillFiles;
+	if (maxDepth !== undefined) {
+		const normalizedBaseDir = resolve(baseDir);
+		result = allSkillFiles.filter((file) => {
+			const relativePath = file.slice(normalizedBaseDir.length + 1);
+			const depth = relativePath.split("/").length - 1;
+			return depth <= maxDepth;
+		});
+	}
+
+	if (verbose && result.length > 0) {
+		console.log(`[FileFinder] Found ${result.length} SKILL.md file(s)`);
+	}
+
+	return result;
+}
+
+/**
+ * Check if a file is a Cursor rules file.
+ */
+function isCursorRulesFile(filePath: string): boolean {
+	return filePath.includes(".cursor/rules/");
+}
+
+/**
  * Resolve symlinks and deduplicate files that point to the same target.
  * Handles circular symlinks, broken symlinks, and permission errors gracefully.
  * @param files - List of absolute file paths (may include symlinks)
@@ -201,15 +344,24 @@ export async function findAgentsFiles(
 		],
 	};
 
-	// Search for AGENTS.md, CLAUDE.md, copilot-instructions.md, *.instructions.md, and .claude/rules/*.md patterns
-	const [agentsFiles, claudeFiles, copilotFiles, instructionFiles, rulesFiles] =
-		await Promise.all([
-			glob("**/AGENTS.md", globOptions),
-			glob("**/CLAUDE.md", globOptions),
-			glob("**/.github/**/copilot-instructions.md", globOptions),
-			glob("**/.github/instructions/**/*.instructions.md", globOptions),
-			findClaudeRulesFiles(baseDir, maxDepth, verbose),
-		]);
+	// Search for AGENTS.md, CLAUDE.md, copilot-instructions.md, *.instructions.md, .claude/rules/*.md, .cursor/rules/*.md/*.mdc, and SKILL.md patterns
+	const [
+		agentsFiles,
+		claudeFiles,
+		copilotFiles,
+		instructionFiles,
+		rulesFiles,
+		cursorRulesFiles,
+		skillFiles,
+	] = await Promise.all([
+		glob("**/AGENTS.md", globOptions),
+		glob("**/CLAUDE.md", globOptions),
+		glob("**/.github/**/copilot-instructions.md", globOptions),
+		glob("**/.github/instructions/**/*.instructions.md", globOptions),
+		findClaudeRulesFiles(baseDir, maxDepth, verbose),
+		findCursorRulesFiles(baseDir, maxDepth, verbose),
+		findSkillFiles(baseDir, maxDepth, verbose),
+	]);
 
 	// Combine results
 	const allFiles = [
@@ -218,6 +370,8 @@ export async function findAgentsFiles(
 		...copilotFiles,
 		...instructionFiles,
 		...rulesFiles,
+		...cursorRulesFiles,
+		...skillFiles,
 	];
 
 	// Filter by depth if maxDepth is specified
@@ -250,8 +404,15 @@ export async function findAgentsFiles(
 
 	// Global deduplication for copilot-instructions.md files
 	// If a copilot-instructions.md has identical content to any AGENTS.md or CLAUDE.md, exclude it
-	const globallyDeduplicatedFiles = await deduplicateCopilotInstructions(
+	const copilotDeduplicatedFiles = await deduplicateCopilotInstructions(
 		deduplicatedFiles,
+		verbose,
+	);
+
+	// Global deduplication for .cursor/rules/ files
+	// If a cursor rule has identical content to any AGENTS.md or CLAUDE.md, exclude it
+	const globallyDeduplicatedFiles = await deduplicateCursorRules(
+		copilotDeduplicatedFiles,
 		verbose,
 	);
 
@@ -452,6 +613,67 @@ async function deduplicateCopilotInstructions(
 	}
 
 	return [...otherFiles, ...uniqueCopilotFiles];
+}
+
+/**
+ * Global deduplication for Cursor rules files.
+ * If a .cursor/rules/ file has identical content to ANY AGENTS.md or CLAUDE.md
+ * in the repository (not just same directory), exclude it.
+ * @param files - List of absolute file paths (already deduplicated)
+ * @param verbose - If true, log debug information about deduplication
+ * @returns Deduplicated list of file paths
+ */
+async function deduplicateCursorRules(
+	files: string[],
+	verbose?: boolean,
+): Promise<string[]> {
+	const cursorFiles = files.filter(isCursorRulesFile);
+	const otherFiles = files.filter((f) => !isCursorRulesFile(f));
+
+	if (cursorFiles.length === 0) {
+		return files;
+	}
+
+	// Read content of all non-cursor files (AGENTS.md, CLAUDE.md, etc.)
+	const otherContents = new Map<string, string>();
+	await Promise.all(
+		otherFiles.map(async (file) => {
+			try {
+				const content = await readFile(file, "utf-8");
+				otherContents.set(file, content.trim());
+			} catch {
+				// Ignore read errors
+			}
+		}),
+	);
+
+	const uniqueCursorFiles: string[] = [];
+	for (const cursorFile of cursorFiles) {
+		try {
+			const cursorContent = (await readFile(cursorFile, "utf-8")).trim();
+
+			let isDuplicate = false;
+			for (const [otherFile, otherContent] of otherContents) {
+				if (cursorContent === otherContent) {
+					if (verbose) {
+						console.log(
+							`[FileFinder] Deduplicated: ${cursorFile} (identical content to ${otherFile})`,
+						);
+					}
+					isDuplicate = true;
+					break;
+				}
+			}
+
+			if (!isDuplicate) {
+				uniqueCursorFiles.push(cursorFile);
+			}
+		} catch {
+			uniqueCursorFiles.push(cursorFile);
+		}
+	}
+
+	return [...otherFiles, ...uniqueCursorFiles];
 }
 
 /**

@@ -90,13 +90,15 @@ export interface ISkill {
 	content?: string; // Raw SKILL.md file content (for display in browser)
 }
 
-// Context file interface for AGENTS.md, CLAUDE.md, .claude/rules/*.md, copilot-instructions.md
+// Context file interface for AGENTS.md, CLAUDE.md, .claude/rules/*.md, .cursor/rules/*.md/.mdc, copilot-instructions.md, SKILL.md
 export interface IContextFile {
 	path: string; // Relative path from repository root
-	type: "agents" | "claude" | "copilot" | "rules"; // File type for categorization
+	type: "agents" | "claude" | "copilot" | "rules" | "cursor-rules" | "skills"; // File type for categorization
 	content: string; // Raw file content
 	summary: string; // AI-generated 2-sentence summary
 	globs?: string; // Globs from frontmatter (for rules files, UI display only)
+	description?: string; // Description from frontmatter (for cursor rules)
+	alwaysApply?: boolean; // Whether the rule is always applied (for cursor rules)
 }
 
 // Linked documentation summary

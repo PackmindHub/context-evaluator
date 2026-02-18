@@ -348,11 +348,38 @@ describe("prompt-generator", () => {
 			);
 		});
 
+		test("cursor target includes .cursor/rules/ path instructions", () => {
+			const input: RemediationInput = {
+				...baseInput,
+				targetAgent: "cursor",
+				suggestions: [makeSuggestion()],
+			};
+
+			const result = generateRemediationPrompts(input);
+
+			expect(result.suggestionEnrichPrompt).toContain(
+				"Cursor uses `.cursor/rules/`",
+			);
+			expect(result.suggestionEnrichPrompt).toContain(
+				"### Standard (Cursor Rule)",
+			);
+			expect(result.suggestionEnrichPrompt).toContain(
+				".cursor/rules/<standard-slug>.mdc",
+			);
+			expect(result.suggestionEnrichPrompt).toContain("alwaysApply: true");
+			expect(result.suggestionEnrichPrompt).toContain("Auto-attached");
+			expect(result.suggestionEnrichPrompt).toContain("Glob-scoped");
+			expect(result.suggestionEnrichPrompt).toContain(
+				".cursor/skills/<skill-name>/",
+			);
+		});
+
 		test("suggestion prompt includes decision criteria for all targets", () => {
 			for (const target of [
 				"agents-md",
 				"claude-code",
 				"github-copilot",
+				"cursor",
 			] as const) {
 				const input: RemediationInput = {
 					...baseInput,
@@ -411,12 +438,17 @@ describe("prompt-generator", () => {
 				"agents-md": "**AGENTS.md**",
 				"claude-code": "**Claude Code**",
 				"github-copilot": "**GitHub Copilot**",
+				cursor: "**Cursor**",
 			};
 
 			for (const [target, expectedName] of Object.entries(expectations)) {
 				const input: RemediationInput = {
 					...baseInput,
-					targetAgent: target as "agents-md" | "claude-code" | "github-copilot",
+					targetAgent: target as
+						| "agents-md"
+						| "claude-code"
+						| "github-copilot"
+						| "cursor",
 					suggestions: [makeSuggestion()],
 				};
 
@@ -437,12 +469,17 @@ describe("prompt-generator", () => {
 				"agents-md": "AGENTS.md",
 				"claude-code": "CLAUDE.md",
 				"github-copilot": ".github/copilot-instructions.md",
+				cursor: ".cursor/rules/general.mdc",
 			};
 
 			for (const [target, expectedFile] of Object.entries(expectations)) {
 				const input: RemediationInput = {
 					...baseInput,
-					targetAgent: target as "agents-md" | "claude-code" | "github-copilot",
+					targetAgent: target as
+						| "agents-md"
+						| "claude-code"
+						| "github-copilot"
+						| "cursor",
 					suggestions: [makeSuggestion()],
 				};
 
@@ -626,12 +663,20 @@ describe("prompt-generator", () => {
 					displayName: "**GitHub Copilot**",
 					description: "GitHub Copilot uses",
 				},
+				cursor: {
+					displayName: "**Cursor**",
+					description: "Cursor uses `.cursor/rules/`",
+				},
 			};
 
 			for (const [target, expected] of Object.entries(expectations)) {
 				const input: RemediationInput = {
 					...baseInput,
-					targetAgent: target as "agents-md" | "claude-code" | "github-copilot",
+					targetAgent: target as
+						| "agents-md"
+						| "claude-code"
+						| "github-copilot"
+						| "cursor",
 					errors: [makeError()],
 				};
 

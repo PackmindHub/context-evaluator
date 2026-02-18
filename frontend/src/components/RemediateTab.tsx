@@ -549,6 +549,7 @@ export function RemediateTab({
 									["agents-md", "AGENTS.md"],
 									["claude-code", "Claude Code"],
 									["github-copilot", "GitHub Copilot"],
+									["cursor", "Cursor"],
 								] as const
 							).map(([value, label]) => (
 								<button
