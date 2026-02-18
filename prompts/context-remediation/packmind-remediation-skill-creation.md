@@ -1,69 +1,58 @@
 # Skill Creation Process
 
-## Skill Anatomy
+## Skill Placement by Target Agent
 
-Every skill consists of a required SKILL.md file and optional bundled resources:
+| Target Agent   | Skill Directory               |
+|----------------|-------------------------------|
+| AGENTS.md      | `.agents/skills/<skill-name>/` |
+| Claude Code    | `.claude/skills/<skill-name>/` |
+| GitHub Copilot | `.github/skills/<skill-name>/` |
+
+## Skill Structure
+
+A skill is a single `SKILL.md` file inside a named folder. Unlike standards (which are bullet-point rules), skills can contain additional documentation about project structure, context, and resources to give the agent richer procedural knowledge:
 
 ```
-skill-name/
-├── SKILL.md (required)
-│   ├── YAML frontmatter metadata (required)
-│   │   ├── name: (required)
-│   │   └── description: (required)
-│   └── Markdown instructions (required)
-└── Bundled Resources (optional)
-    ├── scripts/          - Executable code (Python/Bash/etc.)
-    ├── references/       - Documentation intended to be loaded into context as needed
-    └── assets/           - Files used in output (templates, icons, fonts, etc.)
+<skill-dir>/<skill-name>/
+└── SKILL.md
 ```
 
-- **Scripts** — Executable code for tasks requiring deterministic reliability or repeatedly rewritten logic.
-- **References** — Documentation loaded as needed into context. Keep SKILL.md lean; move detailed schemas, API docs, and domain knowledge here.
-- **Assets** — Files used in output (templates, images, boilerplate) that Claude uses without loading into context.
+### SKILL.md Format
+
+```md
+---
+name: <Skill Name>
+description: <When the agent should activate this skill. Be specific. Use third-person voice.>
+---
+
+## Purpose
+
+<One or two sentences explaining what the skill does and why it exists.>
+
+## When to Use
+
+<Describe the triggers: what task, file type, or user request should activate this skill.>
+
+## Instructions
+
+<Step-by-step procedural instructions written in imperative/infinitive form (verb-first, not second person). Keep concise, under 5k words.>
+```
 
 ## Progressive Disclosure
 
-1. **Metadata (name + description)** — Always in context (~100 words)
-2. **SKILL.md body** — When skill triggers (<5k words)
-3. **Bundled resources** — As needed by Claude (unlimited; scripts can execute without reading into context)
+1. **Metadata (name + description)** — Always in context (~100 words). Determines when the skill activates.
+2. **SKILL.md body** — Loaded when skill triggers (<5k words).
 
 ## Metadata Quality
 
-The `name` and `description` in YAML frontmatter determine when Claude will use the skill. Be specific about what the skill does and when to use it. Use the third-person (e.g. "This skill should be used when..." instead of "Use this skill when...").
+The `name` and `description` in YAML frontmatter determine when the agent activates the skill. Be specific about what the skill does and when to use it. Use third-person voice (e.g. "This skill should be used when..." instead of "Use this skill when...").
 
-## Step 1: Understand Usage
+## Writing Style
 
-Understand concrete examples of how the skill will be used. This understanding can come from direct user examples or generated examples validated with user feedback. Ask targeted questions about functionality, usage patterns, and triggers.
+Write the entire skill using **imperative/infinitive form** (verb-first instructions), not second person. Use objective, instructional language (e.g., "To accomplish X, do Y" rather than "You should do X" or "If you need to do X").
 
-Conclude when there is a clear sense of the functionality the skill should support.
+## Creation Steps
 
-## Step 2: Plan Resources
-
-Analyze each concrete example by:
-
-1. Considering how to execute on the example from scratch
-2. Identifying what scripts, references, and assets would be helpful when executing these workflows repeatedly
-
-Create a list of the reusable resources to include: scripts, references, and assets.
-
-## Step 3: Create the Skill
-
-The skill is being created for another instance of Claude to use. Focus on information that would be beneficial and non-obvious. Consider what procedural knowledge, domain-specific details, or reusable assets would help another Claude instance execute tasks more effectively.
-
-### Start with Resources
-
-Implement the reusable resources identified in Step 2: `scripts/`, `references/`, and `assets/` files. This may require user input (e.g., brand assets, documentation, templates). Delete any example files and directories not needed for the skill.
-
-### Update SKILL.md
-
-**Writing Style:** Write the entire skill using **imperative/infinitive form** (verb-first instructions), not second person. Use objective, instructional language (e.g., "To accomplish X, do Y" rather than "You should do X" or "If you need to do X").
-
-Answer these questions in SKILL.md:
-
-1. What is the purpose of the skill, in a few sentences?
-2. When should the skill be used?
-3. In practice, how should Claude use the skill? All reusable skill contents must be referenced so that Claude knows how to use them.
-
-## Step 4: Iterate
-
-After testing the skill on real tasks, notice struggles or inefficiencies. Identify how SKILL.md or bundled resources should be updated. Implement changes and test again.
+1. **Understand usage** — Identify concrete examples of how the skill will be used. Clarify functionality, usage patterns, and triggers.
+2. **Write SKILL.md** — Answer: What is the purpose? When should it activate? What are the step-by-step instructions? Focus on procedural knowledge that would be beneficial and non-obvious to another agent instance.
+3. **Iterate** — Test the skill on real tasks, notice struggles or inefficiencies, and refine the instructions.

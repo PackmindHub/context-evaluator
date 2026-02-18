@@ -6,16 +6,15 @@ Rendering modes: Claude Code, AGENTS.md, GitHub Copilot.
 
 **Standard** — A short, declarative rule file always loaded into context. Defines constraints and conventions the agent must follow at all times.
 
-**Skill** — A folder with instructions, scripts, and resources loaded on-demand via progressive disclosure. Provides procedural knowledge activated when a task matches its description.
+**Skill** — A folder with a SKILL.md file loaded on-demand via progressive disclosure. Provides procedural knowledge activated when a task matches its description. Skills can contain additional documentation about project structure, context, and resources that go beyond the bullet-point rules of standards.
 
 ### Decision Criteria
 
-Ask these four questions to decide whether a remediation should produce a standard or a skill:
+Ask these three questions to decide whether a remediation should produce a standard or a skill:
 
 1. **Must the agent always know this?** If yes → standard. If it is only relevant during a specific task → skill.
 2. **Is it a constraint or a capability?** Constraints and guardrails → standard. Capabilities and workflows → skill.
-3. **Does it need bundled resources?** If it requires scripts, templates, or assets → skill. If a single file of rules suffices → standard.
-4. **Is it short and declarative?** Bullet-point rules → standard. Procedural paragraphs with sequenced steps → skill.
+3. **Is it short and declarative?** Bullet-point rules → standard. Procedural paragraphs with sequenced steps → skill.
 
 ### Boundary Rule
 
