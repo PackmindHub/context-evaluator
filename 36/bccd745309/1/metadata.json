@@ -1,0 +1,75 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "36bccd745309",
+  "session_id": "cd7969b3-0e69-4f79-a09b-cd0c4d591678",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-18T21:09:13.861108Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "src/shared/remediation/prompt-generator.test.ts",
+    "src/shared/remediation/prompt-generator.ts"
+  ],
+  "agent": "Claude Code",
+  "token_usage": {
+    "input_tokens": 22,
+    "cache_creation_tokens": 28854,
+    "cache_read_tokens": 685455,
+    "output_tokens": 448,
+    "api_call_count": 18
+  },
+  "summary": {
+    "intent": "Fix output type bias in the remediation prompt generator that was causing the AI executor to default to generic inline edits instead of correctly classifying issues as skills or standards.",
+    "outcome": "Successfully replaced the 'default to generic' bias with category-based guidance and added a warning about evaluator Fix suggestions. All tests pass and the commit was made with only the two relevant files.",
+    "learnings": {
+      "repo": [
+        "The remediation prompt generator is at src/shared/remediation/prompt-generator.ts and has two key sections: errorDefaultGuidance (~line 236) and the Instructions section in buildErrorFixPrompt() (~line 480)",
+        "Evaluators produce issues with a Fix field that is unaware of skills/standards classification — this is an architectural limitation that must be compensated for in the prompt",
+        "The issue block header already includes evaluatorName:category (e.g., git-workflow: Workflow Integration) at line 151, making evaluator-type signal available to the AI executor",
+        "Category signal mapping: git-workflow/testing/deployment → skill, security/code-style → standard, outdated-documentation/structure-formatting/completeness → generic update",
+        "The project uses 'rtk' as a wrapper around standard commands (e.g., rtk git status, rtk bun run test)"
+      ],
+      "code": [
+        {
+          "path": "src/shared/remediation/prompt-generator.ts",
+          "line": 236,
+          "end_line": 239,
+          "finding": "errorDefaultGuidance variable — was biasing toward generic updates, replaced with category-based guidance"
+        },
+        {
+          "path": "src/shared/remediation/prompt-generator.ts",
+          "line": 478,
+          "end_line": 496,
+          "finding": "buildErrorFixPrompt() Instructions section — added new step 3 warning about evaluator Fix suggestions being unaware of skills/standards; required renumbering subsequent steps"
+        },
+        {
+          "path": "src/shared/remediation/prompt-generator.test.ts",
+          "finding": "Test was asserting the old 'prefers generic updates for errors' text and needed updating to match the new category-based guidance and Fix-suggestion warning"
+        }
+      ],
+      "workflow": [
+        "When adding a numbered step in the middle of an instruction list, all subsequent step numbers must be renumbered — easy to miss and create duplicates",
+        "Only stage the files directly related to the task before committing; leave unrelated uncommitted frontend changes unstaged",
+        "Run both tests and lint/typecheck after code changes before committing"
+      ]
+    },
+    "friction": [
+      "A duplicate step 4 was created after inserting the new warning step, requiring an extra read-and-fix cycle",
+      "The rtk wrapper caused the first test run attempt to fail silently before switching to direct 'bun run test'"
+    ],
+    "open_items": [
+      "Unrelated frontend files had uncommitted changes left unstaged — these should be addressed separately",
+      "Manual verification step from the plan (POST /api/remediation/generate-prompts with git-workflow issues) was not performed in this session",
+      "The evaluators themselves still generate Fix suggestions unaware of skills/standards — the fix is a workaround in the prompt, not a fix at the source"
+    ]
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-18T21:08:56.347479Z",
+    "agent_lines": 27,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 27,
+    "agent_percentage": 100
+  }
+}

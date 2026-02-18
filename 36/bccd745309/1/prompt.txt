@@ -1,0 +1,79 @@
+Implement the following plan:
+
+# Fix Output Type Bias in Remediation Prompt Generator
+
+## Context
+
+The remediation prompt generator has two compounding problems that both bias the AI executor toward "generic update" (inline edits) over creating skills or standards:
+
+**Problem 1 — `errorDefaultGuidance` bias:** The guidance text added for errors explicitly says "default to generic update," overriding the three-question decision criteria that would correctly classify `git-workflow` issues as skills.
+
+**Problem 2 — Evaluator Fix suggestions are unaware of skills/standards:** The 19 evaluators that produce issues have no knowledge of the standard/skill/generic classification. Their **Fix** field describes inline edits (e.g., "Add this section to AGENTS.md: ..."), nudging the AI executor to treat everything as a generic update even when a skill would be more appropriate. The prompt never warns the executor about this.
+
+**Concrete example:** Issue #15 (`git-workflow` — commit message format) has a Fix that says "Specify a commit message format explicitly, e.g.: `### Commit Message Format`..." — this reads as "add a section to AGENTS.md," so the executor does just that, ignoring that a git-workflow skill would be better.
+
+## Problem Location
+
+`src/shared/remediation/prompt-generator.ts`
+
+- **Lines 236–239** — `errorDefaultGuidance` variable (bias toward generic)
+- **Lines 478–496** — `## Instructions` section in `buildErrorFixPrompt()` (no warning about evaluator Fix suggestions)
+
+The issue block header already shows `evaluatorName: category` (e.g., `git-workflow: Workflow Integration`) at line 151, so the evaluator-type signal is already visible.
+
+## Proposed Changes
+
+### Change 1: Replace `errorDefaultGuidance` with fix-nature-based guidance
+
+```typescript
+const errorDefaultGuidance =
+    context === "error"
+        ? `\n\n**Choosing the right type for error fixes:**
+- Factual corrections (wrong paths, outdated names, incorrect references) → **generic update**
+- New procedural workflows (commit steps, CI/CD procedures, deployment flows) → **skill**
+- New constraints or guardrails (security rules, coding conventions) → **standard**
+
+Use the evaluator category in each issue header as a signal:
+- \`outdated-documentation\`, \`structure-formatting\`, \`completeness\` → usually **generic update**
+- \`git-workflow\`, \`testing\`, \`deployment\` → usually **skill** (procedural)
+- \`security\`, \`code-style\` → usually **standard** (constraints) or **generic**
+
+When multiple issues share the same evaluator category and topic, consolidate them into a single output rather than creating many small separate additions.`
+        : "";
+```
+
+### Change 2: Add a warning about evaluator Fix suggestions in the Instructions section
+
+In `buildErrorFixPrompt()`, add an explicit note (either in the `## Role` section or as a new instruction step) warning that Fix suggestions are unaware of skills/standards:
+
+Add to the Instructions list (before step 3 "For each remaining issue, decide the output type"):
+
+> **Note:** The **Fix** text for each issue was generated without knowledge of standards or skills — it may describe inline edits even when a skill or standard would be more appropriate. Use the output type decision criteria and the evaluator category to override the suggested approach when warranted.
+
+## Files to Modify
+
+- **`src/shared/remediation/prompt-generator.ts`**
+  - `errorDefaultGuidance` string (lines 236–239): replace content
+  - `buildErrorFixPrompt()` Instructions section (around line 480): add warning note about Fix suggestions
+
+## Expected Outcome
+
+With these changes, the remediation prompt for the example would guide the AI to:
+- Issues #1, #4, #5, #10, #11, #12, #21 (`outdated-documentation`) → **generic update**
+- Issues #8, #15, #16 (`git-workflow`) → **skill** (consolidated into one git-workflow skill, overriding their inline-edit Fix suggestions)
+- Issues #3, #19, #20 (`security`) → **standard** or **generic**
+- Issues #6 (`code-style`, ESLint→Biome) → **standard**
+- Issues #7, #13, #14 (`structure-formatting`) → **generic update**
+
+## Verification
+
+1. `bun run test` — confirm no regressions
+2. `bun run typecheck` — no type errors
+3. Manually inspect the generated prompt: call `POST /api/remediation/generate-prompts` with git-workflow issues and verify (a) no "default to generic" bias, (b) warning about Fix suggestions is present
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+commit
