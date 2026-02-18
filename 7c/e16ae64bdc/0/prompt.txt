@@ -1,0 +1,133 @@
+Implement the following plan:
+
+# Plan: Distinguish Instructions/Rules/Skills per Agent + Logos for GitHub Copilot & Cursor
+
+## Context
+
+The Context tab currently shows GitHub Copilot with only one "Copilot Instructions" row and Cursor with only one "Cursor Rules" row — mirroring the simple eye and pencil SVG icons respectively. The user wants:
+1. GitHub Copilot and Cursor to each surface their **Skills** separately (like Claude Code does), when skills exist in `.github/skills/` or `.cursor/skills/`
+2. Replace the generic eye/pencil icons with the **real logos** for GitHub Copilot and Cursor
+
+All changes are isolated to **one file**: `frontend/src/components/ContextTab.tsx`.
+
+---
+
+## Critical File
+
+- `frontend/src/components/ContextTab.tsx` — only file to modify
+
+---
+
+## Implementation Plan
+
+### 1. Filter skills by agent path prefix
+
+Add derived arrays that split the flat `skills[]` by agent, based on the `path` field set by `getRelativePath()`:
+
+```typescript
+const claudeSkills = sortedSkills.filter(s => s.path.startsWith('.claude/skills/'));
+const copilotSkills = sortedSkills.filter(s => s.path.startsWith('.github/skills/'));
+const cursorSkills  = sortedSkills.filter(s => s.path.startsWith('.cursor/skills/'));
+// Remaining skills (e.g. .agents/skills/) stay under Claude Code / generic
+const genericSkills = sortedSkills.filter(s =>
+  !s.path.startsWith('.claude/skills/') &&
+  !s.path.startsWith('.github/skills/') &&
+  !s.path.startsWith('.cursor/skills/')
+);
+```
+
+Claude Code's `skillsCount` will use `claudeSkills.length + genericSkills.length`.
+
+### 2. Add separate modal states for each agent's skills
+
+Add two new boolean states (copilot & cursor) alongside the existing `showSkillsModal`:
+```typescript
+const [showCopilotSkillsModal, setShowCopilotSkillsModal] = useState(false);
+const [showCursorSkillsModal, setShowCursorSkillsModal] = useState(false);
+```
+
+### 3. Update section visibility
+
+```typescript
+const hasCopilot = copilotInstructionsCount > 0 || copilotSkills.length > 0;
+const hasCursor  = cursorRulesCount > 0 || cursorSkills.length > 0;
+```
+
+### 4. Replace GitHub Copilot icon with real logo
+
+Replace the generic eye SVG with the official GitHub Copilot SVG logo (stylized visor/alien face — inline path). Use `fill="currentColor"` with `text-slate-300`.
+
+### 5. Replace Cursor icon with real logo
+
+Replace the pencil SVG with Cursor's actual logo (their distinctive mark). Use `fill="currentColor"` with `text-slate-300`.
+
+### 6. Update GitHub Copilot `SectionCard`
+
+- Count = `copilotInstructionsCount + copilotSkills.length`
+- countLabel = `"item"`
+- Add `ItemRow` for Skills **below** the Instructions `FileRow` (only when `copilotSkills.length > 0`)
+- Skills row: uses `SparklesIcon`, chips show first 5 skill names, action opens `showCopilotSkillsModal`
+
+### 7. Update Cursor `SectionCard`
+
+- Count = `cursorRulesCount + cursorSkills.length`
+- countLabel = `"item"`
+- Add `ItemRow` for Skills **below** the Cursor Rules `FileRow` (only when `cursorSkills.length > 0`)
+- Skills row: uses `SparklesIcon`, chips show first 5 skill names, action opens `showCursorSkillsModal`
+
+### 8. Add two new `SkillsBrowserModal` instances
+
+After the existing modals at the bottom of the JSX:
+```tsx
+<SkillsBrowserModal
+  isOpen={showCopilotSkillsModal}
+  onClose={() => setShowCopilotSkillsModal(false)}
+  skills={copilotSkills}
+/>
+<SkillsBrowserModal
+  isOpen={showCursorSkillsModal}
+  onClose={() => setShowCursorSkillsModal(false)}
+  skills={cursorSkills}
+/>
+```
+
+---
+
+## SVG Logos
+
+**GitHub Copilot** — use the official logo path (stylized visor face):
+```svg
+<svg viewBox="0 0 16 16" fill="currentColor" ...>
+  <!-- GitHub Copilot official path data -->
+</svg>
+```
+
+**Cursor** — use Cursor's logo mark (their distinctive C/cursor shape):
+```svg
+<svg viewBox="0 0 24 24" fill="currentColor" ...>
+  <!-- Cursor logo path data -->
+</svg>
+```
+
+Both inline in ContextTab.tsx as named React components (e.g., `CopilotLogo`, `CursorLogo`).
+
+---
+
+## Verification
+
+1. Run `bun run test` — all tests must pass (no test changes expected since this is UI-only)
+2. Run `bun run lint` — Biome check must pass
+3. Run `bun run dev` — verify in browser:
+   - Repo with `.github/skills/` shows Skills row under GitHub Copilot
+   - Repo with `.cursor/skills/` shows Skills row under Cursor
+   - GitHub Copilot logo replaces the eye icon
+   - Cursor logo replaces the pencil icon
+   - Clicking "Display all" for Copilot Skills opens modal with copilot-specific skills
+   - Clicking "Display all" for Cursor Skills opens modal with cursor-specific skills
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+commit
