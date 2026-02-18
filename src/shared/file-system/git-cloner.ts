@@ -132,29 +132,47 @@ export async function cloneRepository(
 
 			// If a specific commit SHA is requested, fetch and checkout it
 			if (commitSha) {
-				try {
-					const fetchProc = Bun.spawn(
-						["git", "fetch", "--depth", "1", "origin", commitSha],
-						{ cwd: tempDir, stdout: "pipe", stderr: "pipe" },
-					);
-					await fetchProc.exited;
+				const fetchProc = Bun.spawn(
+					["git", "fetch", "--depth", "1", "origin", commitSha],
+					{ cwd: tempDir, stdout: "pipe", stderr: "pipe" },
+				);
+				const fetchExitCode = await fetchProc.exited;
 
-					const checkoutProc = Bun.spawn(["git", "checkout", commitSha], {
-						cwd: tempDir,
-						stdout: "pipe",
-						stderr: "pipe",
+				if (fetchExitCode !== 0) {
+					const fetchStderr = await new Response(fetchProc.stderr).text();
+					rm(tempDir, { recursive: true, force: true }).catch(() => {
+						// Intentionally ignoring cleanup errors
 					});
-					await checkoutProc.exited;
+					reject(
+						new Error(
+							`Failed to fetch commit ${commitSha}: ${fetchStderr || `git fetch exited with code ${fetchExitCode}`}. The commit may have been force-pushed or garbage-collected.`,
+						),
+					);
+					return;
+				}
 
-					if (verbose) {
-						console.log(`[Git] Checked out commit ${commitSha}`);
-					}
-				} catch {
-					if (verbose) {
-						console.log(
-							`[Git] Warning: Could not checkout commit ${commitSha}, continuing with branch HEAD`,
-						);
-					}
+				const checkoutProc = Bun.spawn(["git", "checkout", commitSha], {
+					cwd: tempDir,
+					stdout: "pipe",
+					stderr: "pipe",
+				});
+				const checkoutExitCode = await checkoutProc.exited;
+
+				if (checkoutExitCode !== 0) {
+					const checkoutStderr = await new Response(checkoutProc.stderr).text();
+					rm(tempDir, { recursive: true, force: true }).catch(() => {
+						// Intentionally ignoring cleanup errors
+					});
+					reject(
+						new Error(
+							`Failed to checkout commit ${commitSha}: ${checkoutStderr || `git checkout exited with code ${checkoutExitCode}`}`,
+						),
+					);
+					return;
+				}
+
+				if (verbose) {
+					console.log(`[Git] Checked out commit ${commitSha}`);
 				}
 			}
 
