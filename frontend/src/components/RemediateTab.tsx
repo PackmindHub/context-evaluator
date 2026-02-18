@@ -24,6 +24,7 @@ import type {
 	RemediationHistoryItem,
 	RemediationResult,
 } from "../types/remediation";
+import { agentLogoMap } from "./AgentLogos";
 import { RemediationHistory } from "./RemediationHistory";
 import { RemediationProgress } from "./RemediationProgress";
 import { CopyButton } from "./shared/CopyButton";
@@ -570,12 +571,17 @@ export function RemediateTab({
 								<button
 									key={value}
 									onClick={() => setTargetAgent(value)}
-									className={`px-3 py-1.5 rounded text-sm transition-colors ${
+									className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm transition-colors ${
 										targetAgent === value
 											? "bg-blue-600 text-white"
 											: "bg-slate-700 text-slate-300 hover:bg-slate-600"
 									}`}
 								>
+									{agentLogoMap[value] && (
+										<span className="w-4 h-4 flex items-center">
+											{agentLogoMap[value]}
+										</span>
+									)}
 									{label}
 								</button>
 							))}
@@ -597,12 +603,17 @@ export function RemediateTab({
 									<button
 										key={p.name}
 										onClick={() => setSelectedProvider(p.name)}
-										className={`px-3 py-1.5 rounded text-sm transition-colors ${
+										className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm transition-colors ${
 											selectedProvider === p.name
 												? "bg-blue-600 text-white"
 												: "bg-slate-700 text-slate-300 hover:bg-slate-600"
 										}`}
 									>
+										{agentLogoMap[p.name] && (
+											<span className="w-4 h-4 flex items-center">
+												{agentLogoMap[p.name]}
+											</span>
+										)}
 										{p.displayName}
 									</button>
 								))}
