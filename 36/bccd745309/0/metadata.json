@@ -1,0 +1,31 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "36bccd745309",
+  "session_id": "c32ba445-362b-4b80-ada5-60d15e8cae70",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-18T21:08:43.557362Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "frontend/src/components/RemediateTab.tsx",
+    "frontend/src/components/RemediationHistoryCard.tsx",
+    "frontend/src/utils/packmind-artifacts.ts"
+  ],
+  "agent": "Claude Code",
+  "token_usage": {
+    "input_tokens": 19,
+    "cache_creation_tokens": 39232,
+    "cache_read_tokens": 755311,
+    "output_tokens": 878,
+    "api_call_count": 15
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-18T21:08:43.366705Z",
+    "agent_lines": 0,
+    "human_added": 0,
+    "human_modified": 48,
+    "human_removed": 10,
+    "total_committed": 48,
+    "agent_percentage": 0
+  }
+}

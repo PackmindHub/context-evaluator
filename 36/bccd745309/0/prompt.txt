@@ -1,0 +1,54 @@
+Implement the following plan:
+
+# Plan: Show Total Skills & Standards in Packmind Promotion Section
+
+## Context
+
+The Packmind promotion section on the Remediate tab currently shows static promotional text. The user wants it to display the **total count of skills and standards created across all remediations** for the current repo, making the section data-driven and more compelling.
+
+## Changes
+
+### 1. Extract `countPackmindArtifacts` and `formatArtifactCount` to shared utility
+
+**File**: `frontend/src/components/RemediationHistoryCard.tsx` → new shared location
+
+These two functions are currently defined in `RemediationHistoryCard.tsx` (lines 42-61). They need to be reusable from `RemediateTab.tsx` as well.
+
+- Move `countPackmindArtifacts()` and `formatArtifactCount()` to a new shared file `frontend/src/utils/packmind-artifacts.ts`
+- Update imports in `RemediationHistoryCard.tsx`
+
+### 2. Compute aggregated totals in `RemediateTab.tsx`
+
+**File**: `frontend/src/components/RemediateTab.tsx`
+
+The `remediations` state (array of `RemediationHistoryItem`) is already available. Each item has `result.summary.errorFixActions` and `result.summary.suggestionEnrichActions` with `outputType` fields.
+
+- Add a `useMemo` that iterates all remediations, collects all actions, and sums up standards/skills using `countPackmindArtifacts()`
+- Pass totals to the Packmind section
+
+### 3. Update Packmind promotion section UI
+
+**File**: `frontend/src/components/RemediateTab.tsx` (lines 535-570)
+
+- When totals > 0: Show "Your remediations have created X standard(s) & Y skill(s) so far." before the existing description
+- When totals = 0: Keep current static text as-is (no artifact counts to show)
+
+## Files to Modify
+
+1. `frontend/src/utils/packmind-artifacts.ts` (new - shared utility)
+2. `frontend/src/components/RemediationHistoryCard.tsx` (update imports)
+3. `frontend/src/components/RemediateTab.tsx` (add aggregation + update UI)
+
+## Verification
+
+1. `bun run test` - all tests pass
+2. `bun run lint` - no lint errors
+3. Manual: Run `bun run dev`, navigate to Remediate tab on a repo with past remediations, verify totals show in the Packmind section
+4. Manual: Verify a repo with no remediations shows the static text without counts
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+I was talking about the section "What's next with your playbook? " I want to display the number of skills and standards
