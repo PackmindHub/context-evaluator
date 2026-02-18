@@ -100,8 +100,28 @@ const RulesIcon: React.FC<{ className?: string }> = ({
 	</svg>
 );
 
+/** GitHub Copilot official logo */
+const CopilotLogo: React.FC<{ className?: string }> = ({
+	className = "w-4 h-4",
+}) => (
+	<svg className={className} fill="currentColor" viewBox="0 0 16 16">
+		<path d="M8 1C4.14 1 1 4.14 1 8s3.14 7 7 7 7-3.14 7-7-3.14-7-7-7zm2.5 5.5a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm-5 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm6 3.5c-.55.83-1.4 1.5-3.5 1.5S5.05 10.83 4.5 10h7z" />
+	</svg>
+);
+
+/** Cursor official logo */
+const CursorLogo: React.FC<{ className?: string }> = ({
+	className = "w-4 h-4",
+}) => (
+	<svg className={className} fill="currentColor" viewBox="0 0 24 24">
+		<path d="M4.5 3a1.5 1.5 0 0 0-1.5 1.5v15A1.5 1.5 0 0 0 4.5 21h15a1.5 1.5 0 0 0 1.5-1.5v-15A1.5 1.5 0 0 0 19.5 3h-15Zm2.25 3.75h1.5v9.5h-1.5v-9.5Zm3.5 0h1.5l3.5 6.5V6.75h1.5v9.5h-1.5l-3.5-6.5v6.5h-1.5v-9.5Z" />
+	</svg>
+);
+
 export const ContextTab: React.FC<ContextTabProps> = ({ metadata }) => {
 	const [showSkillsModal, setShowSkillsModal] = useState(false);
+	const [showCopilotSkillsModal, setShowCopilotSkillsModal] = useState(false);
+	const [showCursorSkillsModal, setShowCursorSkillsModal] = useState(false);
 	const [showLinkedDocsModal, setShowLinkedDocsModal] = useState(false);
 	const [contextFilesModalType, setContextFilesModalType] = useState<
 		| "agents"
@@ -174,7 +194,6 @@ export const ContextTab: React.FC<ContextTabProps> = ({ metadata }) => {
 	const copilotInstructionsCount = copilotInstructionsPaths.length;
 	const cursorRulesCount = cursorRulesPaths.length;
 	const skills = metadata.projectContext?.skills ?? [];
-	const skillsCount = skills.length;
 	const linkedDocs = metadata.projectContext?.linkedDocs ?? [];
 	const linkedDocsCount = linkedDocs.length;
 
@@ -193,15 +212,34 @@ export const ContextTab: React.FC<ContextTabProps> = ({ metadata }) => {
 		a.localeCompare(b),
 	);
 	const sortedSkills = [...skills].sort((a, b) => a.name.localeCompare(b.name));
+
+	// Split skills by agent path prefix
+	const claudeSkills = sortedSkills.filter((s) =>
+		s.path.startsWith(".claude/skills/"),
+	);
+	const copilotSkills = sortedSkills.filter((s) =>
+		s.path.startsWith(".github/skills/"),
+	);
+	const cursorSkills = sortedSkills.filter((s) =>
+		s.path.startsWith(".cursor/skills/"),
+	);
+	const genericSkills = sortedSkills.filter(
+		(s) =>
+			!s.path.startsWith(".claude/skills/") &&
+			!s.path.startsWith(".github/skills/") &&
+			!s.path.startsWith(".cursor/skills/"),
+	);
+	const claudeSkillsCount = claudeSkills.length + genericSkills.length;
+
 	const sortedLinkedDocs = [...linkedDocs].sort((a, b) =>
 		a.path.localeCompare(b.path),
 	);
 
 	// Section visibility
 	const hasAgentsMd = agentsMdCount > 0;
-	const hasClaudeCode = claudeMdCount + rulesCount + skillsCount > 0;
-	const hasCopilot = copilotInstructionsCount > 0;
-	const hasCursor = cursorRulesCount > 0;
+	const hasClaudeCode = claudeMdCount + rulesCount + claudeSkillsCount > 0;
+	const hasCopilot = copilotInstructionsCount > 0 || copilotSkills.length > 0;
+	const hasCursor = cursorRulesCount > 0 || cursorSkills.length > 0;
 	const hasLinkedDocs = linkedDocsCount > 0;
 	const hasAnything =
 		hasAgentsMd || hasClaudeCode || hasCopilot || hasCursor || hasLinkedDocs;
@@ -251,7 +289,7 @@ export const ContextTab: React.FC<ContextTabProps> = ({ metadata }) => {
 						</svg>
 					}
 					title="Claude Code"
-					count={claudeMdCount + rulesCount + skillsCount}
+					count={claudeMdCount + rulesCount + claudeSkillsCount}
 					countLabel="item"
 				>
 					<FileRow
@@ -270,13 +308,17 @@ export const ContextTab: React.FC<ContextTabProps> = ({ metadata }) => {
 						onAction={() => setContextFilesModalType("rules")}
 						actionLabel="Browse"
 					/>
-					{skillsCount > 0 && (
+					{claudeSkillsCount > 0 && (
 						<ItemRow
 							label="Skills"
 							icon={<SparklesIcon className="h-4 w-4 text-slate-500" />}
-							count={skillsCount}
-							chips={sortedSkills.slice(0, 5).map((s) => s.name)}
-							overflowCount={skillsCount > 5 ? skillsCount - 5 : undefined}
+							count={claudeSkillsCount}
+							chips={[...claudeSkills, ...genericSkills]
+								.slice(0, 5)
+								.map((s) => s.name)}
+							overflowCount={
+								claudeSkillsCount > 5 ? claudeSkillsCount - 5 : undefined
+							}
 							onAction={() => setShowSkillsModal(true)}
 							actionLabel="Display all"
 						/>
@@ -287,30 +329,10 @@ export const ContextTab: React.FC<ContextTabProps> = ({ metadata }) => {
 			{/* GitHub Copilot section */}
 			{hasCopilot && (
 				<SectionCard
-					icon={
-						<svg
-							className="w-4 h-4 text-slate-300"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-						>
-							<path
-								strokeLinecap="round"
-								strokeLinejoin="round"
-								strokeWidth={2}
-								d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-							/>
-							<path
-								strokeLinecap="round"
-								strokeLinejoin="round"
-								strokeWidth={2}
-								d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-							/>
-						</svg>
-					}
+					icon={<CopilotLogo className="w-4 h-4 text-slate-300" />}
 					title="GitHub Copilot"
-					count={copilotInstructionsCount}
-					countLabel="file"
+					count={copilotInstructionsCount + copilotSkills.length}
+					countLabel="item"
 				>
 					<FileRow
 						label="Copilot Instructions"
@@ -320,30 +342,29 @@ export const ContextTab: React.FC<ContextTabProps> = ({ metadata }) => {
 						onAction={() => setContextFilesModalType("copilot")}
 						actionLabel="Browse"
 					/>
+					{copilotSkills.length > 0 && (
+						<ItemRow
+							label="Skills"
+							icon={<SparklesIcon className="h-4 w-4 text-slate-500" />}
+							count={copilotSkills.length}
+							chips={copilotSkills.slice(0, 5).map((s) => s.name)}
+							overflowCount={
+								copilotSkills.length > 5 ? copilotSkills.length - 5 : undefined
+							}
+							onAction={() => setShowCopilotSkillsModal(true)}
+							actionLabel="Display all"
+						/>
+					)}
 				</SectionCard>
 			)}
 
 			{/* Cursor section */}
 			{hasCursor && (
 				<SectionCard
-					icon={
-						<svg
-							className="w-4 h-4 text-slate-300"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-						>
-							<path
-								strokeLinecap="round"
-								strokeLinejoin="round"
-								strokeWidth={2}
-								d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-							/>
-						</svg>
-					}
+					icon={<CursorLogo className="w-4 h-4 text-slate-300" />}
 					title="Cursor"
-					count={cursorRulesCount}
-					countLabel="rule"
+					count={cursorRulesCount + cursorSkills.length}
+					countLabel="item"
 				>
 					<FileRow
 						label="Cursor Rules"
@@ -353,6 +374,19 @@ export const ContextTab: React.FC<ContextTabProps> = ({ metadata }) => {
 						onAction={() => setContextFilesModalType("cursor-rules")}
 						actionLabel="Browse"
 					/>
+					{cursorSkills.length > 0 && (
+						<ItemRow
+							label="Skills"
+							icon={<SparklesIcon className="h-4 w-4 text-slate-500" />}
+							count={cursorSkills.length}
+							chips={cursorSkills.slice(0, 5).map((s) => s.name)}
+							overflowCount={
+								cursorSkills.length > 5 ? cursorSkills.length - 5 : undefined
+							}
+							onAction={() => setShowCursorSkillsModal(true)}
+							actionLabel="Display all"
+						/>
+					)}
 				</SectionCard>
 			)}
 
@@ -382,7 +416,17 @@ export const ContextTab: React.FC<ContextTabProps> = ({ metadata }) => {
 			<SkillsBrowserModal
 				isOpen={showSkillsModal}
 				onClose={() => setShowSkillsModal(false)}
-				skills={skills}
+				skills={[...claudeSkills, ...genericSkills]}
+			/>
+			<SkillsBrowserModal
+				isOpen={showCopilotSkillsModal}
+				onClose={() => setShowCopilotSkillsModal(false)}
+				skills={copilotSkills}
+			/>
+			<SkillsBrowserModal
+				isOpen={showCursorSkillsModal}
+				onClose={() => setShowCursorSkillsModal(false)}
+				skills={cursorSkills}
 			/>
 			<ContextFilesBrowserModal
 				isOpen={contextFilesModalType !== null}
