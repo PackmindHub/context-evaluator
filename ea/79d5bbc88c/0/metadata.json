@@ -1,0 +1,82 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "ea79d5bbc88c",
+  "session_id": "42f686d7-683a-42c2-9267-45169071826a",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-18T09:24:52.569628Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "src/shared/remediation/prompt-generator.test.ts",
+    "src/shared/remediation/prompt-generator.ts"
+  ],
+  "agent": "Claude Code",
+  "token_usage": {
+    "input_tokens": 26,
+    "cache_creation_tokens": 54059,
+    "cache_read_tokens": 1130488,
+    "output_tokens": 4566,
+    "api_call_count": 22
+  },
+  "summary": {
+    "intent": "Add output type support (standard/skill/generic) to the error fix remediation prompt so AI can create dedicated rule files or skills when fixing errors, not just inline edits.",
+    "outcome": "Successfully updated `buildErrorFixPrompt` to be target-agent-aware with full output type routing, parameterized `getOutputTypeInstructions` with a context parameter, updated tests accordingly, and committed with all 1244 tests passing and lint clean.",
+    "learnings": {
+      "repo": [
+        "The downstream systems (summary-parser.ts, engine.ts, RemediationHistoryCard.tsx, IRemediationAction) already supported outputType generically — only the prompt needed changing.",
+        "The project uses bun as the JS runtime (bun run test, bun run lint).",
+        "Pre-commit hook runs tests, lint, and typecheck automatically on commit.",
+        "TARGET_AGENTS and getAgentContextDescription are exported from a shared location and used to inject agent-specific context into prompts.",
+        "Status values distinguish 'fixed' (inline edit) vs 'added' (new file created) vs 'skipped'.",
+        "Errors don't have phantom files (unlike suggestions), so phantom file remapping is skipped for error fix prompts."
+      ],
+      "code": [
+        {
+          "path": "src/shared/remediation/prompt-generator.ts",
+          "line": 222,
+          "end_line": 222,
+          "finding": "getOutputTypeInstructions was parameterized with context: 'suggestion' | 'error' = 'suggestion' to control item label wording and append error-specific default-to-generic guidance."
+        },
+        {
+          "path": "src/shared/remediation/prompt-generator.ts",
+          "line": 363,
+          "end_line": 415,
+          "finding": "buildErrorFixPrompt was rewritten to include target agent context in role section, output type instructions, consolidation guidance, updated step ordering, and outputType in JSON example."
+        },
+        {
+          "path": "src/shared/remediation/prompt-generator.test.ts",
+          "line": 82,
+          "end_line": 95,
+          "finding": "Removed 'error fix prompt is target-agnostic' test — this asserted the old behavior being explicitly replaced."
+        },
+        {
+          "path": "src/shared/remediation/prompt-generator.test.ts",
+          "line": 640,
+          "end_line": 649,
+          "finding": "Flipped consolidation test from asserting consolidation is absent to asserting it is present for error fix prompts."
+        }
+      ],
+      "workflow": [
+        "Auto-fix lint issues with a separate lint --fix step after writing code, before final verification.",
+        "When only a prompt string needs changing (not types or runtime logic), downstream compatibility can be confirmed by reading parser/renderer files before coding.",
+        "Design decisions were pre-confirmed with user (default bias, status values, consolidation, phantom file remapping, wording) before implementation, reducing back-and-forth during coding."
+      ]
+    },
+    "friction": [
+      "Lint formatting issues required a separate auto-fix pass after initial implementation."
+    ],
+    "open_items": [
+      "Manual verification: run a remediation on a repo with errors like 'missing git conventions' to confirm the AI actually creates skills/standards when appropriate (not just that the prompt includes the instructions).",
+      "Phantom file remapping for errors was explicitly deferred — may be worth revisiting if errors ever gain phantom file concepts."
+    ]
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-18T09:24:31.502601Z",
+    "agent_lines": 115,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 115,
+    "agent_percentage": 100
+  }
+}
