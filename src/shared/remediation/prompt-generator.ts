@@ -219,15 +219,24 @@ function getGenericUpdateFile(targetAgent: TargetAgent): string {
 }
 
 /** Per-agent output type instructions for standards, skills, and generic updates. */
-function getOutputTypeInstructions(targetAgent: TargetAgent): string {
+function getOutputTypeInstructions(
+	targetAgent: TargetAgent,
+	context: "suggestion" | "error" = "suggestion",
+): string {
 	const genericFile = getGenericUpdateFile(targetAgent);
+	const itemLabel = context === "error" ? "issue" : "suggestion";
 
 	const standardInstructions = getStandardInstructions(targetAgent);
 	const skillInstructions = getSkillInstructions(targetAgent);
 
+	const errorDefaultGuidance =
+		context === "error"
+			? `\n\n**Default for error fixes:** Most errors should be fixed inline as a **generic update** (editing the existing documentation file directly). Only choose "standard" or "skill" when the fix genuinely requires creating a new standalone file — for example, when the issue is about missing conventions that belong in a dedicated rule file, or missing procedural workflows that belong in a skill.`
+			: "";
+
 	return `### Output Types
 
-For each suggestion, decide on ONE output type based on the decision criteria below.
+For each ${itemLabel}, decide on ONE output type based on the decision criteria below.
 
 **Standard** — A short, declarative rule file always loaded into context. Defines constraints and conventions the agent must follow at all times.
 
@@ -241,7 +250,7 @@ For each suggestion, decide on ONE output type based on the decision criteria be
 2. **Is it a constraint or a capability?** Constraints and guardrails -> standard. Capabilities and workflows -> skill.
 3. **Is it short and declarative?** Bullet-point rules -> standard. Procedural paragraphs with sequenced steps -> skill.
 
-When in doubt, prefer a standard. A single suggestion can produce both a standard (rules) and a skill (procedures).
+When in doubt, prefer a standard. A single ${itemLabel} can produce both a standard (rules) and a skill (procedures).${errorDefaultGuidance}
 
 ${standardInstructions}
 
@@ -379,10 +388,18 @@ function buildErrorFixPrompt(input: RemediationInput): string {
 		.join("\n\n");
 	const refSection = buildReferencedContentSection(snippetIndex);
 
+	const agentDisplayName = TARGET_AGENTS[input.targetAgent];
+	const agentDescription = getAgentContextDescription(input.targetAgent);
+	const outputTypeInstructions = getOutputTypeInstructions(
+		input.targetAgent,
+		"error",
+	);
+
 	return `# Fix Documentation Issues
 
 ## Role
-You are fixing documentation quality issues in the AI agent documentation files listed below.
+You are fixing documentation quality issues for the target: **${agentDisplayName}**.
+${agentDescription}
 These files guide AI coding agents. Fixes must be precise and concise.
 
 ## Context Files
@@ -395,23 +412,28 @@ ${refSection ? `${refSection}\n\n` : ""}## Issues to Fix (${input.errors.length}
 
 ${issueBlocks}
 
+${outputTypeInstructions}
+
 ## Instructions
 1. Read the target files from disk before making changes
 2. Use your own judgment to assess each issue: these were produced by an automated evaluator and some may be false positives or irrelevant given the actual file content. Skip any issue that is not a real problem after reading the file
-3. Fix each remaining issue, highest severity first
-4. Preserve all correct existing content
-5. Keep changes minimal — only fix what's genuinely flagged
-6. Do not add commentary, headers, or sections beyond what's needed
-7. After making all changes, output a JSON summary:
+3. For each remaining issue, decide the output type (standard, skill, or generic update) using the decision criteria above
+4. When multiple issues target the same file and related topics, consolidate them into well-organized sections rather than creating many small isolated additions
+5. Fix each remaining issue, highest severity first
+6. Preserve all correct existing content
+7. Keep changes minimal — only fix what's genuinely flagged
+8. Do not add commentary, headers, or sections beyond what's needed
+9. After making all changes, output a JSON summary:
 \`\`\`json
 {
   "actions": [
-    { "issueIndex": 1, "status": "fixed", "file": "AGENTS.md", "summary": "Replaced vague setup instructions with exact commands" },
-    { "issueIndex": 2, "status": "skipped", "summary": "Not a real issue after reading the file" }
+    { "issueIndex": 1, "status": "fixed", "file": "AGENTS.md", "summary": "Replaced vague setup instructions with exact commands", "outputType": "generic" },
+    { "issueIndex": 2, "status": "added", "file": ".claude/rules/git-conventions.md", "summary": "Created git conventions standard", "outputType": "standard" },
+    { "issueIndex": 3, "status": "skipped", "summary": "Not a real issue after reading the file" }
   ]
 }
 \`\`\`
-Use issue numbers from above. Status: "fixed" or "skipped". Keep summaries under 15 words.`;
+Use issue numbers from above. Status: "fixed", "added", or "skipped". Use "fixed" for inline edits and "added" for new files. Include \`outputType\` ("standard", "skill", or "generic") for non-skipped actions. Keep summaries under 15 words.`;
 }
 
 function buildSuggestionEnrichPrompt(input: RemediationInput): string {

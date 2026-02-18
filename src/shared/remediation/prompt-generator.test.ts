@@ -79,21 +79,6 @@ describe("prompt-generator", () => {
 			expect(result.errorFixPrompt).toContain("Issues to Fix (2)");
 		});
 
-		test("error fix prompt is target-agnostic", () => {
-			const input: RemediationInput = {
-				...baseInput,
-				errors: [makeError()],
-			};
-
-			const result = generateRemediationPrompts(input);
-
-			expect(result.errorFixPrompt).toContain(
-				"AI agent documentation files listed below",
-			);
-			expect(result.errorFixPrompt).not.toContain("AGENTS.md files");
-			expect(result.errorFixPrompt).not.toContain("CLAUDE.md files");
-		});
-
 		test("sorts errors by severity descending", () => {
 			const input: RemediationInput = {
 				...baseInput,
@@ -623,6 +608,83 @@ describe("prompt-generator", () => {
 		});
 	});
 
+	describe("error prompt - target agent routing and output types", () => {
+		test("error fix prompt includes target agent context", () => {
+			const expectations: Record<
+				string,
+				{ displayName: string; description: string }
+			> = {
+				"agents-md": {
+					displayName: "**AGENTS.md**",
+					description: "AGENTS.md is a universal",
+				},
+				"claude-code": {
+					displayName: "**Claude Code**",
+					description: "Claude Code uses CLAUDE.md",
+				},
+				"github-copilot": {
+					displayName: "**GitHub Copilot**",
+					description: "GitHub Copilot uses",
+				},
+			};
+
+			for (const [target, expected] of Object.entries(expectations)) {
+				const input: RemediationInput = {
+					...baseInput,
+					targetAgent: target as "agents-md" | "claude-code" | "github-copilot",
+					errors: [makeError()],
+				};
+
+				const result = generateRemediationPrompts(input);
+
+				expect(result.errorFixPrompt).toContain(
+					`for the target: ${expected.displayName}`,
+				);
+				expect(result.errorFixPrompt).toContain(expected.description);
+			}
+		});
+
+		test("error fix prompt includes output type instructions", () => {
+			const input: RemediationInput = {
+				...baseInput,
+				errors: [makeError()],
+			};
+
+			const result = generateRemediationPrompts(input);
+
+			expect(result.errorFixPrompt).toContain("### Output Types");
+			expect(result.errorFixPrompt).toContain("### Decision Criteria");
+			expect(result.errorFixPrompt).toContain("For each issue");
+		});
+
+		test("error fix prompt includes outputType in JSON example", () => {
+			const input: RemediationInput = {
+				...baseInput,
+				errors: [makeError()],
+			};
+
+			const result = generateRemediationPrompts(input);
+
+			expect(result.errorFixPrompt).toContain('"outputType"');
+			expect(result.errorFixPrompt).toContain('"standard"');
+			expect(result.errorFixPrompt).toContain('"generic"');
+		});
+
+		test("error fix prompt prefers generic updates for errors", () => {
+			const input: RemediationInput = {
+				...baseInput,
+				errors: [makeError()],
+			};
+
+			const result = generateRemediationPrompts(input);
+
+			expect(result.errorFixPrompt).toContain("**Default for error fixes:**");
+			expect(result.errorFixPrompt).toContain(
+				"Most errors should be fixed inline as a **generic update**",
+			);
+		});
+	});
+
 	describe("consolidation instruction", () => {
 		test("suggestion prompt includes consolidation guidance", () => {
 			const input: RemediationInput = {
@@ -637,7 +699,7 @@ describe("prompt-generator", () => {
 			);
 		});
 
-		test("error fix prompt does not include consolidation guidance", () => {
+		test("error fix prompt includes consolidation guidance", () => {
 			const input: RemediationInput = {
 				...baseInput,
 				errors: [makeError()],
@@ -645,7 +707,9 @@ describe("prompt-generator", () => {
 
 			const result = generateRemediationPrompts(input);
 
-			expect(result.errorFixPrompt).not.toContain("consolidate");
+			expect(result.errorFixPrompt).toContain(
+				"consolidate them into well-organized sections",
+			);
 		});
 	});
 });
