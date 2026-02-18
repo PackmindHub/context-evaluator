@@ -1,0 +1,13 @@
+The Packmind product tour should display the code in @frontend/src/components/packmind/productTour.tsx
+
+---
+
+make the modal bigger and remove the button at the bottom right corner
+
+---
+
+Remove the sentence at the top and make sure the modal covers the whole iframe
+
+---
+
+commit
