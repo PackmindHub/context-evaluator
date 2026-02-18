@@ -3,8 +3,12 @@
   "checkpoint_id": "ea79d5bbc88c",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 1,
+  "checkpoints_count": 4,
   "files_touched": [
+    "frontend/src/App.tsx",
+    "frontend/src/components/ContextTab.tsx",
+    "frontend/src/components/Summary.tsx",
+    "frontend/src/components/shared/ContentBrowserModal.tsx",
     "src/shared/remediation/prompt-generator.test.ts",
     "src/shared/remediation/prompt-generator.ts"
   ],
@@ -15,13 +19,20 @@
       "context": "/ea/79d5bbc88c/0/context.md",
       "content_hash": "/ea/79d5bbc88c/0/content_hash.txt",
       "prompt": "/ea/79d5bbc88c/0/prompt.txt"
+    },
+    {
+      "metadata": "/ea/79d5bbc88c/1/metadata.json",
+      "transcript": "/ea/79d5bbc88c/1/full.jsonl",
+      "context": "/ea/79d5bbc88c/1/context.md",
+      "content_hash": "/ea/79d5bbc88c/1/content_hash.txt",
+      "prompt": "/ea/79d5bbc88c/1/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 26,
-    "cache_creation_tokens": 54059,
-    "cache_read_tokens": 1130488,
-    "output_tokens": 4566,
-    "api_call_count": 22
+    "input_tokens": 97,
+    "cache_creation_tokens": 278183,
+    "cache_read_tokens": 5618833,
+    "output_tokens": 16726,
+    "api_call_count": 87
   }
 }
