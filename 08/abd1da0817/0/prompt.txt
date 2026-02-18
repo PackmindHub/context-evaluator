@@ -1,0 +1,176 @@
+Implement the following plan:
+
+# Remediation Impact Evaluation
+
+## Context
+
+After running an evaluation and remediating issues, users currently have no way to measure the impact without manually re-running a full analysis on their patched repo. This feature adds an "Evaluate Impact" button on each remediation card that clones the repo, applies the remediation patch, runs a full 17-evaluator analysis, and displays a before/after score comparison directly on the Remediate tab.
+
+## Implementation Plan
+
+### 1. Database Schema — `src/api/db/database.ts`
+
+Add 3 new columns using the existing try/catch ALTER TABLE pattern at the end of `initializeDatabase()`:
+
+- `remediations.result_evaluation_id TEXT` — links to the evaluation created from this remediation
+- `evaluations.parent_evaluation_id TEXT` — marks this evaluation as a remediation re-evaluation
+- `evaluations.source_remediation_id TEXT` — which remediation triggered this evaluation
+
+Add index: `CREATE INDEX IF NOT EXISTS idx_evaluations_source_remediation ON evaluations(source_remediation_id)`
+
+### 2. Types — `src/shared/types/api.ts`
+
+Extend `IEvaluateRequest` with optional internal metadata fields:
+
+```typescript
+// Internal fields for remediation impact evaluation (not serialized to DB)
+_cleanupFn?: () => Promise<void>;
+_parentEvaluationId?: string;
+_sourceRemediationId?: string;
+```
+
+### 3. Evaluation Repository — `src/api/db/evaluation-repository.ts`
+
+- Add `parentEvaluationId` and `sourceRemediationId` to `EvaluationRow`, `IEvaluationHistoryItem`, and `IEvaluationRecord`
+- Update `saveEvaluation()` to accept and persist `parentEvaluationId` and `sourceRemediationId` (read from the request's `_parentEvaluationId` / `_sourceRemediationId`)
+- Update `saveFailedEvaluation()` similarly
+- Update `rowToHistoryItem()` to map the new columns
+- Update the INSERT SQL statements to include the new columns
+
+### 4. Remediation Repository — `src/api/db/remediation-repository.ts`
+
+- Add `resultEvaluationId: string | null` to `IRemediationRecord`
+- Add `result_evaluation_id: string | null` to `RemediationRow`
+- Add method `linkResultEvaluation(remediationId: string, evaluationId: string): void` — runs `UPDATE remediations SET result_evaluation_id = ? WHERE id = ?`
+- Update `rowToRecord()` to map `result_evaluation_id`
+
+### 5. Job Manager — `src/api/jobs/job-manager.ts`
+
+In `executeJob()`, after the `saveEvaluation()` call (line ~386):
+
+1. Pass `_parentEvaluationId` and `_sourceRemediationId` through to `saveEvaluation()` (the request object already carries them)
+2. If `job.request._sourceRemediationId` is set, call `remediationRepository.linkResultEvaluation()` to update the remediation record
+3. In the `finally` block, call `job.request._cleanupFn?.()` (with try/catch) to clean up the patched clone directory
+
+### 6. Git Operations — `src/shared/remediation/git-operations.ts`
+
+Add `applyPatch(cwd: string, patchContent: string): Promise<void>`:
+
+- Write patch to a temp file in the cwd
+- Run `git apply --whitespace=fix <tempfile>`
+- Clean up temp file regardless of result
+- Throw descriptive error on failure
+
+### 7. API Endpoint — `src/api/routes/remediation.ts`
+
+Add `evaluateImpact(req: Request, remediationId: string): Promise<Response>`:
+
+1. Fetch remediation from DB, validate it's completed with a patch
+2. If `resultEvaluationId` already set → check if job is still running (return 409) or completed (return existing ID with `status: "already_exists"`)
+3. Fetch parent evaluation to get `repositoryUrl`, `gitBranch`, `gitCommitSha`
+4. Guard: no `repositoryUrl` → return 400 with `NO_REPO_URL`
+5. Clone repo via `cloneRepository(url, { branch, commitSha })` — already supports both options
+6. Apply patch via `applyPatch(cloneResult.path, remediation.fullPatch)`
+   - On failure: cleanup clone, return 422 with git apply error
+7. Submit evaluation job via `jobManager.submitJob()` with:
+   - `localPath: cloneResult.path`
+   - `repositoryUrl: parentRecord.repositoryUrl` (so the re-evaluation shows the same repo URL)
+   - `_cleanupFn: cloneResult.cleanup`
+   - `_parentEvaluationId: remediation.evaluationId`
+   - `_sourceRemediationId: remediationId`
+8. Return `{ jobId, sseUrl, status: "queued" }`
+
+### 8. Route Registration — `src/api/index.ts`
+
+Add route for `POST /api/remediation/:id/evaluate` — insert BEFORE the `GET /api/remediation/:id/progress` pattern (line ~328):
+
+```typescript
+if (path.match(/^\/api\/remediation\/[^/]+\/evaluate$/) && req.method === "POST") {
+  const remediationId = path.split("/")[3]!;
+  return this.remediationRoutes.evaluateImpact(req, remediationId);
+}
+```
+
+### 9. Frontend Types — `frontend/src/types/remediation.ts`
+
+Add `resultEvaluationId: string | null` to `RemediationHistoryItem`.
+
+### 10. Frontend API Hook — `frontend/src/hooks/useEvaluationApi.ts`
+
+Add:
+- `evaluateRemediationImpact(remediationId: string)` → `POST /api/remediation/:id/evaluate` → returns `{ jobId, sseUrl, status }`
+- `getEvaluationScore(evaluationId: string)` → `GET /api/evaluations/:id` → returns `{ contextScore, contextGrade }` (lightweight, only needs score data)
+
+### 11. Frontend — `RemediationHistoryCard.tsx`
+
+Add new props:
+- `parentScore?: number`, `parentGrade?: string` — from the original evaluation
+- `onEvaluateImpact?: () => void` — callback to trigger re-evaluation
+- `impactEvalStatus?: "idle" | "running" | "completed" | "failed"` — current state
+- `impactScore?: number`, `impactGrade?: string` — from the re-evaluation
+
+UI additions in the card header/stats area:
+- **"Evaluate Impact" button**: shown when `item.status === "completed"` and no active re-evaluation exists
+- **Score comparison**: when impact score is available, show `{parentScore} → {impactScore} ({delta})` with green/red coloring
+- **Spinner**: when re-evaluation is running
+
+### 12. Frontend — `RemediationHistory.tsx`
+
+This component orchestrates the impact evaluation state across all remediation cards:
+
+- State: `Map<remediationId, { jobId, status, score, grade }>` for tracking re-evaluations
+- On mount: for each remediation with `resultEvaluationId`, fetch the linked evaluation's score
+- `handleEvaluateImpact(remediationId)`:
+  1. Call `api.evaluateRemediationImpact(remediationId)`
+  2. Connect to SSE `GET /api/evaluate/:jobId/progress`
+  3. On `job.completed`: fetch score, update state, refresh remediation list
+  4. On `job.failed`: update state to failed
+- Pass `parentScore`, `impactEvalStatus`, `impactScore` down to each `RemediationHistoryCard`
+
+### 13. Frontend — `RemediateTab.tsx`
+
+Pass `parentScore` and `parentGrade` from `evaluationData.metadata.contextScore` down to `RemediationHistory`.
+
+## Files Modified (in implementation order)
+
+1. `src/api/db/database.ts` — schema migration
+2. `src/shared/types/api.ts` — extend `IEvaluateRequest`
+3. `src/api/db/evaluation-repository.ts` — new columns in save/read
+4. `src/api/db/remediation-repository.ts` — `resultEvaluationId` + `linkResultEvaluation()`
+5. `src/api/jobs/job-manager.ts` — cleanup hook + linking in `executeJob()`
+6. `src/shared/remediation/git-operations.ts` — `applyPatch()` function
+7. `src/api/routes/remediation.ts` — `evaluateImpact()` method
+8. `src/api/index.ts` — register new route
+9. `frontend/src/types/remediation.ts` — `resultEvaluationId` field
+10. `frontend/src/hooks/useEvaluationApi.ts` — new API functions
+11. `frontend/src/components/RemediationHistoryCard.tsx` — button + score display
+12. `frontend/src/components/RemediationHistory.tsx` — state management + SSE
+13. `frontend/src/components/RemediateTab.tsx` — pass parent score
+
+## Edge Cases
+
+- **Patch fails to apply**: Return 422 with git apply error, clean up clone
+- **Re-evaluation already exists**: Return existing evaluation ID (idempotent)
+- **Concurrent re-evaluation**: Return 409 if job is still running
+- **No repository URL** (imported/local evaluations): Return 400, button disabled in UI
+- **Commit SHA not found** (force-pushed): `cloneRepository` falls back to branch HEAD (existing behavior)
+- **Clone cleanup**: `_cleanupFn` called in `executeJob()` finally block, always runs
+
+## Verification
+
+1. Run `bun run test` after each step to catch regressions
+2. Start dev server (`bun run dev`), run an evaluation, remediate some issues
+3. Click "Evaluate Impact" on a remediation card — verify:
+   - Progress indicator appears
+   - SSE events flow correctly (reuses existing evaluation SSE)
+   - Score comparison renders with correct before/after values
+   - New evaluation appears in `/recent` list with linked parent
+4. Verify edge cases: click button twice (idempotent), try on failed remediation (button hidden)
+5. Run `bun run lint` at the end
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+commit and update @changelog

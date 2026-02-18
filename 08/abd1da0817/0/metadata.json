@@ -1,0 +1,96 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "08abd1da0817",
+  "session_id": "44d06b83-b7e0-4247-8e2c-96860add3e68",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-18T14:28:44.309637Z",
+  "branch": "main",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "CHANGELOG.md",
+    "frontend/src/components/RemediateTab.tsx",
+    "frontend/src/components/RemediationHistory.tsx",
+    "frontend/src/components/RemediationHistoryCard.tsx",
+    "frontend/src/hooks/useEvaluationApi.ts",
+    "frontend/src/types/remediation.ts",
+    "src/api/db/database.ts",
+    "src/api/db/evaluation-repository.ts",
+    "src/api/db/remediation-repository.ts",
+    "src/api/index.ts",
+    "src/api/jobs/job-manager.ts",
+    "src/api/routes/remediation.ts",
+    "src/shared/remediation/git-operations.ts",
+    "src/shared/types/api.ts"
+  ],
+  "agent": "Claude Code",
+  "token_usage": {
+    "input_tokens": 83,
+    "cache_creation_tokens": 137789,
+    "cache_read_tokens": 8848092,
+    "output_tokens": 3835,
+    "api_call_count": 79
+  },
+  "summary": {
+    "intent": "Implement a 'Remediation Impact Evaluation' feature that clones a repo, applies a remediation patch, runs a full analysis, and displays a before/after score comparison on the Remediate tab.",
+    "outcome": "All 13 files were successfully implemented across backend and frontend, with 1274 tests passing, lint clean, and TypeScript type-checking passing. The feature was committed as a single commit (345c4c3) along with CHANGELOG.md updates.",
+    "learnings": {
+      "repo": [
+        "Database schema migrations use a try/catch ALTER TABLE pattern in initializeDatabase() in src/api/db/database.ts",
+        "The project uses Bun as the runtime (bun run test, bun run dev, bun run lint)",
+        "cloneRepository() in git-operations.ts already supports both branch and commitSha options, with fallback to branch HEAD if commit SHA is not found",
+        "The frontend Metadata type does not declare repositoryUrl even though it exists at runtime in the API response — runtime cast needed",
+        "Pre-commit hooks enforce lint, so lint must pass before committing; auto-fix with bun run lint --fix resolves most issues",
+        "The repo had pre-existing staged files (logo SVGs) unrelated to the feature at commit time"
+      ],
+      "code": [
+        {
+          "path": "src/api/db/evaluation-repository.ts",
+          "finding": "saveEvaluation(), saveFailedEvaluation(), and rowToHistoryItem() all needed updates to carry parentEvaluationId and sourceRemediationId through the full persistence pipeline"
+        },
+        {
+          "path": "src/api/jobs/job-manager.ts",
+          "line": 386,
+          "finding": "After saveEvaluation(), linkResultEvaluation() should be called when _sourceRemediationId is set; _cleanupFn() belongs in the finally block with its own try/catch"
+        },
+        {
+          "path": "src/api/index.ts",
+          "line": 328,
+          "finding": "New POST /api/remediation/:id/evaluate route must be registered BEFORE the GET /api/remediation/:id/progress pattern to avoid incorrect route matching"
+        },
+        {
+          "path": "src/api/routes/remediation.ts",
+          "finding": "evaluateImpact() implements idempotency: if resultEvaluationId already set, returns 409 if job still running or existing ID with status 'already_exists' if completed"
+        },
+        {
+          "path": "frontend/src/types/evaluation.ts",
+          "finding": "The frontend Metadata interface lacks repositoryUrl declaration despite it being present at runtime in API responses — a type assertion is needed to access it safely"
+        }
+      ],
+      "workflow": [
+        "Running bun run test after each major step catches regressions early across 1274 tests",
+        "Pre-existing lint failures in unrelated staged files can block commits — auto-fixing and re-staging them is necessary even when they are not part of the current feature",
+        "When committing a large feature, stage only the feature-specific files explicitly rather than using git add -A to avoid accidentally including unrelated staged changes",
+        "The CHANGELOG.md existed at project root but was not discovered via Glob initially — a direct Read of the known path resolved this"
+      ]
+    },
+    "friction": [
+      "Pre-commit hook failed due to pre-existing lint errors in already-staged files (ContextTab.tsx, ContextTreeView.tsx, ContentBrowserModal, LinkedDocsBrowserModal, build-context-tree) unrelated to the current feature — required auto-fixing and re-staging before the commit succeeded",
+      "Frontend Metadata type does not expose repositoryUrl, requiring a runtime type assertion rather than a clean typed access",
+      "CHANGELOG.md was not found by Glob pattern searches and required a direct Read to discover it existed"
+    ],
+    "open_items": [
+      "The frontend Metadata type should be updated to formally declare repositoryUrl to avoid the runtime type assertion workaround",
+      "The pre-existing logo SVG files were staged but not committed as part of this feature — they remain staged and will need to be committed separately",
+      "Manual verification steps listed in the plan (clicking 'Evaluate Impact', verifying SSE events, score comparison rendering) were not performed — only automated tests, lint, and typecheck were validated"
+    ]
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-18T14:28:17.194071Z",
+    "agent_lines": 625,
+    "human_added": 1727,
+    "human_modified": 19,
+    "human_removed": 0,
+    "total_committed": 2371,
+    "agent_percentage": 26.360185575706453
+  }
+}
