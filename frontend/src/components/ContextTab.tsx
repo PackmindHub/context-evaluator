@@ -352,7 +352,7 @@ export const ContextTab: React.FC<ContextTabProps> = ({ metadata }) => {
 								count={agentsMdCount}
 								paths={sortedAgentsMdPaths}
 								onAction={() => setContextFilesModalType("agents")}
-								actionLabel="Browse"
+								actionLabel="Display all"
 							/>
 						</SectionCard>
 					)}
@@ -371,7 +371,7 @@ export const ContextTab: React.FC<ContextTabProps> = ({ metadata }) => {
 								count={claudeMdCount}
 								paths={sortedClaudeMdPaths}
 								onAction={() => setContextFilesModalType("claude")}
-								actionLabel="Browse"
+								actionLabel="Display all"
 							/>
 							<FileRow
 								label="Rules"
@@ -379,7 +379,7 @@ export const ContextTab: React.FC<ContextTabProps> = ({ metadata }) => {
 								count={rulesCount}
 								paths={sortedRulesPaths}
 								onAction={() => setContextFilesModalType("rules")}
-								actionLabel="Browse"
+								actionLabel="Display all"
 							/>
 							{claudeSkillsCount > 0 && (
 								<ItemRow
@@ -413,7 +413,7 @@ export const ContextTab: React.FC<ContextTabProps> = ({ metadata }) => {
 								count={copilotInstructionsCount}
 								paths={sortedCopilotInstructionsPaths}
 								onAction={() => setContextFilesModalType("copilot")}
-								actionLabel="Browse"
+								actionLabel="Display all"
 							/>
 							{copilotSkills.length > 0 && (
 								<ItemRow
@@ -447,7 +447,7 @@ export const ContextTab: React.FC<ContextTabProps> = ({ metadata }) => {
 								count={cursorRulesCount}
 								paths={sortedCursorRulesPaths}
 								onAction={() => setContextFilesModalType("cursor-rules")}
-								actionLabel="Browse"
+								actionLabel="Display all"
 							/>
 							{cursorSkills.length > 0 && (
 								<ItemRow
