@@ -9,6 +9,10 @@ import type {
 	RemediationHistoryItem,
 	RemediationResult,
 } from "../types/remediation";
+import {
+	countPackmindArtifacts,
+	formatArtifactCount,
+} from "../utils/packmind-artifacts";
 import { FileChangeCard } from "./FileChangeCard";
 import { PatchDownload } from "./PatchDownload";
 import { PackmindLogo } from "./shared/PackmindLogo";
@@ -37,27 +41,6 @@ function hasPackmindArtifacts(actions: RemediationAction[]): boolean {
 	return actions.some(
 		(a) => a.outputType === "standard" || a.outputType === "skill",
 	);
-}
-
-function countPackmindArtifacts(actions: RemediationAction[]): {
-	standards: number;
-	skills: number;
-} {
-	let standards = 0;
-	let skills = 0;
-	for (const a of actions) {
-		if (a.outputType === "standard") standards++;
-		else if (a.outputType === "skill") skills++;
-	}
-	return { standards, skills };
-}
-
-function formatArtifactCount(standards: number, skills: number): string {
-	const parts: string[] = [];
-	if (standards > 0)
-		parts.push(`${standards} standard${standards !== 1 ? "s" : ""}`);
-	if (skills > 0) parts.push(`${skills} skill${skills !== 1 ? "s" : ""}`);
-	return parts.join(" & ");
 }
 
 function formatTimestamp(iso: string): string {
