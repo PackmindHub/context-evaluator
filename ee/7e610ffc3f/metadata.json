@@ -1,0 +1,26 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "ee7e610ffc3f",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "frontend/src/components/ContextTreeView.tsx"
+  ],
+  "sessions": [
+    {
+      "metadata": "/ee/7e610ffc3f/0/metadata.json",
+      "transcript": "/ee/7e610ffc3f/0/full.jsonl",
+      "context": "/ee/7e610ffc3f/0/context.md",
+      "content_hash": "/ee/7e610ffc3f/0/content_hash.txt",
+      "prompt": "/ee/7e610ffc3f/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 17,
+    "cache_creation_tokens": 14603,
+    "cache_read_tokens": 805101,
+    "output_tokens": 457,
+    "api_call_count": 13
+  }
+}
