@@ -3,10 +3,16 @@
   "checkpoint_id": "95cc2ca9e65d",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 1,
+  "checkpoints_count": 5,
   "files_touched": [
+    "frontend/src/components/AgentLogos.tsx",
     "frontend/src/components/ContextTab.tsx",
+    "frontend/src/components/ContextTreeView.tsx",
     "frontend/src/components/RemediateTab.tsx",
+    "frontend/src/components/shared/ContentBrowserModal.tsx",
+    "frontend/src/components/shared/ContextFilesBrowserModal.tsx",
+    "frontend/src/components/shared/LinkedDocsBrowserModal.tsx",
+    "frontend/src/components/shared/SkillsBrowserModal.tsx",
     "frontend/src/lib/build-context-tree.ts"
   ],
   "sessions": [
@@ -23,13 +29,20 @@
       "context": "/95/cc2ca9e65d/1/context.md",
       "content_hash": "/95/cc2ca9e65d/1/content_hash.txt",
       "prompt": "/95/cc2ca9e65d/1/prompt.txt"
+    },
+    {
+      "metadata": "/95/cc2ca9e65d/2/metadata.json",
+      "transcript": "/95/cc2ca9e65d/2/full.jsonl",
+      "context": "/95/cc2ca9e65d/2/context.md",
+      "content_hash": "/95/cc2ca9e65d/2/content_hash.txt",
+      "prompt": "/95/cc2ca9e65d/2/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 51,
-    "cache_creation_tokens": 93265,
-    "cache_read_tokens": 2344107,
-    "output_tokens": 3635,
-    "api_call_count": 43
+    "input_tokens": 168,
+    "cache_creation_tokens": 289860,
+    "cache_read_tokens": 12038040,
+    "output_tokens": 17887,
+    "api_call_count": 150
   }
 }

@@ -1,0 +1,2048 @@
+Implement the following plan:
+
+# Plan: Tree View for Context Tab
+
+## Context
+
+The Context tab currently shows a flat list of context files grouped by agent (AGENTS.md, Claude Code, GitHub Copilot, Cursor). The user wants an alternative **tree view** that displays the same files as a navigable directory hierarchy, with a toggle to switch between the two views. Clicking a file in the tree should open the existing content browser modal with rendered markdown.
+
+## Approach
+
+### 1. Install Chakra UI v3
+
+```bash
+cd frontend && bun add @chakra-ui/react @emotion/react
+```
+
+Chakra UI v3 uses Ark UI under the hood for the TreeView component. We'll use `createTreeCollection` and `TreeView.*` components from the docs the user provided.
+
+**Style conflict mitigation:**
+- Wrap **only** the tree view component in a scoped `ChakraProvider` (not the entire app) to minimize global style interference
+- Use `resetCSS={false}` to prevent Chakra from overriding Tailwind's global styles
+- Apply custom theme overrides to match the existing dark slate palette
+
+### 2. Create tree data builder utility
+
+**New file: `frontend/src/lib/build-context-tree.ts`**
+
+- Define `TreeNode` interface: `{ id: string; name: string; type?: string; path?: string; children?: TreeNode[] }`
+- `buildContextTree(contextFiles, skills, linkedDocs)` function:
+  1. Collect all items into flat `{ path, type }` entries
+  2. Split each path on `/` to get segments
+  3. Walk/create nested directory nodes, insert file leaf at final segment
+  4. Sort: directories first (alphabetically), then files (alphabetically)
+  5. Return `TreeNode[]` (root-level nodes)
+
+### 3. Create `ContextTreeView` component
+
+**New file: `frontend/src/components/ContextTreeView.tsx`**
+
+- Uses Chakra UI's `TreeView.Root`, `TreeView.Tree`, `TreeView.Node` with `createTreeCollection`
+- Scoped `ChakraProvider` wrapping only this component
+- Folder/file icons using existing SVG icon patterns from `ContextTab.tsx`
+- Custom theme to match slate/dark palette:
+  - Background transparent (inherits glass-card parent)
+  - Text colors: slate-300 for names, slate-500 for metadata
+  - Hover: `bg-slate-800/30`
+  - Selected: `bg-indigo-600/30` (matches `ContentBrowserModal` selection style)
+- Props: `contextFiles`, `skills`, `linkedDocs`, `onFileClick(path, type)`
+- Uses `TreeView.Node` shortcut pattern for recursive rendering
+- File type badges on leaf nodes (agents, claude, rules, skills, etc.)
+
+### 4. Modify `ContextTab.tsx` - Add view toggle
+
+- Add `viewMode` state: `"list" | "tree"` (default: `"list"`)
+- Add toggle button group at top-right of the component (before section cards):
+  - List icon button (active when `viewMode === "list"`)
+  - Tree icon button (active when `viewMode === "tree"`)
+  - Styled: `bg-slate-800/50 rounded-lg` container, active state `bg-slate-700 text-slate-200`
+- Conditionally render:
+  - `viewMode === "list"` → existing SectionCard blocks (unchanged)
+  - `viewMode === "tree"` → `<ContextTreeView>` component
+
+### 5. Wire file click to existing modals
+
+When `onFileClick(path, type)` is called from the tree:
+- For context files (agents, claude, copilot, rules, cursor-rules): open `ContextFilesBrowserModal` with all files, pre-selecting the clicked file
+- For skills: open `SkillsBrowserModal` pre-selecting the clicked skill
+- For linked docs: open `LinkedDocsBrowserModal` pre-selecting the clicked doc
+
+**Modify `ContentBrowserModal.tsx`:**
+- Add optional `initialSelectedId?: string` prop
+- In the `useEffect` that runs on `isOpen`, if `initialSelectedId` is provided, find the matching item index and set `selectedItemIndex` to it
+
+**Modify `ContextFilesBrowserModal.tsx`:**
+- Add optional `initialSelectedPath?: string` prop, pass through as `initialSelectedId` to `ContentBrowserModal`
+
+**Modify `SkillsBrowserModal.tsx` and `LinkedDocsBrowserModal.tsx`:**
+- Add optional `initialSelectedPath?: string` prop for pre-selection
+
+### 6. Rebuild CSS
+
+```bash
+cd frontend && bun run css:build
+```
+
+## Files to create
+- `frontend/src/lib/build-context-tree.ts` - Tree data builder utility + types
+- `frontend/src/components/ContextTreeView.tsx` - Tree view component with Chakra UI
+
+## Files to modify
+- `frontend/package.json` - Add Chakra UI dependencies
+- `frontend/src/components/ContextTab.tsx` - Add toggle state + conditional rendering
+- `frontend/src/components/shared/ContentBrowserModal.tsx` - Add `initialSelectedId` prop
+- `frontend/src/components/shared/ContextFilesBrowserModal.tsx` - Pass through `initialSelectedPath`
+- `frontend/src/components/shared/SkillsBrowserModal.tsx` - Add `initialSelectedPath` prop
+- `frontend/src/components/shared/LinkedDocsBrowserModal.tsx` - Add `initialSelectedPath` prop
+
+## Verification
+
+1. `bun run test` - All existing tests pass
+2. `bun run lint` - No lint errors
+3. `bun run typecheck` - TypeScript compiles
+4. `cd frontend && bun run css:build` - CSS rebuilds
+5. `bun run dev` - Manual testing:
+   - Context tab loads in list view (default)
+   - Toggle switches to tree view showing all context files in directory hierarchy
+   - Tree nodes expand/collapse correctly
+   - Clicking a file in the tree opens the appropriate modal with that file pre-selected
+   - Toggle back to list view preserves existing behavior
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+Make these two button "List / Tree" more visible, on the left side, and maybe create a frame that encompass the whole content below ?
+
+---
+
+The "Tree view" makes everything bugged. [App] Not an active job, trying database
+2chunk-z33mq3ks.js:31200 Uncaught ContextError: useContext returned `undefined`. Seems you forgot to wrap component within <ChakraProvider />
+    at useSlotRecipe (chunk-z33mq3ks.js:35506:15)
+    at useRecipeResult (chunk-z33mq3ks.js:35536:24)
+    at chunk-z33mq3ks.js:35565:56
+    at renderWithHooks (chunk-z33mq3ks.js:12870:24)
+    at updateForwardRef (chunk-z33mq3ks.js:15631:26)
+    at beginWork (chunk-z33mq3ks.js:17160:20)
+    at HTMLUnknownElement.callCallback2 (chunk-z33mq3ks.js:5273:20)
+    at Object.invokeGuardedCallbackDev (chunk-z33mq3ks.js:5297:22)
+    at invokeGuardedCallback (chunk-z33mq3ks.js:5331:37)
+    at beginWork$1 (chunk-z33mq3ks.js:20948:13)Understand this error
+chunk-z33mq3ks.js:15346 The above error occurred in the <ForwardRef> component:
+
+    at http://localhost:3000/chunk-z33mq3ks.js:35563:28
+    at div
+    at ContextTreeView (http://localhost:3000/chunk-z33mq3ks.js:35837:3)
+    at div
+    at div
+    at div
+    at ContextTab (http://localhost:3000/chunk-z33mq3ks.js:48511:21)
+    at div
+    at TabPanel (http://localhost:3000/chunk-z33mq3ks.js:50931:3)
+    at div
+    at main
+    at div
+    at AppContent (http://localhost:3000/chunk-z33mq3ks.js:59520:64)
+    at RenderedRoute (http://localhost:3000/chunk-z33mq3ks.js:26426:26)
+    at Routes (http://localhost:3000/chunk-z33mq3ks.js:26673:3)
+    at AppRoutes (http://localhost:3000/chunk-z33mq3ks.js:61119:44)
+    at Router (http://localhost:3000/chunk-z33mq3ks.js:26623:13)
+    at BrowserRouter (http://localhost:3000/chunk-z33mq3ks.js:27172:3)
+    at FeatureFlagProvider (http://localhost:3000/chunk-z33mq3ks.js:27699:3)
+    at App
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+logCapturedError @ chunk-z33mq3ks.js:15346Understand this error
+chunk-z33mq3ks.js:10480 Uncaught ContextError: useContext returned `undefined`. Seems you forgot to wrap component within <ChakraProvider />
+    at useSlotRecipe (chunk-z33mq3ks.js:35506:15)
+    at useRecipeResult (chunk-z33mq3ks.js:35536:24)
+    at chunk-z33mq3ks.js:35565:56
+    at renderWithHooks (chunk-z33mq3ks.js:12870:24)
+    at updateForwardRef (chunk-z33mq3ks.js:15631:26)
+    at beginWork (chunk-z33mq3ks.js:17160:20)
+    at beginWork$1 (chunk-z33mq3ks.js:20936:20)
+    at performUnitOfWork (chunk-z33mq3ks.js:20380:18)
+    at workLoopSync (chunk-z33mq3ks.js:20316:11)
+    at renderRootSync (chunk-z33mq3ks.js:20295:13)Understand this error
+
+---
+
+Seems to work but I've plenty of warning in the console: arning: Encountered two children with the same key, `.claude/skills/create-skill/SKILL.md`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version.
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:32919:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at TreeViewImpl (http://localhost:3000/chunk-36jrqfj4.js:32896:20)
+    at div
+    at ContextTreeView (http://localhost:3000/chunk-36jrqfj4.js:33148:3)
+    at div
+    at div
+    at div
+    at ContextTab (http://localhost:3000/chunk-36jrqfj4.js:45827:21)
+    at div
+    at TabPanel (http://localhost:3000/chunk-36jrqfj4.js:48242:3)
+    at div
+    at main
+    at div
+    at AppContent (http://localhost:3000/chunk-36jrqfj4.js:56843:64)
+    at RenderedRoute (http://localhost:3000/chunk-36jrqfj4.js:26184:26)
+    at Routes (http://localhost:3000/chunk-36jrqfj4.js:26431:3)
+    at AppRoutes (http://localhost:3000/chunk-36jrqfj4.js:58442:44)
+    at Router (http://localhost:3000/chunk-36jrqfj4.js:26381:13)
+    at BrowserRouter (http://localhost:3000/chunk-36jrqfj4.js:26930:3)
+    at FeatureFlagProvider (http://localhost:3000/chunk-36jrqfj4.js:27457:3)
+    at App
+printWarning @ chunk-36jrqfj4.js:2338
+error @ chunk-36jrqfj4.js:2322
+warnOnInvalidKey @ chunk-36jrqfj4.js:11554
+reconcileChildrenArray @ chunk-36jrqfj4.js:11570
+reconcileChildFibers2 @ chunk-36jrqfj4.js:11888
+reconcileChildren @ chunk-36jrqfj4.js:15602
+updateHostComponent @ chunk-36jrqfj4.js:16081
+beginWork @ chunk-36jrqfj4.js:17149
+beginWork$1 @ chunk-36jrqfj4.js:20936
+performUnitOfWork @ chunk-36jrqfj4.js:20380
+workLoopSync @ chunk-36jrqfj4.js:20316
+renderRootSync @ chunk-36jrqfj4.js:20295
+performSyncWorkOnRoot @ chunk-36jrqfj4.js:20054
+flushSyncCallbacks @ chunk-36jrqfj4.js:10470
+(anonymous) @ chunk-36jrqfj4.js:19808Understand this error
+chunk-36jrqfj4.js:2338 Warning: Encountered two children with the same key, `.claude/skills/git-commit-guidelines/SKILL.md`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version.
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:32919:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at TreeViewImpl (http://localhost:3000/chunk-36jrqfj4.js:32896:20)
+    at div
+    at ContextTreeView (http://localhost:3000/chunk-36jrqfj4.js:33148:3)
+    at div
+    at div
+    at div
+    at ContextTab (http://localhost:3000/chunk-36jrqfj4.js:45827:21)
+    at div
+    at TabPanel (http://localhost:3000/chunk-36jrqfj4.js:48242:3)
+    at div
+    at main
+    at div
+    at AppContent (http://localhost:3000/chunk-36jrqfj4.js:56843:64)
+    at RenderedRoute (http://localhost:3000/chunk-36jrqfj4.js:26184:26)
+    at Routes (http://localhost:3000/chunk-36jrqfj4.js:26431:3)
+    at AppRoutes (http://localhost:3000/chunk-36jrqfj4.js:58442:44)
+    at Router (http://localhost:3000/chunk-36jrqfj4.js:26381:13)
+    at BrowserRouter (http://localhost:3000/chunk-36jrqfj4.js:26930:3)
+    at FeatureFlagProvider (http://localhost:3000/chunk-36jrqfj4.js:27457:3)
+    at App
+printWarning @ chunk-36jrqfj4.js:2338
+error @ chunk-36jrqfj4.js:2322
+warnOnInvalidKey @ chunk-36jrqfj4.js:11554
+reconcileChildrenArray @ chunk-36jrqfj4.js:11570
+reconcileChildFibers2 @ chunk-36jrqfj4.js:11888
+reconcileChildren @ chunk-36jrqfj4.js:15602
+updateHostComponent @ chunk-36jrqfj4.js:16081
+beginWork @ chunk-36jrqfj4.js:17149
+beginWork$1 @ chunk-36jrqfj4.js:20936
+performUnitOfWork @ chunk-36jrqfj4.js:20380
+workLoopSync @ chunk-36jrqfj4.js:20316
+renderRootSync @ chunk-36jrqfj4.js:20295
+performSyncWorkOnRoot @ chunk-36jrqfj4.js:20054
+flushSyncCallbacks @ chunk-36jrqfj4.js:10470
+(anonymous) @ chunk-36jrqfj4.js:19808Understand this error
+chunk-36jrqfj4.js:2338 Warning: Encountered two children with the same key, `.claude/skills/learning-loop/SKILL.md`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version.
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:32919:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at TreeViewImpl (http://localhost:3000/chunk-36jrqfj4.js:32896:20)
+    at div
+    at ContextTreeView (http://localhost:3000/chunk-36jrqfj4.js:33148:3)
+    at div
+    at div
+    at div
+    at ContextTab (http://localhost:3000/chunk-36jrqfj4.js:45827:21)
+    at div
+    at TabPanel (http://localhost:3000/chunk-36jrqfj4.js:48242:3)
+    at div
+    at main
+    at div
+    at AppContent (http://localhost:3000/chunk-36jrqfj4.js:56843:64)
+    at RenderedRoute (http://localhost:3000/chunk-36jrqfj4.js:26184:26)
+    at Routes (http://localhost:3000/chunk-36jrqfj4.js:26431:3)
+    at AppRoutes (http://localhost:3000/chunk-36jrqfj4.js:58442:44)
+    at Router (http://localhost:3000/chunk-36jrqfj4.js:26381:13)
+    at BrowserRouter (http://localhost:3000/chunk-36jrqfj4.js:26930:3)
+    at FeatureFlagProvider (http://localhost:3000/chunk-36jrqfj4.js:27457:3)
+    at App
+printWarning @ chunk-36jrqfj4.js:2338
+error @ chunk-36jrqfj4.js:2322
+warnOnInvalidKey @ chunk-36jrqfj4.js:11554
+reconcileChildrenArray @ chunk-36jrqfj4.js:11570
+reconcileChildFibers2 @ chunk-36jrqfj4.js:11888
+reconcileChildren @ chunk-36jrqfj4.js:15602
+updateHostComponent @ chunk-36jrqfj4.js:16081
+beginWork @ chunk-36jrqfj4.js:17149
+beginWork$1 @ chunk-36jrqfj4.js:20936
+performUnitOfWork @ chunk-36jrqfj4.js:20380
+workLoopSync @ chunk-36jrqfj4.js:20316
+renderRootSync @ chunk-36jrqfj4.js:20295
+performSyncWorkOnRoot @ chunk-36jrqfj4.js:20054
+flushSyncCallbacks @ chunk-36jrqfj4.js:10470
+(anonymous) @ chunk-36jrqfj4.js:19808Understand this error
+chunk-36jrqfj4.js:2338 Warning: Encountered two children with the same key, `.claude/skills/packmind-cli-list-commands/SKILL.md`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version.
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:32919:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at TreeViewImpl (http://localhost:3000/chunk-36jrqfj4.js:32896:20)
+    at div
+    at ContextTreeView (http://localhost:3000/chunk-36jrqfj4.js:33148:3)
+    at div
+    at div
+    at div
+    at ContextTab (http://localhost:3000/chunk-36jrqfj4.js:45827:21)
+    at div
+    at TabPanel (http://localhost:3000/chunk-36jrqfj4.js:48242:3)
+    at div
+    at main
+    at div
+    at AppContent (http://localhost:3000/chunk-36jrqfj4.js:56843:64)
+    at RenderedRoute (http://localhost:3000/chunk-36jrqfj4.js:26184:26)
+    at Routes (http://localhost:3000/chunk-36jrqfj4.js:26431:3)
+    at AppRoutes (http://localhost:3000/chunk-36jrqfj4.js:58442:44)
+    at Router (http://localhost:3000/chunk-36jrqfj4.js:26381:13)
+    at BrowserRouter (http://localhost:3000/chunk-36jrqfj4.js:26930:3)
+    at FeatureFlagProvider (http://localhost:3000/chunk-36jrqfj4.js:27457:3)
+    at App
+printWarning @ chunk-36jrqfj4.js:2338
+error @ chunk-36jrqfj4.js:2322
+warnOnInvalidKey @ chunk-36jrqfj4.js:11554
+reconcileChildrenArray @ chunk-36jrqfj4.js:11570
+reconcileChildFibers2 @ chunk-36jrqfj4.js:11888
+reconcileChildren @ chunk-36jrqfj4.js:15602
+updateHostComponent @ chunk-36jrqfj4.js:16081
+beginWork @ chunk-36jrqfj4.js:17149
+beginWork$1 @ chunk-36jrqfj4.js:20936
+performUnitOfWork @ chunk-36jrqfj4.js:20380
+workLoopSync @ chunk-36jrqfj4.js:20316
+renderRootSync @ chunk-36jrqfj4.js:20295
+performSyncWorkOnRoot @ chunk-36jrqfj4.js:20054
+flushSyncCallbacks @ chunk-36jrqfj4.js:10470
+(anonymous) @ chunk-36jrqfj4.js:19808Understand this error
+chunk-36jrqfj4.js:2338 Warning: Encountered two children with the same key, `.claude/skills/packmind-create-command/SKILL.md`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version.
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:32919:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at TreeViewImpl (http://localhost:3000/chunk-36jrqfj4.js:32896:20)
+    at div
+    at ContextTreeView (http://localhost:3000/chunk-36jrqfj4.js:33148:3)
+    at div
+    at div
+    at div
+    at ContextTab (http://localhost:3000/chunk-36jrqfj4.js:45827:21)
+    at div
+    at TabPanel (http://localhost:3000/chunk-36jrqfj4.js:48242:3)
+    at div
+    at main
+    at div
+    at AppContent (http://localhost:3000/chunk-36jrqfj4.js:56843:64)
+    at RenderedRoute (http://localhost:3000/chunk-36jrqfj4.js:26184:26)
+    at Routes (http://localhost:3000/chunk-36jrqfj4.js:26431:3)
+    at AppRoutes (http://localhost:3000/chunk-36jrqfj4.js:58442:44)
+    at Router (http://localhost:3000/chunk-36jrqfj4.js:26381:13)
+    at BrowserRouter (http://localhost:3000/chunk-36jrqfj4.js:26930:3)
+    at FeatureFlagProvider (http://localhost:3000/chunk-36jrqfj4.js:27457:3)
+    at App
+printWarning @ chunk-36jrqfj4.js:2338
+error @ chunk-36jrqfj4.js:2322
+warnOnInvalidKey @ chunk-36jrqfj4.js:11554
+reconcileChildrenArray @ chunk-36jrqfj4.js:11570
+reconcileChildFibers2 @ chunk-36jrqfj4.js:11888
+reconcileChildren @ chunk-36jrqfj4.js:15602
+updateHostComponent @ chunk-36jrqfj4.js:16081
+beginWork @ chunk-36jrqfj4.js:17149
+beginWork$1 @ chunk-36jrqfj4.js:20936
+performUnitOfWork @ chunk-36jrqfj4.js:20380
+workLoopSync @ chunk-36jrqfj4.js:20316
+renderRootSync @ chunk-36jrqfj4.js:20295
+performSyncWorkOnRoot @ chunk-36jrqfj4.js:20054
+flushSyncCallbacks @ chunk-36jrqfj4.js:10470
+(anonymous) @ chunk-36jrqfj4.js:19808Understand this error
+chunk-36jrqfj4.js:2338 Warning: Encountered two children with the same key, `.claude/skills/packmind-create-package/SKILL.md`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version.
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:32919:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at TreeViewImpl (http://localhost:3000/chunk-36jrqfj4.js:32896:20)
+    at div
+    at ContextTreeView (http://localhost:3000/chunk-36jrqfj4.js:33148:3)
+    at div
+    at div
+    at div
+    at ContextTab (http://localhost:3000/chunk-36jrqfj4.js:45827:21)
+    at div
+    at TabPanel (http://localhost:3000/chunk-36jrqfj4.js:48242:3)
+    at div
+    at main
+    at div
+    at AppContent (http://localhost:3000/chunk-36jrqfj4.js:56843:64)
+    at RenderedRoute (http://localhost:3000/chunk-36jrqfj4.js:26184:26)
+    at Routes (http://localhost:3000/chunk-36jrqfj4.js:26431:3)
+    at AppRoutes (http://localhost:3000/chunk-36jrqfj4.js:58442:44)
+    at Router (http://localhost:3000/chunk-36jrqfj4.js:26381:13)
+    at BrowserRouter (http://localhost:3000/chunk-36jrqfj4.js:26930:3)
+    at FeatureFlagProvider (http://localhost:3000/chunk-36jrqfj4.js:27457:3)
+    at App
+printWarning @ chunk-36jrqfj4.js:2338
+error @ chunk-36jrqfj4.js:2322
+warnOnInvalidKey @ chunk-36jrqfj4.js:11554
+reconcileChildrenArray @ chunk-36jrqfj4.js:11570
+reconcileChildFibers2 @ chunk-36jrqfj4.js:11888
+reconcileChildren @ chunk-36jrqfj4.js:15602
+updateHostComponent @ chunk-36jrqfj4.js:16081
+beginWork @ chunk-36jrqfj4.js:17149
+beginWork$1 @ chunk-36jrqfj4.js:20936
+performUnitOfWork @ chunk-36jrqfj4.js:20380
+workLoopSync @ chunk-36jrqfj4.js:20316
+renderRootSync @ chunk-36jrqfj4.js:20295
+performSyncWorkOnRoot @ chunk-36jrqfj4.js:20054
+flushSyncCallbacks @ chunk-36jrqfj4.js:10470
+(anonymous) @ chunk-36jrqfj4.js:19808Understand this error
+chunk-36jrqfj4.js:2338 Warning: Encountered two children with the same key, `.claude/skills/packmind-create-skill/SKILL.md`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version.
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:32919:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at TreeViewImpl (http://localhost:3000/chunk-36jrqfj4.js:32896:20)
+    at div
+    at ContextTreeView (http://localhost:3000/chunk-36jrqfj4.js:33148:3)
+    at div
+    at div
+    at div
+    at ContextTab (http://localhost:3000/chunk-36jrqfj4.js:45827:21)
+    at div
+    at TabPanel (http://localhost:3000/chunk-36jrqfj4.js:48242:3)
+    at div
+    at main
+    at div
+    at AppContent (http://localhost:3000/chunk-36jrqfj4.js:56843:64)
+    at RenderedRoute (http://localhost:3000/chunk-36jrqfj4.js:26184:26)
+    at Routes (http://localhost:3000/chunk-36jrqfj4.js:26431:3)
+    at AppRoutes (http://localhost:3000/chunk-36jrqfj4.js:58442:44)
+    at Router (http://localhost:3000/chunk-36jrqfj4.js:26381:13)
+    at BrowserRouter (http://localhost:3000/chunk-36jrqfj4.js:26930:3)
+    at FeatureFlagProvider (http://localhost:3000/chunk-36jrqfj4.js:27457:3)
+    at App
+printWarning @ chunk-36jrqfj4.js:2338
+error @ chunk-36jrqfj4.js:2322
+warnOnInvalidKey @ chunk-36jrqfj4.js:11554
+reconcileChildrenArray @ chunk-36jrqfj4.js:11570
+reconcileChildFibers2 @ chunk-36jrqfj4.js:11888
+reconcileChildren @ chunk-36jrqfj4.js:15602
+updateHostComponent @ chunk-36jrqfj4.js:16081
+beginWork @ chunk-36jrqfj4.js:17149
+beginWork$1 @ chunk-36jrqfj4.js:20936
+performUnitOfWork @ chunk-36jrqfj4.js:20380
+workLoopSync @ chunk-36jrqfj4.js:20316
+renderRootSync @ chunk-36jrqfj4.js:20295
+performSyncWorkOnRoot @ chunk-36jrqfj4.js:20054
+flushSyncCallbacks @ chunk-36jrqfj4.js:10470
+(anonymous) @ chunk-36jrqfj4.js:19808Understand this error
+chunk-36jrqfj4.js:2338 Warning: Encountered two children with the same key, `.claude/skills/packmind-create-standard/SKILL.md`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version.
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:32919:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at TreeViewImpl (http://localhost:3000/chunk-36jrqfj4.js:32896:20)
+    at div
+    at ContextTreeView (http://localhost:3000/chunk-36jrqfj4.js:33148:3)
+    at div
+    at div
+    at div
+    at ContextTab (http://localhost:3000/chunk-36jrqfj4.js:45827:21)
+    at div
+    at TabPanel (http://localhost:3000/chunk-36jrqfj4.js:48242:3)
+    at div
+    at main
+    at div
+    at AppContent (http://localhost:3000/chunk-36jrqfj4.js:56843:64)
+    at RenderedRoute (http://localhost:3000/chunk-36jrqfj4.js:26184:26)
+    at Routes (http://localhost:3000/chunk-36jrqfj4.js:26431:3)
+    at AppRoutes (http://localhost:3000/chunk-36jrqfj4.js:58442:44)
+    at Router (http://localhost:3000/chunk-36jrqfj4.js:26381:13)
+    at BrowserRouter (http://localhost:3000/chunk-36jrqfj4.js:26930:3)
+    at FeatureFlagProvider (http://localhost:3000/chunk-36jrqfj4.js:27457:3)
+    at App
+printWarning @ chunk-36jrqfj4.js:2338
+error @ chunk-36jrqfj4.js:2322
+warnOnInvalidKey @ chunk-36jrqfj4.js:11554
+reconcileChildrenArray @ chunk-36jrqfj4.js:11570
+reconcileChildFibers2 @ chunk-36jrqfj4.js:11888
+reconcileChildren @ chunk-36jrqfj4.js:15602
+updateHostComponent @ chunk-36jrqfj4.js:16081
+beginWork @ chunk-36jrqfj4.js:17149
+beginWork$1 @ chunk-36jrqfj4.js:20936
+performUnitOfWork @ chunk-36jrqfj4.js:20380
+workLoopSync @ chunk-36jrqfj4.js:20316
+renderRootSync @ chunk-36jrqfj4.js:20295
+performSyncWorkOnRoot @ chunk-36jrqfj4.js:20054
+flushSyncCallbacks @ chunk-36jrqfj4.js:10470
+(anonymous) @ chunk-36jrqfj4.js:19808Understand this error
+chunk-36jrqfj4.js:2338 Warning: Encountered two children with the same key, `.claude/skills/packmind-onboard/SKILL.md`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version.
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:32919:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at TreeViewImpl (http://localhost:3000/chunk-36jrqfj4.js:32896:20)
+    at div
+    at ContextTreeView (http://localhost:3000/chunk-36jrqfj4.js:33148:3)
+    at div
+    at div
+    at div
+    at ContextTab (http://localhost:3000/chunk-36jrqfj4.js:45827:21)
+    at div
+    at TabPanel (http://localhost:3000/chunk-36jrqfj4.js:48242:3)
+    at div
+    at main
+    at div
+    at AppContent (http://localhost:3000/chunk-36jrqfj4.js:56843:64)
+    at RenderedRoute (http://localhost:3000/chunk-36jrqfj4.js:26184:26)
+    at Routes (http://localhost:3000/chunk-36jrqfj4.js:26431:3)
+    at AppRoutes (http://localhost:3000/chunk-36jrqfj4.js:58442:44)
+    at Router (http://localhost:3000/chunk-36jrqfj4.js:26381:13)
+    at BrowserRouter (http://localhost:3000/chunk-36jrqfj4.js:26930:3)
+    at FeatureFlagProvider (http://localhost:3000/chunk-36jrqfj4.js:27457:3)
+    at App
+printWarning @ chunk-36jrqfj4.js:2338
+error @ chunk-36jrqfj4.js:2322
+warnOnInvalidKey @ chunk-36jrqfj4.js:11554
+reconcileChildrenArray @ chunk-36jrqfj4.js:11570
+reconcileChildFibers2 @ chunk-36jrqfj4.js:11888
+reconcileChildren @ chunk-36jrqfj4.js:15602
+updateHostComponent @ chunk-36jrqfj4.js:16081
+beginWork @ chunk-36jrqfj4.js:17149
+beginWork$1 @ chunk-36jrqfj4.js:20936
+performUnitOfWork @ chunk-36jrqfj4.js:20380
+workLoopSync @ chunk-36jrqfj4.js:20316
+renderRootSync @ chunk-36jrqfj4.js:20295
+performSyncWorkOnRoot @ chunk-36jrqfj4.js:20054
+flushSyncCallbacks @ chunk-36jrqfj4.js:10470
+(anonymous) @ chunk-36jrqfj4.js:19808Understand this error
+chunk-36jrqfj4.js:2338 Warning: Encountered two children with the same key, `.claude/skills/skill-creator/SKILL.md`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version.
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:32919:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at TreeViewImpl (http://localhost:3000/chunk-36jrqfj4.js:32896:20)
+    at div
+    at ContextTreeView (http://localhost:3000/chunk-36jrqfj4.js:33148:3)
+    at div
+    at div
+    at div
+    at ContextTab (http://localhost:3000/chunk-36jrqfj4.js:45827:21)
+    at div
+    at TabPanel (http://localhost:3000/chunk-36jrqfj4.js:48242:3)
+    at div
+    at main
+    at div
+    at AppContent (http://localhost:3000/chunk-36jrqfj4.js:56843:64)
+    at RenderedRoute (http://localhost:3000/chunk-36jrqfj4.js:26184:26)
+    at Routes (http://localhost:3000/chunk-36jrqfj4.js:26431:3)
+    at AppRoutes (http://localhost:3000/chunk-36jrqfj4.js:58442:44)
+    at Router (http://localhost:3000/chunk-36jrqfj4.js:26381:13)
+    at BrowserRouter (http://localhost:3000/chunk-36jrqfj4.js:26930:3)
+    at FeatureFlagProvider (http://localhost:3000/chunk-36jrqfj4.js:27457:3)
+    at App
+printWarning @ chunk-36jrqfj4.js:2338
+error @ chunk-36jrqfj4.js:2322
+warnOnInvalidKey @ chunk-36jrqfj4.js:11554
+reconcileChildrenArray @ chunk-36jrqfj4.js:11570
+reconcileChildFibers2 @ chunk-36jrqfj4.js:11888
+reconcileChildren @ chunk-36jrqfj4.js:15602
+updateHostComponent @ chunk-36jrqfj4.js:16081
+beginWork @ chunk-36jrqfj4.js:17149
+beginWork$1 @ chunk-36jrqfj4.js:20936
+performUnitOfWork @ chunk-36jrqfj4.js:20380
+workLoopSync @ chunk-36jrqfj4.js:20316
+renderRootSync @ chunk-36jrqfj4.js:20295
+performSyncWorkOnRoot @ chunk-36jrqfj4.js:20054
+flushSyncCallbacks @ chunk-36jrqfj4.js:10470
+(anonymous) @ chunk-36jrqfj4.js:19808Understand this error
+chunk-36jrqfj4.js:2338 Warning: Encountered two children with the same key, `.claude/skills/test-factory-patterns/SKILL.md`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version.
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:32919:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at TreeViewImpl (http://localhost:3000/chunk-36jrqfj4.js:32896:20)
+    at div
+    at ContextTreeView (http://localhost:3000/chunk-36jrqfj4.js:33148:3)
+    at div
+    at div
+    at div
+    at ContextTab (http://localhost:3000/chunk-36jrqfj4.js:45827:21)
+    at div
+    at TabPanel (http://localhost:3000/chunk-36jrqfj4.js:48242:3)
+    at div
+    at main
+    at div
+    at AppContent (http://localhost:3000/chunk-36jrqfj4.js:56843:64)
+    at RenderedRoute (http://localhost:3000/chunk-36jrqfj4.js:26184:26)
+    at Routes (http://localhost:3000/chunk-36jrqfj4.js:26431:3)
+    at AppRoutes (http://localhost:3000/chunk-36jrqfj4.js:58442:44)
+    at Router (http://localhost:3000/chunk-36jrqfj4.js:26381:13)
+    at BrowserRouter (http://localhost:3000/chunk-36jrqfj4.js:26930:3)
+    at FeatureFlagProvider (http://localhost:3000/chunk-36jrqfj4.js:27457:3)
+    at App
+printWarning @ chunk-36jrqfj4.js:2338
+error @ chunk-36jrqfj4.js:2322
+warnOnInvalidKey @ chunk-36jrqfj4.js:11554
+reconcileChildrenArray @ chunk-36jrqfj4.js:11570
+reconcileChildFibers2 @ chunk-36jrqfj4.js:11888
+reconcileChildren @ chunk-36jrqfj4.js:15602
+updateHostComponent @ chunk-36jrqfj4.js:16081
+beginWork @ chunk-36jrqfj4.js:17149
+beginWork$1 @ chunk-36jrqfj4.js:20936
+performUnitOfWork @ chunk-36jrqfj4.js:20380
+workLoopSync @ chunk-36jrqfj4.js:20316
+renderRootSync @ chunk-36jrqfj4.js:20295
+performSyncWorkOnRoot @ chunk-36jrqfj4.js:20054
+flushSyncCallbacks @ chunk-36jrqfj4.js:10470
+(anonymous) @ chunk-36jrqfj4.js:19808Understand this error
+chunk-36jrqfj4.js:2338 Warning: Encountered two children with the same key, `.cursor/skills/packmind-create-command/SKILL.md`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version.
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:32919:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at TreeViewImpl (http://localhost:3000/chunk-36jrqfj4.js:32896:20)
+    at div
+    at ContextTreeView (http://localhost:3000/chunk-36jrqfj4.js:33148:3)
+    at div
+    at div
+    at div
+    at ContextTab (http://localhost:3000/chunk-36jrqfj4.js:45827:21)
+    at div
+    at TabPanel (http://localhost:3000/chunk-36jrqfj4.js:48242:3)
+    at div
+    at main
+    at div
+    at AppContent (http://localhost:3000/chunk-36jrqfj4.js:56843:64)
+    at RenderedRoute (http://localhost:3000/chunk-36jrqfj4.js:26184:26)
+    at Routes (http://localhost:3000/chunk-36jrqfj4.js:26431:3)
+    at AppRoutes (http://localhost:3000/chunk-36jrqfj4.js:58442:44)
+    at Router (http://localhost:3000/chunk-36jrqfj4.js:26381:13)
+    at BrowserRouter (http://localhost:3000/chunk-36jrqfj4.js:26930:3)
+    at FeatureFlagProvider (http://localhost:3000/chunk-36jrqfj4.js:27457:3)
+    at App
+printWarning @ chunk-36jrqfj4.js:2338
+error @ chunk-36jrqfj4.js:2322
+warnOnInvalidKey @ chunk-36jrqfj4.js:11554
+reconcileChildrenArray @ chunk-36jrqfj4.js:11570
+reconcileChildFibers2 @ chunk-36jrqfj4.js:11888
+reconcileChildren @ chunk-36jrqfj4.js:15602
+updateHostComponent @ chunk-36jrqfj4.js:16081
+beginWork @ chunk-36jrqfj4.js:17149
+beginWork$1 @ chunk-36jrqfj4.js:20936
+performUnitOfWork @ chunk-36jrqfj4.js:20380
+workLoopSync @ chunk-36jrqfj4.js:20316
+renderRootSync @ chunk-36jrqfj4.js:20295
+performSyncWorkOnRoot @ chunk-36jrqfj4.js:20054
+flushSyncCallbacks @ chunk-36jrqfj4.js:10470
+(anonymous) @ chunk-36jrqfj4.js:19808Understand this error
+chunk-36jrqfj4.js:2338 Warning: Encountered two children with the same key, `.cursor/skills/packmind-create-package/SKILL.md`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version.
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:32919:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at TreeViewImpl (http://localhost:3000/chunk-36jrqfj4.js:32896:20)
+    at div
+    at ContextTreeView (http://localhost:3000/chunk-36jrqfj4.js:33148:3)
+    at div
+    at div
+    at div
+    at ContextTab (http://localhost:3000/chunk-36jrqfj4.js:45827:21)
+    at div
+    at TabPanel (http://localhost:3000/chunk-36jrqfj4.js:48242:3)
+    at div
+    at main
+    at div
+    at AppContent (http://localhost:3000/chunk-36jrqfj4.js:56843:64)
+    at RenderedRoute (http://localhost:3000/chunk-36jrqfj4.js:26184:26)
+    at Routes (http://localhost:3000/chunk-36jrqfj4.js:26431:3)
+    at AppRoutes (http://localhost:3000/chunk-36jrqfj4.js:58442:44)
+    at Router (http://localhost:3000/chunk-36jrqfj4.js:26381:13)
+    at BrowserRouter (http://localhost:3000/chunk-36jrqfj4.js:26930:3)
+    at FeatureFlagProvider (http://localhost:3000/chunk-36jrqfj4.js:27457:3)
+    at App
+printWarning @ chunk-36jrqfj4.js:2338
+error @ chunk-36jrqfj4.js:2322
+warnOnInvalidKey @ chunk-36jrqfj4.js:11554
+reconcileChildrenArray @ chunk-36jrqfj4.js:11570
+reconcileChildFibers2 @ chunk-36jrqfj4.js:11888
+reconcileChildren @ chunk-36jrqfj4.js:15602
+updateHostComponent @ chunk-36jrqfj4.js:16081
+beginWork @ chunk-36jrqfj4.js:17149
+beginWork$1 @ chunk-36jrqfj4.js:20936
+performUnitOfWork @ chunk-36jrqfj4.js:20380
+workLoopSync @ chunk-36jrqfj4.js:20316
+renderRootSync @ chunk-36jrqfj4.js:20295
+performSyncWorkOnRoot @ chunk-36jrqfj4.js:20054
+flushSyncCallbacks @ chunk-36jrqfj4.js:10470
+(anonymous) @ chunk-36jrqfj4.js:19808Understand this error
+chunk-36jrqfj4.js:2338 Warning: Encountered two children with the same key, `.cursor/skills/packmind-create-skill/SKILL.md`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version.
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:32919:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at TreeViewImpl (http://localhost:3000/chunk-36jrqfj4.js:32896:20)
+    at div
+    at ContextTreeView (http://localhost:3000/chunk-36jrqfj4.js:33148:3)
+    at div
+    at div
+    at div
+    at ContextTab (http://localhost:3000/chunk-36jrqfj4.js:45827:21)
+    at div
+    at TabPanel (http://localhost:3000/chunk-36jrqfj4.js:48242:3)
+    at div
+    at main
+    at div
+    at AppContent (http://localhost:3000/chunk-36jrqfj4.js:56843:64)
+    at RenderedRoute (http://localhost:3000/chunk-36jrqfj4.js:26184:26)
+    at Routes (http://localhost:3000/chunk-36jrqfj4.js:26431:3)
+    at AppRoutes (http://localhost:3000/chunk-36jrqfj4.js:58442:44)
+    at Router (http://localhost:3000/chunk-36jrqfj4.js:26381:13)
+    at BrowserRouter (http://localhost:3000/chunk-36jrqfj4.js:26930:3)
+    at FeatureFlagProvider (http://localhost:3000/chunk-36jrqfj4.js:27457:3)
+    at App
+printWarning @ chunk-36jrqfj4.js:2338
+error @ chunk-36jrqfj4.js:2322
+warnOnInvalidKey @ chunk-36jrqfj4.js:11554
+reconcileChildrenArray @ chunk-36jrqfj4.js:11570
+reconcileChildFibers2 @ chunk-36jrqfj4.js:11888
+reconcileChildren @ chunk-36jrqfj4.js:15602
+updateHostComponent @ chunk-36jrqfj4.js:16081
+beginWork @ chunk-36jrqfj4.js:17149
+beginWork$1 @ chunk-36jrqfj4.js:20936
+performUnitOfWork @ chunk-36jrqfj4.js:20380
+workLoopSync @ chunk-36jrqfj4.js:20316
+renderRootSync @ chunk-36jrqfj4.js:20295
+performSyncWorkOnRoot @ chunk-36jrqfj4.js:20054
+flushSyncCallbacks @ chunk-36jrqfj4.js:10470
+(anonymous) @ chunk-36jrqfj4.js:19808Understand this error
+chunk-36jrqfj4.js:2338 Warning: Encountered two children with the same key, `.cursor/skills/packmind-create-standard/SKILL.md`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version.
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:32919:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at TreeViewImpl (http://localhost:3000/chunk-36jrqfj4.js:32896:20)
+    at div
+    at ContextTreeView (http://localhost:3000/chunk-36jrqfj4.js:33148:3)
+    at div
+    at div
+    at div
+    at ContextTab (http://localhost:3000/chunk-36jrqfj4.js:45827:21)
+    at div
+    at TabPanel (http://localhost:3000/chunk-36jrqfj4.js:48242:3)
+    at div
+    at main
+    at div
+    at AppContent (http://localhost:3000/chunk-36jrqfj4.js:56843:64)
+    at RenderedRoute (http://localhost:3000/chunk-36jrqfj4.js:26184:26)
+    at Routes (http://localhost:3000/chunk-36jrqfj4.js:26431:3)
+    at AppRoutes (http://localhost:3000/chunk-36jrqfj4.js:58442:44)
+    at Router (http://localhost:3000/chunk-36jrqfj4.js:26381:13)
+    at BrowserRouter (http://localhost:3000/chunk-36jrqfj4.js:26930:3)
+    at FeatureFlagProvider (http://localhost:3000/chunk-36jrqfj4.js:27457:3)
+    at App
+printWarning @ chunk-36jrqfj4.js:2338
+error @ chunk-36jrqfj4.js:2322
+warnOnInvalidKey @ chunk-36jrqfj4.js:11554
+reconcileChildrenArray @ chunk-36jrqfj4.js:11570
+reconcileChildFibers2 @ chunk-36jrqfj4.js:11888
+reconcileChildren @ chunk-36jrqfj4.js:15602
+updateHostComponent @ chunk-36jrqfj4.js:16081
+beginWork @ chunk-36jrqfj4.js:17149
+beginWork$1 @ chunk-36jrqfj4.js:20936
+performUnitOfWork @ chunk-36jrqfj4.js:20380
+workLoopSync @ chunk-36jrqfj4.js:20316
+renderRootSync @ chunk-36jrqfj4.js:20295
+performSyncWorkOnRoot @ chunk-36jrqfj4.js:20054
+flushSyncCallbacks @ chunk-36jrqfj4.js:10470
+(anonymous) @ chunk-36jrqfj4.js:19808Understand this error
+chunk-36jrqfj4.js:2338 Warning: Encountered two children with the same key, `.github/skills/create-skill/SKILL.md`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version.
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:32919:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at TreeViewImpl (http://localhost:3000/chunk-36jrqfj4.js:32896:20)
+    at div
+    at ContextTreeView (http://localhost:3000/chunk-36jrqfj4.js:33148:3)
+    at div
+    at div
+    at div
+    at ContextTab (http://localhost:3000/chunk-36jrqfj4.js:45827:21)
+    at div
+    at TabPanel (http://localhost:3000/chunk-36jrqfj4.js:48242:3)
+    at div
+    at main
+    at div
+    at AppContent (http://localhost:3000/chunk-36jrqfj4.js:56843:64)
+    at RenderedRoute (http://localhost:3000/chunk-36jrqfj4.js:26184:26)
+    at Routes (http://localhost:3000/chunk-36jrqfj4.js:26431:3)
+    at AppRoutes (http://localhost:3000/chunk-36jrqfj4.js:58442:44)
+    at Router (http://localhost:3000/chunk-36jrqfj4.js:26381:13)
+    at BrowserRouter (http://localhost:3000/chunk-36jrqfj4.js:26930:3)
+    at FeatureFlagProvider (http://localhost:3000/chunk-36jrqfj4.js:27457:3)
+    at App
+printWarning @ chunk-36jrqfj4.js:2338
+error @ chunk-36jrqfj4.js:2322
+warnOnInvalidKey @ chunk-36jrqfj4.js:11554
+reconcileChildrenArray @ chunk-36jrqfj4.js:11570
+reconcileChildFibers2 @ chunk-36jrqfj4.js:11888
+reconcileChildren @ chunk-36jrqfj4.js:15602
+updateHostComponent @ chunk-36jrqfj4.js:16081
+beginWork @ chunk-36jrqfj4.js:17149
+beginWork$1 @ chunk-36jrqfj4.js:20936
+performUnitOfWork @ chunk-36jrqfj4.js:20380
+workLoopSync @ chunk-36jrqfj4.js:20316
+renderRootSync @ chunk-36jrqfj4.js:20295
+performSyncWorkOnRoot @ chunk-36jrqfj4.js:20054
+flushSyncCallbacks @ chunk-36jrqfj4.js:10470
+(anonymous) @ chunk-36jrqfj4.js:19808Understand this error
+chunk-36jrqfj4.js:2338 Warning: Encountered two children with the same key, `.github/skills/create-standard/SKILL.md`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version.
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:32919:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at TreeViewImpl (http://localhost:3000/chunk-36jrqfj4.js:32896:20)
+    at div
+    at ContextTreeView (http://localhost:3000/chunk-36jrqfj4.js:33148:3)
+    at div
+    at div
+    at div
+    at ContextTab (http://localhost:3000/chunk-36jrqfj4.js:45827:21)
+    at div
+    at TabPanel (http://localhost:3000/chunk-36jrqfj4.js:48242:3)
+    at div
+    at main
+    at div
+    at AppContent (http://localhost:3000/chunk-36jrqfj4.js:56843:64)
+    at RenderedRoute (http://localhost:3000/chunk-36jrqfj4.js:26184:26)
+    at Routes (http://localhost:3000/chunk-36jrqfj4.js:26431:3)
+    at AppRoutes (http://localhost:3000/chunk-36jrqfj4.js:58442:44)
+    at Router (http://localhost:3000/chunk-36jrqfj4.js:26381:13)
+    at BrowserRouter (http://localhost:3000/chunk-36jrqfj4.js:26930:3)
+    at FeatureFlagProvider (http://localhost:3000/chunk-36jrqfj4.js:27457:3)
+    at App
+printWarning @ chunk-36jrqfj4.js:2338
+error @ chunk-36jrqfj4.js:2322
+warnOnInvalidKey @ chunk-36jrqfj4.js:11554
+reconcileChildrenArray @ chunk-36jrqfj4.js:11570
+reconcileChildFibers2 @ chunk-36jrqfj4.js:11888
+reconcileChildren @ chunk-36jrqfj4.js:15602
+updateHostComponent @ chunk-36jrqfj4.js:16081
+beginWork @ chunk-36jrqfj4.js:17149
+beginWork$1 @ chunk-36jrqfj4.js:20936
+performUnitOfWork @ chunk-36jrqfj4.js:20380
+workLoopSync @ chunk-36jrqfj4.js:20316
+renderRootSync @ chunk-36jrqfj4.js:20295
+performSyncWorkOnRoot @ chunk-36jrqfj4.js:20054
+flushSyncCallbacks @ chunk-36jrqfj4.js:10470
+(anonymous) @ chunk-36jrqfj4.js:19808Understand this error
+chunk-36jrqfj4.js:2338 Warning: Encountered two children with the same key, `.github/skills/packmind-cli-list-commands/SKILL.md`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version.
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:32919:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at TreeViewImpl (http://localhost:3000/chunk-36jrqfj4.js:32896:20)
+    at div
+    at ContextTreeView (http://localhost:3000/chunk-36jrqfj4.js:33148:3)
+    at div
+    at div
+    at div
+    at ContextTab (http://localhost:3000/chunk-36jrqfj4.js:45827:21)
+    at div
+    at TabPanel (http://localhost:3000/chunk-36jrqfj4.js:48242:3)
+    at div
+    at main
+    at div
+    at AppContent (http://localhost:3000/chunk-36jrqfj4.js:56843:64)
+    at RenderedRoute (http://localhost:3000/chunk-36jrqfj4.js:26184:26)
+    at Routes (http://localhost:3000/chunk-36jrqfj4.js:26431:3)
+    at AppRoutes (http://localhost:3000/chunk-36jrqfj4.js:58442:44)
+    at Router (http://localhost:3000/chunk-36jrqfj4.js:26381:13)
+    at BrowserRouter (http://localhost:3000/chunk-36jrqfj4.js:26930:3)
+    at FeatureFlagProvider (http://localhost:3000/chunk-36jrqfj4.js:27457:3)
+    at App
+printWarning @ chunk-36jrqfj4.js:2338
+error @ chunk-36jrqfj4.js:2322
+warnOnInvalidKey @ chunk-36jrqfj4.js:11554
+reconcileChildrenArray @ chunk-36jrqfj4.js:11570
+reconcileChildFibers2 @ chunk-36jrqfj4.js:11888
+reconcileChildren @ chunk-36jrqfj4.js:15602
+updateHostComponent @ chunk-36jrqfj4.js:16081
+beginWork @ chunk-36jrqfj4.js:17149
+beginWork$1 @ chunk-36jrqfj4.js:20936
+performUnitOfWork @ chunk-36jrqfj4.js:20380
+workLoopSync @ chunk-36jrqfj4.js:20316
+renderRootSync @ chunk-36jrqfj4.js:20295
+performSyncWorkOnRoot @ chunk-36jrqfj4.js:20054
+flushSyncCallbacks @ chunk-36jrqfj4.js:10470
+(anonymous) @ chunk-36jrqfj4.js:19808Understand this error
+chunk-36jrqfj4.js:2338 Warning: Encountered two children with the same key, `.github/skills/packmind-create-command/SKILL.md`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version.
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:32919:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at TreeViewImpl (http://localhost:3000/chunk-36jrqfj4.js:32896:20)
+    at div
+    at ContextTreeView (http://localhost:3000/chunk-36jrqfj4.js:33148:3)
+    at div
+    at div
+    at div
+    at ContextTab (http://localhost:3000/chunk-36jrqfj4.js:45827:21)
+    at div
+    at TabPanel (http://localhost:3000/chunk-36jrqfj4.js:48242:3)
+    at div
+    at main
+    at div
+    at AppContent (http://localhost:3000/chunk-36jrqfj4.js:56843:64)
+    at RenderedRoute (http://localhost:3000/chunk-36jrqfj4.js:26184:26)
+    at Routes (http://localhost:3000/chunk-36jrqfj4.js:26431:3)
+    at AppRoutes (http://localhost:3000/chunk-36jrqfj4.js:58442:44)
+    at Router (http://localhost:3000/chunk-36jrqfj4.js:26381:13)
+    at BrowserRouter (http://localhost:3000/chunk-36jrqfj4.js:26930:3)
+    at FeatureFlagProvider (http://localhost:3000/chunk-36jrqfj4.js:27457:3)
+    at App
+printWarning @ chunk-36jrqfj4.js:2338
+error @ chunk-36jrqfj4.js:2322
+warnOnInvalidKey @ chunk-36jrqfj4.js:11554
+reconcileChildrenArray @ chunk-36jrqfj4.js:11570
+reconcileChildFibers2 @ chunk-36jrqfj4.js:11888
+reconcileChildren @ chunk-36jrqfj4.js:15602
+updateHostComponent @ chunk-36jrqfj4.js:16081
+beginWork @ chunk-36jrqfj4.js:17149
+beginWork$1 @ chunk-36jrqfj4.js:20936
+performUnitOfWork @ chunk-36jrqfj4.js:20380
+workLoopSync @ chunk-36jrqfj4.js:20316
+renderRootSync @ chunk-36jrqfj4.js:20295
+performSyncWorkOnRoot @ chunk-36jrqfj4.js:20054
+flushSyncCallbacks @ chunk-36jrqfj4.js:10470
+(anonymous) @ chunk-36jrqfj4.js:19808Understand this error
+chunk-36jrqfj4.js:2338 Warning: Encountered two children with the same key, `.github/skills/packmind-create-skill/SKILL.md`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version.
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:32919:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at TreeViewImpl (http://localhost:3000/chunk-36jrqfj4.js:32896:20)
+    at div
+    at ContextTreeView (http://localhost:3000/chunk-36jrqfj4.js:33148:3)
+    at div
+    at div
+    at div
+    at ContextTab (http://localhost:3000/chunk-36jrqfj4.js:45827:21)
+    at div
+    at TabPanel (http://localhost:3000/chunk-36jrqfj4.js:48242:3)
+    at div
+    at main
+    at div
+    at AppContent (http://localhost:3000/chunk-36jrqfj4.js:56843:64)
+    at RenderedRoute (http://localhost:3000/chunk-36jrqfj4.js:26184:26)
+    at Routes (http://localhost:3000/chunk-36jrqfj4.js:26431:3)
+    at AppRoutes (http://localhost:3000/chunk-36jrqfj4.js:58442:44)
+    at Router (http://localhost:3000/chunk-36jrqfj4.js:26381:13)
+    at BrowserRouter (http://localhost:3000/chunk-36jrqfj4.js:26930:3)
+    at FeatureFlagProvider (http://localhost:3000/chunk-36jrqfj4.js:27457:3)
+    at App
+printWarning @ chunk-36jrqfj4.js:2338
+error @ chunk-36jrqfj4.js:2322
+warnOnInvalidKey @ chunk-36jrqfj4.js:11554
+reconcileChildrenArray @ chunk-36jrqfj4.js:11570
+reconcileChildFibers2 @ chunk-36jrqfj4.js:11888
+reconcileChildren @ chunk-36jrqfj4.js:15602
+updateHostComponent @ chunk-36jrqfj4.js:16081
+beginWork @ chunk-36jrqfj4.js:17149
+beginWork$1 @ chunk-36jrqfj4.js:20936
+performUnitOfWork @ chunk-36jrqfj4.js:20380
+workLoopSync @ chunk-36jrqfj4.js:20316
+renderRootSync @ chunk-36jrqfj4.js:20295
+performSyncWorkOnRoot @ chunk-36jrqfj4.js:20054
+flushSyncCallbacks @ chunk-36jrqfj4.js:10470
+(anonymous) @ chunk-36jrqfj4.js:19808Understand this error
+chunk-36jrqfj4.js:2338 Warning: Encountered two children with the same key, `.github/skills/packmind-create-standard/SKILL.md`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version.
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:32919:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at TreeViewImpl (http://localhost:3000/chunk-36jrqfj4.js:32896:20)
+    at div
+    at ContextTreeView (http://localhost:3000/chunk-36jrqfj4.js:33148:3)
+    at div
+    at div
+    at div
+    at ContextTab (http://localhost:3000/chunk-36jrqfj4.js:45827:21)
+    at div
+    at TabPanel (http://localhost:3000/chunk-36jrqfj4.js:48242:3)
+    at div
+    at main
+    at div
+    at AppContent (http://localhost:3000/chunk-36jrqfj4.js:56843:64)
+    at RenderedRoute (http://localhost:3000/chunk-36jrqfj4.js:26184:26)
+    at Routes (http://localhost:3000/chunk-36jrqfj4.js:26431:3)
+    at AppRoutes (http://localhost:3000/chunk-36jrqfj4.js:58442:44)
+    at Router (http://localhost:3000/chunk-36jrqfj4.js:26381:13)
+    at BrowserRouter (http://localhost:3000/chunk-36jrqfj4.js:26930:3)
+    at FeatureFlagProvider (http://localhost:3000/chunk-36jrqfj4.js:27457:3)
+    at App
+printWarning @ chunk-36jrqfj4.js:2338
+error @ chunk-36jrqfj4.js:2322
+warnOnInvalidKey @ chunk-36jrqfj4.js:11554
+reconcileChildrenArray @ chunk-36jrqfj4.js:11570
+reconcileChildFibers2 @ chunk-36jrqfj4.js:11888
+reconcileChildren @ chunk-36jrqfj4.js:15602
+updateHostComponent @ chunk-36jrqfj4.js:16081
+beginWork @ chunk-36jrqfj4.js:17149
+beginWork$1 @ chunk-36jrqfj4.js:20936
+performUnitOfWork @ chunk-36jrqfj4.js:20380
+workLoopSync @ chunk-36jrqfj4.js:20316
+renderRootSync @ chunk-36jrqfj4.js:20295
+performSyncWorkOnRoot @ chunk-36jrqfj4.js:20054
+flushSyncCallbacks @ chunk-36jrqfj4.js:10470
+(anonymous) @ chunk-36jrqfj4.js:19808Understand this error
+chunk-36jrqfj4.js:2338 Warning: Encountered two children with the same key, `.github/skills/packmind-onboard/SKILL.md`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version.
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:32919:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at TreeViewImpl (http://localhost:3000/chunk-36jrqfj4.js:32896:20)
+    at div
+    at ContextTreeView (http://localhost:3000/chunk-36jrqfj4.js:33148:3)
+    at div
+    at div
+    at div
+    at ContextTab (http://localhost:3000/chunk-36jrqfj4.js:45827:21)
+    at div
+    at TabPanel (http://localhost:3000/chunk-36jrqfj4.js:48242:3)
+    at div
+    at main
+    at div
+    at AppContent (http://localhost:3000/chunk-36jrqfj4.js:56843:64)
+    at RenderedRoute (http://localhost:3000/chunk-36jrqfj4.js:26184:26)
+    at Routes (http://localhost:3000/chunk-36jrqfj4.js:26431:3)
+    at AppRoutes (http://localhost:3000/chunk-36jrqfj4.js:58442:44)
+    at Router (http://localhost:3000/chunk-36jrqfj4.js:26381:13)
+    at BrowserRouter (http://localhost:3000/chunk-36jrqfj4.js:26930:3)
+    at FeatureFlagProvider (http://localhost:3000/chunk-36jrqfj4.js:27457:3)
+    at App
+printWarning @ chunk-36jrqfj4.js:2338
+error @ chunk-36jrqfj4.js:2322
+warnOnInvalidKey @ chunk-36jrqfj4.js:11554
+reconcileChildrenArray @ chunk-36jrqfj4.js:11570
+reconcileChildFibers2 @ chunk-36jrqfj4.js:11888
+reconcileChildren @ chunk-36jrqfj4.js:15602
+updateHostComponent @ chunk-36jrqfj4.js:16081
+beginWork @ chunk-36jrqfj4.js:17149
+beginWork$1 @ chunk-36jrqfj4.js:20936
+performUnitOfWork @ chunk-36jrqfj4.js:20380
+workLoopSync @ chunk-36jrqfj4.js:20316
+renderRootSync @ chunk-36jrqfj4.js:20295
+performSyncWorkOnRoot @ chunk-36jrqfj4.js:20054
+flushSyncCallbacks @ chunk-36jrqfj4.js:10470
+(anonymous) @ chunk-36jrqfj4.js:19808Understand this error
+chunk-36jrqfj4.js:2338 Warning: Encountered two children with the same key, `.github/skills/skill-creator/SKILL.md`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version.
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:32919:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at TreeViewImpl (http://localhost:3000/chunk-36jrqfj4.js:32896:20)
+    at div
+    at ContextTreeView (http://localhost:3000/chunk-36jrqfj4.js:33148:3)
+    at div
+    at div
+    at div
+    at ContextTab (http://localhost:3000/chunk-36jrqfj4.js:45827:21)
+    at div
+    at TabPanel (http://localhost:3000/chunk-36jrqfj4.js:48242:3)
+    at div
+    at main
+    at div
+    at AppContent (http://localhost:3000/chunk-36jrqfj4.js:56843:64)
+    at RenderedRoute (http://localhost:3000/chunk-36jrqfj4.js:26184:26)
+    at Routes (http://localhost:3000/chunk-36jrqfj4.js:26431:3)
+    at AppRoutes (http://localhost:3000/chunk-36jrqfj4.js:58442:44)
+    at Router (http://localhost:3000/chunk-36jrqfj4.js:26381:13)
+    at BrowserRouter (http://localhost:3000/chunk-36jrqfj4.js:26930:3)
+    at FeatureFlagProvider (http://localhost:3000/chunk-36jrqfj4.js:27457:3)
+    at App
+printWarning @ chunk-36jrqfj4.js:2338
+error @ chunk-36jrqfj4.js:2322
+warnOnInvalidKey @ chunk-36jrqfj4.js:11554
+reconcileChildrenArray @ chunk-36jrqfj4.js:11570
+reconcileChildFibers2 @ chunk-36jrqfj4.js:11888
+reconcileChildren @ chunk-36jrqfj4.js:15602
+updateHostComponent @ chunk-36jrqfj4.js:16081
+beginWork @ chunk-36jrqfj4.js:17149
+beginWork$1 @ chunk-36jrqfj4.js:20936
+performUnitOfWork @ chunk-36jrqfj4.js:20380
+workLoopSync @ chunk-36jrqfj4.js:20316
+renderRootSync @ chunk-36jrqfj4.js:20295
+performSyncWorkOnRoot @ chunk-36jrqfj4.js:20054
+flushSyncCallbacks @ chunk-36jrqfj4.js:10470
+(anonymous) @ chunk-36jrqfj4.js:19808Understand this error
+chunk-36jrqfj4.js:2338 Warning: Encountered two children with the same key, `.github/skills/test-factory-patterns/SKILL.md`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version.
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31375:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31388:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:31317:23
+    at http://localhost:3000/chunk-36jrqfj4.js:31350:20
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at TreeNodeRenderer (http://localhost:3000/chunk-36jrqfj4.js:33190:27)
+    at TreeViewNodeProvider (http://localhost:3000/chunk-36jrqfj4.js:31518:20)
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at http://localhost:3000/chunk-36jrqfj4.js:32919:20
+    at div
+    at http://localhost:3000/chunk-36jrqfj4.js:30815:13
+    at TreeViewImpl (http://localhost:3000/chunk-36jrqfj4.js:32896:20)
+    at div
+    at ContextTreeView (http://localhost:3000/chunk-36jrqfj4.js:33148:3)
+    at div
+    at div
+    at div
+    at ContextTab (http://localhost:3000/chunk-36jrqfj4.js:45827:21)
+    at div
+    at TabPanel (http://localhost:3000/chunk-36jrqfj4.js:48242:3)
+    at div
+    at main
+    at div
+    at AppContent (http://localhost:3000/chunk-36jrqfj4.js:56843:64)
+    at RenderedRoute (http://localhost:3000/chunk-36jrqfj4.js:26184:26)
+    at Routes (http://localhost:3000/chunk-36jrqfj4.js:26431:3)
+    at AppRoutes (http://localhost:3000/chunk-36jrqfj4.js:58442:44)
+    at Router (http://localhost:3000/chunk-36jrqfj4.js:26381:13)
+    at BrowserRouter (http://localhost:3000/chunk-36jrqfj4.js:26930:3)
+    at FeatureFlagProvider (http://localhost:3000/chunk-36jrqfj4.js:27457:3)
+    at App
+
+---
+
+This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation.
+
+Analysis:
+Let me go through the conversation chronologically:
+
+1. **Initial Plan**: User provided a detailed plan for implementing a Tree View for the Context Tab in a frontend application. The plan involved:
+   - Installing Chakra UI v3
+   - Creating tree data builder utility
+   - Creating ContextTreeView component
+   - Adding view toggle to ContextTab
+   - Wiring file clicks to existing modals with pre-selection
+   - Rebuilding CSS and running tests
+
+2. **Task 1: Install Chakra UI v3** - Successfully installed `@chakra-ui/react@3.33.0` and `@emotion/react@11.14.0` in the frontend directory.
+
+3. **Task 2: Create tree data builder** - Created `frontend/src/lib/build-context-tree.ts` with `ContextTreeNode` interface, `buildContextTree()` function, and `getAllBranchIds()` helper.
+
+4. **Task 3: Create ContextTreeView** - Initially created using `TreeView` from `@chakra-ui/react`, which later caused a ChakraProvider error.
+
+5. **Task 4: Add view toggle to ContextTab** - Added `viewMode` state, toggle buttons, conditional rendering.
+
+6. **Task 5: Wire file click to modals** - Added `initialSelectedId` to ContentBrowserModal, `initialSelectedPath` to wrapper modals.
+
+7. **First user feedback**: "Make these two button 'List / Tree' more visible, on the left side, and maybe create a frame that encompass the whole content below"
+   - Moved toggle to a header row with "Context Files" label
+   - Made buttons more prominent with indigo active state
+   - Wrapped everything in a glass-card outer frame
+   - Changed SectionCard from glass-card to lighter bg-slate-800/30
+   - Removed glass-card from ContextTreeView
+
+8. **Second user feedback**: ChakraProvider error when clicking Tree view
+   - Error: `useContext returned undefined. Seems you forgot to wrap component within <ChakraProvider />`
+   - Fix: Rewrote ContextTreeView to import from `@ark-ui/react/tree-view` instead of `@chakra-ui/react`
+   - Used Ark UI's unstyled TreeView components directly (no provider needed)
+   - Used manual recursive `TreeNodeRenderer` component instead of Chakra's `TreeView.Node` shortcut
+
+9. **Third user feedback (current)**: Duplicate key warnings in console
+   - Skills appear in BOTH `contextFiles` (type "skills") AND the `skills` array
+   - This causes `buildContextTree` to insert the same path twice
+   - E.g., `.claude/skills/create-skill/SKILL.md` appears as both a contextFile and a skill
+   - Need to deduplicate in `buildContextTree`
+
+Let me document all files and their current states.
+
+Summary:
+1. Primary Request and Intent:
+   The user provided a detailed implementation plan for adding a **Tree View** to the Context Tab of their evaluation frontend. The plan specified:
+   - Install Chakra UI v3 for TreeView components
+   - Create a tree data builder utility to convert flat file lists into a directory hierarchy
+   - Create a `ContextTreeView` component using Chakra/Ark UI TreeView
+   - Add a List/Tree toggle to `ContextTab.tsx` with conditional rendering
+   - Wire tree file clicks to existing browser modals with pre-selection support
+   - Run tests, lint, typecheck, and CSS rebuild
+
+   After initial implementation, the user gave iterative feedback:
+   - Make the List/Tree toggle more visible, move it left, and wrap all content in a frame
+   - Fix the ChakraProvider crash when switching to Tree view
+   - Fix duplicate key warnings in the console (current issue)
+
+2. Key Technical Concepts:
+   - **Ark UI TreeView** (`@ark-ui/react/tree-view`): Unstyled headless UI tree component - used instead of Chakra's styled wrapper to avoid needing ChakraProvider
+   - **Chakra UI v3** (`@chakra-ui/react@3.33.0`): Installed but its styled TreeView components require ChakraProvider, so Ark UI primitives are used directly
+   - **`createTreeCollection`**: From `@ark-ui/react/tree-view`, creates a tree collection from a root node with custom `nodeToValue`, `nodeToString`, `nodeToChildren` methods
+   - **TreeView.NodeProvider / TreeView.Branch / TreeView.Item**: Ark UI primitives for rendering tree nodes without any CSS framework dependency
+   - **Tailwind CSS**: All styling uses Tailwind classes, no Chakra styled system
+   - **Pre-selection pattern**: `initialSelectedId`/`initialSelectedPath` props passed through modal hierarchy to auto-select an item when opened from tree view
+
+3. Files and Code Sections:
+
+   - **`frontend/package.json`** - Added dependencies `@chakra-ui/react` and `@emotion/react`
+
+   - **`frontend/src/lib/build-context-tree.ts`** (NEW) - Tree data builder utility. Contains the bug causing duplicate keys.
+     ```typescript
+     export interface ContextTreeNode {
+       id: string;
+       name: string;
+       fileType?: "agents" | "claude" | "copilot" | "rules" | "cursor-rules" | "skills" | "linked-doc";
+       filePath?: string;
+       children?: ContextTreeNode[];
+     }
+
+     export function buildContextTree(
+       contextFiles: IContextFile[],
+       skills: ISkill[],
+       linkedDocs: ILinkedDocSummary[],
+     ): ContextTreeNode[] {
+       const entries: FlatEntry[] = [];
+       for (const file of contextFiles) {
+         entries.push({ path: file.path, fileType: file.type });
+       }
+       for (const skill of skills) {
+         entries.push({ path: skill.path, fileType: "skills" });
+       }
+       for (const doc of linkedDocs) {
+         entries.push({ path: doc.path, fileType: "linked-doc" });
+       }
+       // ... builds tree from entries, sorts dirs first then files alphabetically
+     }
+
+     export function getAllBranchIds(nodes: ContextTreeNode[]): string[] {
+       // Collects all directory node IDs for default expansion
+     }
+     ```
+
+   - **`frontend/src/components/ContextTreeView.tsx`** (NEW) - Tree view component using Ark UI directly.
+     ```typescript
+     import { createTreeCollection, TreeView } from "@ark-ui/react/tree-view";
+     // Uses manual recursive TreeNodeRenderer instead of Chakra's TreeView.Node
+     // TreeView.Root > TreeView.Tree > TreeView.NodeProvider > TreeNodeRenderer (recursive)
+     // Branches: TreeView.Branch > TreeView.BranchControl + TreeView.BranchContent
+     // Leaves: TreeView.Item > TreeView.ItemText + badge
+     ```
+
+   - **`frontend/src/components/ContextTab.tsx`** (MODIFIED) - Major changes:
+     - Added `viewMode` state (`"list" | "tree"`)
+     - Added `initialSelectedPath` state for modal pre-selection
+     - Added `handleTreeFileClick` callback routing clicks to appropriate modals
+     - Wrapped all content in a `glass-card` outer frame with header containing "Context Files" label and toggle buttons
+     - SectionCards changed from `glass-card` to `bg-slate-800/30 border border-slate-700/40 rounded-xl`
+     - All section cards wrapped with `viewMode === "list" &&` conditions
+     - Toggle buttons use indigo active state (`bg-indigo-600/40 text-slate-100 border border-indigo-500/40`)
+     - All modal `onClose` handlers now also clear `initialSelectedPath`
+     - Note: File also imports from `./AgentLogos` (ClaudeLogo, CursorLogo, GitHubCopilotLogo) - added by linter/user
+
+   - **`frontend/src/components/shared/ContentBrowserModal.tsx`** (MODIFIED) - Added `initialSelectedId?: string` prop. Reset effect uses it to pre-select item on open.
+
+   - **`frontend/src/components/shared/ContextFilesBrowserModal.tsx`** (MODIFIED) - Added `initialSelectedPath?: string` prop, passes through as `initialSelectedId`.
+
+   - **`frontend/src/components/shared/SkillsBrowserModal.tsx`** (MODIFIED) - Added `initialSelectedPath?: string` prop with pre-selection logic matching by `skill.path`.
+
+   - **`frontend/src/components/shared/LinkedDocsBrowserModal.tsx`** (MODIFIED) - Added `initialSelectedPath?: string` prop, passes through as `initialSelectedId`.
+
+4. Errors and fixes:
+   - **ChakraProvider error**: Using `TreeView` from `@chakra-ui/react` caused `ContextError: useContext returned undefined. Seems you forgot to wrap component within <ChakraProvider />`. Fixed by switching imports from `@chakra-ui/react` to `@ark-ui/react/tree-view` and rewriting component to use Ark UI primitives directly with manual recursive rendering via `TreeNodeRenderer` component.
+   - **Lint formatting errors**: After nesting changes in ContextTab.tsx, Biome reported indentation formatting issues. Fixed with `bun run lint:fix`.
+   - **Unused import error**: Biome flagged `ClaudeLogo, CursorLogo, GitHubCopilotLogo` from `./AgentLogos` as unused (added by linter). Removed the import line, but it was re-added by the linter/user afterward and is now present in the file.
+   - **Duplicate key warnings (CURRENT)**: Skills files appear in BOTH `contextFiles` (with type "skills") AND the `skills` array, causing `buildContextTree` to create duplicate entries with identical paths/IDs. React warns about duplicate keys like `.claude/skills/create-skill/SKILL.md`.
+
+5. Problem Solving:
+   - Successfully implemented the full tree view feature with toggle, file hierarchy display, and modal pre-selection
+   - Resolved the Chakra provider dependency issue by using lower-level Ark UI components
+   - The duplicate key issue is identified but not yet fixed - the root cause is in `buildContextTree` which adds entries from both `contextFiles` and `skills` without deduplication
+
+6. All user messages:
+   - **Message 1**: "Implement the following plan: [detailed Tree View plan with 6 steps]" - with reference to plan mode transcript
+   - **Message 2**: "Make these two button 'List / Tree' more visible, on the left side, and maybe create a frame that encompass the whole content below?" - with screenshot showing the current UI
+   - **Message 3**: "The 'Tree view' makes everything bugged." - with ChakraProvider error stack trace
+   - **Message 4**: "Seems to work but I've plenty of warning in the console:" - with many React duplicate key warnings for skill paths like `.claude/skills/create-skill/SKILL.md`
+
+7. Pending Tasks:
+   - Fix the duplicate key warnings in `buildContextTree` by deduplicating entries when skills appear in both `contextFiles` and `skills` arrays
+   - Run tests/lint/typecheck after the fix
+
+8. Current Work:
+   I was about to fix the duplicate key issue in `frontend/src/lib/build-context-tree.ts`. I had already read lines 37-66 of the file to understand the duplication source. The issue is that `buildContextTree` adds entries from `contextFiles` (which includes files with `type: "skills"`) AND separately from the `skills` array, creating duplicate paths. The fix needs to deduplicate by tracking seen paths - likely by skipping skills whose paths already exist in contextFiles.
+
+9. Optional Next Step:
+   Fix the duplicate key warning by adding deduplication to `buildContextTree` in `frontend/src/lib/build-context-tree.ts`. The user's most recent message was: "Seems to work but I've plenty of warning in the console:" followed by React duplicate key warnings. I had identified the root cause and was reading the relevant code section when the summary was requested. The fix is to add a `Set<string>` tracking seen paths and skip duplicates when iterating skills/linkedDocs entries.
+
+If you need specific details from before compaction (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+Please continue the conversation from where we left off without asking the user any further questions. Continue with the last task that you were asked to work on.
