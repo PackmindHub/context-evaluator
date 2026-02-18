@@ -2,7 +2,7 @@
  * Compact card for a single past remediation with expand-to-full-details.
  */
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type {
 	FileChange,
 	RemediationAction,
@@ -11,6 +11,8 @@ import type {
 } from "../types/remediation";
 import { FileChangeCard } from "./FileChangeCard";
 import { PatchDownload } from "./PatchDownload";
+import { PackmindLogo } from "./shared/PackmindLogo";
+import { PackmindProductTourModal } from "./shared/PackmindProductTourModal";
 
 export type ImpactEvalStatus = "idle" | "running" | "completed" | "failed";
 
@@ -29,6 +31,33 @@ interface RemediationHistoryCardProps {
 	impactScore?: number;
 	impactGrade?: string;
 	hasRepoUrl?: boolean;
+}
+
+function hasPackmindArtifacts(actions: RemediationAction[]): boolean {
+	return actions.some(
+		(a) => a.outputType === "standard" || a.outputType === "skill",
+	);
+}
+
+function countPackmindArtifacts(actions: RemediationAction[]): {
+	standards: number;
+	skills: number;
+} {
+	let standards = 0;
+	let skills = 0;
+	for (const a of actions) {
+		if (a.outputType === "standard") standards++;
+		else if (a.outputType === "skill") skills++;
+	}
+	return { standards, skills };
+}
+
+function formatArtifactCount(standards: number, skills: number): string {
+	const parts: string[] = [];
+	if (standards > 0)
+		parts.push(`${standards} standard${standards !== 1 ? "s" : ""}`);
+	if (skills > 0) parts.push(`${skills} skill${skills !== 1 ? "s" : ""}`);
+	return parts.join(" & ");
 }
 
 function formatTimestamp(iso: string): string {
@@ -56,6 +85,7 @@ export function RemediationHistoryCard({
 	impactGrade,
 	hasRepoUrl = true,
 }: RemediationHistoryCardProps) {
+	const [showTourModal, setShowTourModal] = useState(false);
 	const label = `Remediation #${total - index}`;
 	const statLabel = `${item.errorCount} error${item.errorCount !== 1 ? "s" : ""}, ${item.suggestionCount} suggestion${item.suggestionCount !== 1 ? "s" : ""}`;
 	const isFailed = item.status === "failed";
@@ -237,6 +267,56 @@ export function RemediationHistoryCard({
 								{result.summary?.parsed && (
 									<CompactActionSummary summary={result.summary} />
 								)}
+
+								{/* Packmind promotion banner */}
+								{result.summary?.parsed &&
+									(() => {
+										const allActions = [
+											...(result.summary?.errorFixActions ?? []),
+											...(result.summary?.suggestionEnrichActions ?? []),
+										];
+										if (!hasPackmindArtifacts(allActions)) return null;
+										const { standards, skills } =
+											countPackmindArtifacts(allActions);
+										return (
+											<div className="packmind-banner">
+												<div className="flex items-start gap-3">
+													<PackmindLogo className="h-6 flex-shrink-0 mt-0.5" />
+													<div className="flex-1 min-w-0">
+														<p className="text-xs font-semibold text-slate-200 mb-1">
+															Take It Further with Packmind
+														</p>
+														<p className="text-xs text-slate-400">
+															You've created{" "}
+															{formatArtifactCount(standards, skills)}.
+															Centralize, govern and distribute your AI agent
+															playbook at scale with Packmind.
+														</p>
+														<div className="flex gap-2 mt-2">
+															<a
+																href="https://packmind.com"
+																target="_blank"
+																rel="noopener noreferrer"
+																className="btn-secondary text-xs py-1 px-2"
+															>
+																packmind.com
+															</a>
+															<button
+																onClick={() => setShowTourModal(true)}
+																className="btn-primary text-xs py-1 px-2"
+															>
+																Get product tour
+															</button>
+														</div>
+													</div>
+												</div>
+												<PackmindProductTourModal
+													isOpen={showTourModal}
+													onClose={() => setShowTourModal(false)}
+												/>
+											</div>
+										);
+									})()}
 
 								{/* File changes */}
 								{result.fileChanges.length === 0 ? (

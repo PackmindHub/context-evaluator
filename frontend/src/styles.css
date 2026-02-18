@@ -433,6 +433,29 @@
 	}
 
 	/* ============================================
+     PACKMIND PROMOTION BANNERS
+     In-card banner and persistent section
+     ============================================ */
+	.packmind-banner {
+		@apply rounded-lg p-3 transition-all duration-200;
+		border: 1px solid rgb(var(--color-primary) / 0.4);
+		background: linear-gradient(
+			135deg,
+			rgb(var(--color-primary) / 0.06) 0%,
+			rgb(var(--color-primary) / 0.1) 100%
+		);
+	}
+
+	.packmind-section {
+		border-color: rgb(var(--color-primary) / 0.35) !important;
+		background: linear-gradient(
+			135deg,
+			rgb(var(--color-primary) / 0.05) 0%,
+			rgb(var(--color-primary) / 0.09) 100%
+		) !important;
+	}
+
+	/* ============================================
      STAT CARDS (for summary metrics - 3-level system)
      ============================================ */
 	.stat-card-high {

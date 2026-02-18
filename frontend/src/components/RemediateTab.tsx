@@ -29,6 +29,28 @@ import { RemediationHistory } from "./RemediationHistory";
 import { RemediationProgress } from "./RemediationProgress";
 import { CopyButton } from "./shared/CopyButton";
 import { Modal } from "./shared/Modal";
+import { PackmindLogo } from "./shared/PackmindLogo";
+import { PackmindProductTourModal } from "./shared/PackmindProductTourModal";
+
+function historyHasPackmindArtifacts(
+	history: RemediationHistoryItem[],
+): boolean {
+	for (const item of history) {
+		if (!item.summary) continue;
+		const allActions = [
+			...item.summary.errorFixActions,
+			...item.summary.suggestionEnrichActions,
+		];
+		if (
+			allActions.some(
+				(a) => a.outputType === "standard" || a.outputType === "skill",
+			)
+		) {
+			return true;
+		}
+	}
+	return false;
+}
 
 type Phase = "idle" | "progress";
 
@@ -53,6 +75,8 @@ export function RemediateTab({
 }: RemediateTabProps) {
 	const api = useEvaluationApi();
 	const providerDetection = useProviderDetection();
+
+	const [showTourModal, setShowTourModal] = useState(false);
 
 	// Phase: idle (config visible) or progress (SSE running)
 	const [phase, setPhase] = useState<Phase>("idle");
@@ -527,6 +551,45 @@ export function RemediateTab({
 					);
 				})()}
 			/>
+
+			{/* Packmind persistent promotion section */}
+			{historyHasPackmindArtifacts(remediations) && (
+				<div className="card border-2 packmind-section">
+					<div className="flex items-start gap-4">
+						<PackmindLogo className="h-8 flex-shrink-0 mt-0.5" />
+						<div className="flex-1 min-w-0">
+							<h3 className="text-subheading text-slate-100 mb-1">
+								What's next with your playbook?
+							</h3>
+							<p className="text-body text-slate-400">
+								Your team's AI agent playbook is taking shape. Packmind helps
+								you centralize coding standards and skills, distribute them
+								across repos, and add governance workflows.
+							</p>
+							<div className="flex gap-3 mt-3">
+								<a
+									href="https://packmind.com"
+									target="_blank"
+									rel="noopener noreferrer"
+									className="btn-secondary"
+								>
+									Explore Packmind
+								</a>
+								<button
+									onClick={() => setShowTourModal(true)}
+									className="btn-primary"
+								>
+									Get product tour
+								</button>
+							</div>
+						</div>
+					</div>
+					<PackmindProductTourModal
+						isOpen={showTourModal}
+						onClose={() => setShowTourModal(false)}
+					/>
+				</div>
+			)}
 
 			{/* Empty state when no issues selected */}
 			{totalSelected === 0 ? (
