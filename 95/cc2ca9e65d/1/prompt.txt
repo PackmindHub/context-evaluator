@@ -1,0 +1,107 @@
+Implement the following plan:
+
+# Plan: Add Agent Logos to Context Tab and Remediation Tab
+
+## Context
+The user has added official SVG logos for Claude, GitHub Copilot, and Cursor to `frontend/assets/agents/`. Currently:
+- **ContextTab.tsx**: Uses simplified/placeholder inline SVGs for agent section headers
+- **RemediateTab.tsx**: Target agent and provider selection buttons are text-only with no visual branding
+
+Goal: Replace the simplified inline SVGs in ContextTab with the real official logos, and add these logos to the Remediation tab buttons.
+
+## Critical Notes
+- `cursor-logo.svg` appears to be invalid/empty (14 bytes, returns "404: Not Found"). **Must verify with `cat`** before use. If invalid, retain existing inline cursor SVG.
+- The existing inline SVGs in ContextTab.tsx are **not** the official logos (Copilot uses a simplified emoji-like path, Cursor uses a generic "I-beam cursor" icon)
+- Both `claude-logo.svg` and `githubcopilot-logo.svg` are valid SVGs (confirmed by reading)
+
+## Files to Change
+- **NEW**: `frontend/src/components/AgentLogos.tsx` — shared logo React components
+- `frontend/src/components/ContextTab.tsx` — replace inline logos with shared components
+- `frontend/src/components/RemediateTab.tsx` — add logo icons to agent/provider buttons
+
+## Implementation Steps
+
+### Step 1: Create `frontend/src/components/AgentLogos.tsx`
+
+Create a shared file exporting three React components:
+
+**ClaudeLogo**: SVG from `claude-logo.svg`
+- viewBox: "0 0 24 24", fill: "#D97757" (burnt orange, not currentColor — it's a brand color)
+- Props: `className?: string` (default `"w-4 h-4"`)
+
+**GitHubCopilotLogo**: SVG from `githubcopilot-logo.svg`
+- viewBox: "0 0 24 24", fill: "currentColor" (themeable)
+- Props: `className?: string` (default `"w-4 h-4"`)
+
+**CursorLogo**: If `cursor-logo.svg` is valid, use its SVG path. Otherwise reuse the existing inline SVG from ContextTab.tsx (lines 117-119).
+
+Also export a helper map for RemediateTab usage:
+```ts
+export const agentLogoMap: Record<string, React.ReactNode> = {
+  "claude": <ClaudeLogo />,
+  "claude-code": <ClaudeLogo />,
+  "github-copilot": <GitHubCopilotLogo />,
+  "cursor": <CursorLogo />,
+};
+```
+
+### Step 2: Update `frontend/src/components/ContextTab.tsx`
+
+- **Remove** inline `CopilotLogo` component (lines 104–111)
+- **Remove** inline `CursorLogo` component (lines 113–120)
+- **Add** import: `import { ClaudeLogo, GitHubCopilotLogo, CursorLogo } from "./AgentLogos";`
+- **Replace** inline Claude SVG (lines 288–294) with `<ClaudeLogo className="w-4 h-4" />`
+- **Replace** `<CopilotLogo className="w-4 h-4 text-slate-300" />` (line 337) with `<GitHubCopilotLogo className="w-4 h-4 text-slate-300" />`
+- `<CursorLogo className="w-4 h-4 text-slate-300" />` (line 369) stays same reference, now imported from shared file
+
+### Step 3: Update `frontend/src/components/RemediateTab.tsx`
+
+Add import: `import { agentLogoMap } from "./AgentLogos";`
+
+**Target agent buttons** (currently lines 562–581): Change buttons from text-only to logo+text layout:
+```tsx
+<button ...className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm ...`}>
+  {agentLogoMap[value] && (
+    <span className="w-4 h-4 flex items-center">{agentLogoMap[value]}</span>
+  )}
+  {label}
+</button>
+```
+Note: "AGENTS.md" option has no logo (value `"agents-md"` not in map) — renders text only.
+
+**Provider selector buttons** (currently lines 596–608): Same pattern using `p.name` to look up the logo:
+```tsx
+<button ...className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm ...`}>
+  {agentLogoMap[p.name] && (
+    <span className="w-4 h-4 flex items-center">{agentLogoMap[p.name]}</span>
+  )}
+  {p.displayName}
+</button>
+```
+Providers without logos (codex, opencode) render text-only.
+
+## Verification
+
+1. `bun run typecheck` — ensure no TypeScript errors
+2. `bun run test` — all tests pass
+3. `bun run lint` — Biome passes
+4. Visual check in `bun run dev`:
+   - Context tab: Claude, Copilot, Cursor section headers show official logos
+   - Remediation tab: Claude Code, GitHub Copilot, Cursor buttons show logo + label
+   - AGENTS.md button remains text-only (no logo)
+   - Providers without logos (codex, opencode) remain text-only
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+[Request interrupted by user]
+
+---
+
+Another agent worked on your files, he has finished, update your context and continue
+
+---
+
+commit
