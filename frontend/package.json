@@ -9,7 +9,6 @@
 		"dev": "bun run css:build && bun --hot server.ts",
 		"build": "bun run css:build && bun build server.ts --outdir dist",
 		"start": "bun run dist/server.js",
-
 		"build:prod": "bun run clean:prod && bun run build:prod:js && bun run build:prod:css && bun run build:prod:public && bun run build:prod:html && bun run build:prod:verify",
 		"clean:prod": "rm -rf dist && mkdir -p dist",
 		"build:prod:js": "bun build src/App.tsx --outdir dist --target browser --minify --splitting --entry-naming '[name].[hash].js' --no-bundle-css",
@@ -19,10 +18,12 @@
 		"build:prod:verify": "bun run scripts/verify-build.ts"
 	},
 	"dependencies": {
+		"@chakra-ui/react": "^3.33.0",
+		"@emotion/react": "^11.14.0",
 		"react": "^18.3.1",
 		"react-dom": "^18.3.1",
-		"react-router-dom": "^7.12.0",
 		"react-markdown": "^10.1.0",
+		"react-router-dom": "^7.12.0",
 		"remark-gfm": "^4.0.1"
 	},
 	"devDependencies": {

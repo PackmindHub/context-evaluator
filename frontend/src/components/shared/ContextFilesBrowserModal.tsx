@@ -19,6 +19,8 @@ interface ContextFilesBrowserModalProps {
 		| "claude-code"
 		| "cursor-rules"
 		| "skills";
+	/** Optional file path to pre-select when modal opens */
+	initialSelectedPath?: string;
 }
 
 /**
@@ -49,7 +51,7 @@ function getTypeLabel(
  */
 export const ContextFilesBrowserModal: React.FC<
 	ContextFilesBrowserModalProps
-> = ({ isOpen, onClose, contextFiles, filterType }) => {
+> = ({ isOpen, onClose, contextFiles, filterType, initialSelectedPath }) => {
 	// Filter context files by type if filterType is provided
 	const filteredContextFiles = useMemo(() => {
 		if (!filterType) return contextFiles;
@@ -131,6 +133,7 @@ export const ContextFilesBrowserModal: React.FC<
 			selectPromptText="Select a context file to view its content"
 			noContentText="Content not available"
 			noContentSubtext="Re-run evaluation to load file content"
+			initialSelectedId={initialSelectedPath}
 		/>
 	);
 };

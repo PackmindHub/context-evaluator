@@ -11,6 +11,8 @@ interface SkillsBrowserModalProps {
 	onClose: () => void;
 	/** Skills to display */
 	skills: ISkill[];
+	/** Optional skill path to pre-select when modal opens */
+	initialSelectedPath?: string;
 }
 
 /**
@@ -22,6 +24,7 @@ export const SkillsBrowserModal: React.FC<SkillsBrowserModalProps> = ({
 	isOpen,
 	onClose,
 	skills,
+	initialSelectedPath,
 }) => {
 	const [searchQuery, setSearchQuery] = useState("");
 	const [selectedSkillIndex, setSelectedSkillIndex] = useState<number | null>(
@@ -96,13 +99,20 @@ export const SkillsBrowserModal: React.FC<SkillsBrowserModalProps> = ({
 		};
 	}, [isOpen, handleKeyDown]);
 
-	// Reset state when modal opens
+	// Reset state when modal opens; pre-select if initialSelectedPath is provided
 	useEffect(() => {
 		if (isOpen) {
 			setSearchQuery("");
-			setSelectedSkillIndex(null);
+			if (initialSelectedPath) {
+				const idx = filteredSkills.findIndex(
+					(s) => s.path === initialSelectedPath,
+				);
+				setSelectedSkillIndex(idx >= 0 ? idx : null);
+			} else {
+				setSelectedSkillIndex(null);
+			}
 		}
-	}, [isOpen]);
+	}, [isOpen, initialSelectedPath, filteredSkills]);
 
 	if (!isOpen) return null;
 

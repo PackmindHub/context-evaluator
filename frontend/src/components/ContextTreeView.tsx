@@ -1,4 +1,4 @@
-import { createTreeCollection, TreeView } from "@chakra-ui/react";
+import { createTreeCollection, TreeView } from "@ark-ui/react/tree-view";
 import React, { useMemo } from "react";
 import {
 	buildContextTree,
@@ -97,7 +97,7 @@ function getFileTypeBadge(
 			};
 		case "rules":
 			return {
-				label: "Rule",
+				label: "Claude Rule",
 				className: "bg-slate-600/40 text-slate-300",
 			};
 		case "cursor-rules":
@@ -112,7 +112,7 @@ function getFileTypeBadge(
 			};
 		case "linked-doc":
 			return {
-				label: "Linked",
+				label: "Linked docs",
 				className: "bg-slate-600/40 text-slate-300",
 			};
 		default:
@@ -149,7 +149,7 @@ export const ContextTreeView: React.FC<ContextTreeViewProps> = ({
 
 	if (treeNodes.length === 0) {
 		return (
-			<div className="glass-card p-12 text-center">
+			<div className="p-12 text-center">
 				<p className="text-sm text-slate-400">
 					No context files to display in tree view.
 				</p>
@@ -158,62 +158,92 @@ export const ContextTreeView: React.FC<ContextTreeViewProps> = ({
 	}
 
 	return (
-		<div className="glass-card p-4">
+		<div className="p-2">
 			<TreeView.Root
 				collection={collection}
 				defaultExpandedValue={defaultExpandedIds}
 			>
 				<TreeView.Tree>
-					<TreeView.Node
-						render={({ node, nodeState }) => {
-							if (nodeState.isBranch) {
-								return (
-									<TreeView.BranchControl className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-slate-800/30 transition-colors cursor-pointer">
-										<TreeView.BranchIndicator className="text-slate-500 transition-transform duration-150 data-[state=open]:rotate-90">
-											<ChevronIcon />
-										</TreeView.BranchIndicator>
-										<FolderIcon className="w-4 h-4 text-slate-400" />
-										<TreeView.BranchText className="text-sm text-slate-300">
-											{node.name}
-										</TreeView.BranchText>
-									</TreeView.BranchControl>
-								);
-							}
-
-							const badge = getFileTypeBadge(node.fileType);
-
-							return (
-								<TreeView.Item
-									className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-slate-800/30 transition-colors cursor-pointer ml-3"
-									onClick={() => {
-										if (node.filePath && node.fileType) {
-											onFileClick(node.filePath, node.fileType);
-										}
-									}}
-								>
-									<FileIcon className="w-4 h-4 text-slate-500" />
-									<TreeView.ItemText className="text-sm text-slate-300 truncate">
-										{node.name}
-									</TreeView.ItemText>
-									{badge && (
-										<span
-											className={`text-xs px-1.5 py-0.5 rounded ${badge.className}`}
-										>
-											{badge.label}
-										</span>
-									)}
-								</TreeView.Item>
-							);
-						}}
-						branchProps={{
-							className: "pl-3",
-						}}
-						branchContentProps={{
-							className: "pl-2 border-l border-slate-700/50 ml-[11px]",
-						}}
-					/>
+					<TreeView.NodeProvider node={collection.rootNode} indexPath={[]}>
+						{collection
+							.getNodeChildren(collection.rootNode)
+							.map((node, index) => (
+								<TreeNodeRenderer
+									key={node.id}
+									node={node}
+									indexPath={[index]}
+									collection={collection}
+									onFileClick={onFileClick}
+								/>
+							))}
+					</TreeView.NodeProvider>
 				</TreeView.Tree>
 			</TreeView.Root>
 		</div>
+	);
+};
+
+/** Recursive tree node renderer using Ark UI primitives */
+const TreeNodeRenderer: React.FC<{
+	node: ContextTreeNode;
+	indexPath: number[];
+	collection: ReturnType<typeof createTreeCollection<ContextTreeNode>>;
+	onFileClick: (path: string, fileType: string) => void;
+}> = ({ node, indexPath, collection, onFileClick }) => {
+	const children = collection.getNodeChildren(node);
+	const isBranch = children.length > 0;
+
+	if (isBranch) {
+		return (
+			<TreeView.NodeProvider node={node} indexPath={indexPath}>
+				<TreeView.Branch>
+					<TreeView.BranchControl className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-slate-800/30 transition-colors cursor-pointer">
+						<TreeView.BranchIndicator className="text-slate-500 transition-transform duration-150 data-[state=open]:rotate-90">
+							<ChevronIcon />
+						</TreeView.BranchIndicator>
+						<FolderIcon className="w-4 h-4 text-slate-400" />
+						<TreeView.BranchText className="text-sm text-slate-300">
+							{node.name}
+						</TreeView.BranchText>
+					</TreeView.BranchControl>
+					<TreeView.BranchContent className="pl-4 border-l border-slate-700/50 ml-[11px]">
+						{children.map((child, childIndex) => (
+							<TreeNodeRenderer
+								key={child.id}
+								node={child}
+								indexPath={[...indexPath, childIndex]}
+								collection={collection}
+								onFileClick={onFileClick}
+							/>
+						))}
+					</TreeView.BranchContent>
+				</TreeView.Branch>
+			</TreeView.NodeProvider>
+		);
+	}
+
+	const badge = getFileTypeBadge(node.fileType);
+
+	return (
+		<TreeView.NodeProvider node={node} indexPath={indexPath}>
+			<TreeView.Item
+				className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-slate-800/30 transition-colors cursor-pointer ml-3"
+				onClick={() => {
+					if (node.filePath && node.fileType) {
+						onFileClick(node.filePath, node.fileType);
+					}
+				}}
+			>
+				<FileIcon className="w-4 h-4 text-slate-500" />
+				<TreeView.ItemText className="text-sm text-slate-300 truncate">
+					{node.name}
+				</TreeView.ItemText>
+				{badge && (
+					<span className={`text-xs px-1.5 py-0.5 rounded ${badge.className}`}>
+						{badge.label}
+					</span>
+				)}
+			</TreeView.Item>
+		</TreeView.NodeProvider>
 	);
 };

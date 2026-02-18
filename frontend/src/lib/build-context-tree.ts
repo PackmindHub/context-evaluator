@@ -42,19 +42,27 @@ export function buildContextTree(
 	skills: ISkill[],
 	linkedDocs: ILinkedDocSummary[],
 ): ContextTreeNode[] {
-	// Collect all items into flat entries
+	// Collect all items into flat entries, deduplicating by path
 	const entries: FlatEntry[] = [];
+	const seenPaths = new Set<string>();
 
 	for (const file of contextFiles) {
+		seenPaths.add(file.path);
 		entries.push({ path: file.path, fileType: file.type });
 	}
 
 	for (const skill of skills) {
-		entries.push({ path: skill.path, fileType: "skills" });
+		if (!seenPaths.has(skill.path)) {
+			seenPaths.add(skill.path);
+			entries.push({ path: skill.path, fileType: "skills" });
+		}
 	}
 
 	for (const doc of linkedDocs) {
-		entries.push({ path: doc.path, fileType: "linked-doc" });
+		if (!seenPaths.has(doc.path)) {
+			seenPaths.add(doc.path);
+			entries.push({ path: doc.path, fileType: "linked-doc" });
+		}
 	}
 
 	// Build the tree from flat entries
