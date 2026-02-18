@@ -1,0 +1,26 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "8c5caff9d3ff",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "frontend/src/components/RemediateTab.tsx"
+  ],
+  "sessions": [
+    {
+      "metadata": "/8c/5caff9d3ff/0/metadata.json",
+      "transcript": "/8c/5caff9d3ff/0/full.jsonl",
+      "context": "/8c/5caff9d3ff/0/context.md",
+      "content_hash": "/8c/5caff9d3ff/0/content_hash.txt",
+      "prompt": "/8c/5caff9d3ff/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 13,
+    "cache_creation_tokens": 6206,
+    "cache_read_tokens": 817964,
+    "output_tokens": 122,
+    "api_call_count": 11
+  }
+}
