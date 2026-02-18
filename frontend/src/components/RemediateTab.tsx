@@ -24,6 +24,10 @@ import type {
 	RemediationHistoryItem,
 	RemediationResult,
 } from "../types/remediation";
+import {
+	countPackmindArtifacts,
+	formatArtifactCount,
+} from "../utils/packmind-artifacts";
 import { agentLogoMap } from "./AgentLogos";
 import { RemediationHistory } from "./RemediationHistory";
 import { RemediationProgress } from "./RemediationProgress";
@@ -42,6 +46,7 @@ interface RemediateTabProps {
 	onRemoveIssue: (key: string) => void;
 	onClearAll: () => void;
 	cloudMode?: boolean;
+	repositoryUrl?: string | null;
 }
 
 export function RemediateTab({
@@ -52,6 +57,7 @@ export function RemediateTab({
 	onRemoveIssue,
 	onClearAll,
 	cloudMode = false,
+	repositoryUrl,
 }: RemediateTabProps) {
 	const api = useEvaluationApi();
 	const providerDetection = useProviderDetection();
@@ -151,6 +157,22 @@ export function RemediateTab({
 		}
 		return providers;
 	}, [providerDetection.providers]);
+
+	// Aggregate Packmind artifact totals across all remediations
+	const packmindTotals = useMemo(() => {
+		let standards = 0;
+		let skills = 0;
+		for (const r of remediations) {
+			const allActions = [
+				...(r.summary?.errorFixActions ?? []),
+				...(r.summary?.suggestionEnrichActions ?? []),
+			];
+			const counts = countPackmindArtifacts(allActions);
+			standards += counts.standards;
+			skills += counts.skills;
+		}
+		return { standards, skills };
+	}, [remediations]);
 
 	// Resolve selected issue keys to actual issues, split by type
 	const { errorEntries, suggestionEntries } = useMemo(() => {
@@ -518,18 +540,11 @@ export function RemediateTab({
 				onAutoExpandHandled={() => setAutoExpandRemediationId(null)}
 				parentScore={evaluationData?.metadata?.contextScore?.score}
 				parentGrade={evaluationData?.metadata?.contextScore?.grade}
-				hasRepoUrl={(() => {
-					// repositoryUrl is present at runtime but not in frontend Metadata type
-					// biome-ignore lint/suspicious/noExplicitAny: runtime metadata field
-					const url = (evaluationData?.metadata as any)?.repositoryUrl as
-						| string
-						| undefined;
-					return (
-						!!url &&
-						url !== "unknown" &&
-						(url.startsWith("http") || url.startsWith("git@"))
-					);
-				})()}
+				hasRepoUrl={
+					!!repositoryUrl &&
+					repositoryUrl !== "unknown" &&
+					(repositoryUrl.startsWith("http") || repositoryUrl.startsWith("git@"))
+				}
 			/>
 
 			{/* Packmind persistent promotion section */}
@@ -540,6 +555,18 @@ export function RemediateTab({
 						<h3 className="text-subheading text-slate-100 mb-1">
 							What's next with your playbook?
 						</h3>
+						{packmindTotals.standards + packmindTotals.skills > 0 && (
+							<p className="text-body text-slate-300 mb-1">
+								Your remediations have created{" "}
+								<span className="font-semibold text-slate-100">
+									{formatArtifactCount(
+										packmindTotals.standards,
+										packmindTotals.skills,
+									)}
+								</span>{" "}
+								so far.
+							</p>
+						)}
 						<p className="text-body text-slate-400">
 							Your team's AI agent playbook is taking shape. Packmind helps you
 							centralize coding standards and skills, distribute them across

@@ -2022,6 +2022,7 @@ function AppContent() {
 								onRemoveIssue={handleRemoveIssueFromRemediation}
 								onClearAll={handleClearSelection}
 								cloudMode={cloudMode}
+								repositoryUrl={currentRepositoryUrl}
 							/>
 						</TabPanel>
 
