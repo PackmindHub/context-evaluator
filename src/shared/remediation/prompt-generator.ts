@@ -235,7 +235,17 @@ function getOutputTypeInstructions(
 
 	const errorDefaultGuidance =
 		context === "error"
-			? `\n\n**Default for error fixes:** Most errors should be fixed inline as a **generic update** (editing the existing documentation file directly). Only choose "standard" or "skill" when the fix genuinely requires creating a new standalone file — for example, when the issue is about missing conventions that belong in a dedicated rule file, or missing procedural workflows that belong in a skill.`
+			? `\n\n**Choosing the right type for error fixes:**
+- Factual corrections (wrong paths, outdated names, incorrect references) → **generic update**
+- New procedural workflows (commit steps, CI/CD procedures, deployment flows) → **skill**
+- New constraints or guardrails (security rules, coding conventions) → **standard**
+
+Use the evaluator category in each issue header as a signal:
+- \`outdated-documentation\`, \`structure-formatting\`, \`completeness\` → usually **generic update**
+- \`git-workflow\`, \`testing\`, \`deployment\` → usually **skill** (procedural)
+- \`security\`, \`code-style\` → usually **standard** (constraints) or **generic**
+
+When multiple issues share the same evaluator category and topic, consolidate them into a single output rather than creating many small separate additions.`
 			: "";
 
 	return `### Output Types
@@ -478,13 +488,14 @@ ${outputTypeInstructions}
 ## Instructions
 1. Read the target files from disk before making changes
 2. Use your own judgment to assess each issue: these were produced by an automated evaluator and some may be false positives or irrelevant given the actual file content. Skip any issue that is not a real problem after reading the file
-3. For each remaining issue, decide the output type (standard, skill, or generic update) using the decision criteria above
-4. When multiple issues target the same file and related topics, consolidate them into well-organized sections rather than creating many small isolated additions
-5. Fix each remaining issue, highest severity first
-6. Preserve all correct existing content
-7. Keep changes minimal — only fix what's genuinely flagged
-8. Do not add commentary, headers, or sections beyond what's needed
-9. After making all changes, output a JSON summary:
+3. **Note:** The **Fix** text for each issue was generated without knowledge of standards or skills — it may describe inline edits even when a skill or standard would be more appropriate. Use the output type decision criteria and the evaluator category to override the suggested approach when warranted.
+4. For each remaining issue, decide the output type (standard, skill, or generic update) using the decision criteria above
+5. When multiple issues target the same file and related topics, consolidate them into well-organized sections rather than creating many small isolated additions
+6. Fix each remaining issue, highest severity first
+7. Preserve all correct existing content
+8. Keep changes minimal — only fix what's genuinely flagged
+9. Do not add commentary, headers, or sections beyond what's needed
+10. After making all changes, output a JSON summary:
 \`\`\`json
 {
   "actions": [

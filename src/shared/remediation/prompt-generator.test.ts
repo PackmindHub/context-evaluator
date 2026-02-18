@@ -715,7 +715,7 @@ describe("prompt-generator", () => {
 			expect(result.errorFixPrompt).toContain('"generic"');
 		});
 
-		test("error fix prompt prefers generic updates for errors", () => {
+		test("error fix prompt includes output type guidance for errors", () => {
 			const input: RemediationInput = {
 				...baseInput,
 				errors: [makeError()],
@@ -723,9 +723,14 @@ describe("prompt-generator", () => {
 
 			const result = generateRemediationPrompts(input);
 
-			expect(result.errorFixPrompt).toContain("**Default for error fixes:**");
 			expect(result.errorFixPrompt).toContain(
-				"Most errors should be fixed inline as a **generic update**",
+				"**Choosing the right type for error fixes:**",
+			);
+			expect(result.errorFixPrompt).toContain(
+				"Use the evaluator category in each issue header as a signal:",
+			);
+			expect(result.errorFixPrompt).toContain(
+				"**Note:** The **Fix** text for each issue was generated without knowledge of standards or skills",
 			);
 		});
 	});
