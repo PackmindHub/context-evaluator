@@ -123,13 +123,13 @@ export const ContentBrowserModal: React.FC<ContentBrowserModalProps> = ({
 		};
 	}, [isOpen, handleKeyDown]);
 
-	// Reset state when modal opens
+	// Reset state when modal opens; auto-select if only one item
 	useEffect(() => {
 		if (isOpen) {
 			setSearchQuery("");
-			setSelectedItemIndex(null);
+			setSelectedItemIndex(items.length === 1 ? 0 : null);
 		}
-	}, [isOpen]);
+	}, [isOpen, items.length]);
 
 	if (!isOpen) return null;
 

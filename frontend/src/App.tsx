@@ -12,6 +12,7 @@ import {
 import { AppHeader } from "./components/AppHeader";
 import { AssessmentPage } from "./components/AssessmentPage";
 import { BatchStatusPage } from "./components/BatchStatusPage";
+import { ContextTab } from "./components/ContextTab";
 import { CostAnalysisPanel } from "./components/CostAnalysisPanel";
 import { EmptyState } from "./components/EmptyState";
 import { EvaluationInputPanel } from "./components/EvaluationInputPanel";
@@ -1626,6 +1627,54 @@ function AppContent() {
 		[currentEvaluationId, selectionApi],
 	);
 
+	// Context files total count for tab badge
+	const totalContextFilesCount = useMemo(() => {
+		if (!evaluationData) return 0;
+		const ctx = evaluationData.metadata.projectContext;
+		if (!ctx) return 0;
+		const contextFilesFromApi = ctx.contextFiles ?? [];
+		const agentsFilePaths = ctx.agentsFilePaths ?? [];
+		let agentsCount: number;
+		let claudeCount: number;
+		let rulesCount: number;
+		let copilotCount: number;
+		if (contextFilesFromApi.length > 0) {
+			agentsCount = contextFilesFromApi.filter(
+				(f) => f.type === "agents",
+			).length;
+			claudeCount = contextFilesFromApi.filter(
+				(f) => f.type === "claude",
+			).length;
+			rulesCount = contextFilesFromApi.filter((f) => f.type === "rules").length;
+			copilotCount = contextFilesFromApi.filter(
+				(f) => f.type === "copilot",
+			).length;
+		} else {
+			agentsCount = agentsFilePaths.filter((p) =>
+				p.toLowerCase().includes("agents"),
+			).length;
+			claudeCount = agentsFilePaths.filter((p) =>
+				p.toLowerCase().includes("claude"),
+			).length;
+			rulesCount = agentsFilePaths.filter((p) =>
+				p.includes(".claude/rules/"),
+			).length;
+			copilotCount = agentsFilePaths.filter((p) =>
+				p.toLowerCase().includes("copilot-instructions"),
+			).length;
+		}
+		const skillsCount = ctx.skills?.length ?? 0;
+		const linkedDocsCount = ctx.linkedDocs?.length ?? 0;
+		return (
+			agentsCount +
+			claudeCount +
+			rulesCount +
+			copilotCount +
+			skillsCount +
+			linkedDocsCount
+		);
+	}, [evaluationData]);
+
 	// Tab configuration
 	const tabs: TabItem[] = useMemo(() => {
 		const baseTabs: TabItem[] = [
@@ -1647,6 +1696,26 @@ function AppContent() {
 						/>
 					</svg>
 				),
+			},
+			{
+				id: "context",
+				label: "Context",
+				icon: (
+					<svg
+						className="w-4 h-4"
+						fill="none"
+						stroke="currentColor"
+						viewBox="0 0 24 24"
+					>
+						<path
+							strokeLinecap="round"
+							strokeLinejoin="round"
+							strokeWidth={2}
+							d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+						/>
+					</svg>
+				),
+				count: totalContextFilesCount > 0 ? totalContextFilesCount : undefined,
 			},
 			{
 				id: "errors",
@@ -1763,6 +1832,7 @@ function AppContent() {
 		filteredSuggestionsCount,
 		cloudMode,
 		selectedIssueKeys.size,
+		totalContextFilesCount,
 	]);
 
 	return (
@@ -1823,6 +1893,11 @@ function AppContent() {
 								curation={evaluationData.curation}
 								evaluationLogs={evaluationLogs}
 							/>
+						</TabPanel>
+
+						{/* Context Tab */}
+						<TabPanel id="context" activeTab={activeTab}>
+							<ContextTab metadata={evaluationData.metadata} />
 						</TabPanel>
 
 						{/* Errors Tab */}
