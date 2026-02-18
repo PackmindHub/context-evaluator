@@ -1,0 +1,99 @@
+Implement the following plan:
+
+# Plan: Add Output Type Support (standard/skill/generic) to Error Fix Remediation
+
+## Context
+
+Currently, the remediation system treats errors and suggestions differently:
+- **Suggestions** get rich output type routing: the AI decides whether to create a standard (rule file), a skill (SKILL.md), or a generic update (inline edit) — with full target-agent-aware instructions.
+- **Errors** only get a simple "fix it inline" prompt with no target agent awareness and no output type decision.
+
+This means errors like "missing git conventions" or "missing workflow documentation" can only be fixed by editing the existing file inline, when they'd be better addressed by creating a dedicated skill or standard.
+
+**Goal**: Update the error fix prompt to include the same output type decision framework as suggestions, so the AI can create standards/skills when appropriate for error fixes too.
+
+### Design Decisions (confirmed with user)
+- **Default bias**: Prefer generic (inline fix) for most errors. Only use standard/skill when genuinely warranted.
+- **Status values**: Use `"added"` when creating new files, `"fixed"` for inline edits.
+- **Consolidation**: YES — add consolidation guidance for errors too (when multiple errors can be addressed by the same standard/skill).
+- **Phantom file remapping**: NO — skip it, errors don't have phantom files.
+- **Wording**: Use `"For each issue"` (not "For each error" or "For each suggestion").
+
+## Key Insight: Only the Prompt Needs Changing
+
+The downstream systems already handle `outputType` generically:
+- `summary-parser.ts` — already parses and validates `outputType` for both `error_fix` and `suggestion_enrich` types
+- `engine.ts` — passes through parsed actions unchanged
+- `RemediationHistoryCard.tsx` — already renders `outputType` badges for any action
+- `IRemediationAction` type — already has `outputType?: "standard" | "skill" | "generic"` and `status: "fixed" | "added" | "skipped"`
+
+## Changes
+
+### File 1: `src/shared/remediation/prompt-generator.ts`
+
+**Change A — Parameterize `getOutputTypeInstructions` (line 222)**
+
+Add a `context` parameter to control wording ("issue" vs "suggestion"):
+
+```typescript
+function getOutputTypeInstructions(
+  targetAgent: TargetAgent,
+  context: "suggestion" | "error" = "suggestion"
+): string {
+```
+
+- Replace `"For each suggestion"` with `"For each ${itemLabel}"` (where `itemLabel = context === "error" ? "issue" : "suggestion"`)
+- Same for `"A single suggestion can produce..."` → `"A single ${itemLabel} can produce..."`
+- When `context === "error"`, append an extra guidance paragraph after the decision criteria:
+
+> **Default for error fixes:** Most errors should be fixed inline as a **generic update** (editing the existing documentation file directly). Only choose "standard" or "skill" when the fix genuinely requires creating a new standalone file — for example, when the issue is about missing conventions that belong in a dedicated rule file, or missing procedural workflows that belong in a skill.
+
+The existing call from `buildSuggestionEnrichPrompt` (line 441) continues unchanged (uses default `"suggestion"`).
+
+**Change B — Rewrite `buildErrorFixPrompt` (lines 363-415)**
+
+Make it target-agent-aware with output type instructions. Key additions:
+
+1. **Target agent context in Role section**: Use `TARGET_AGENTS[input.targetAgent]` and `getAgentContextDescription(input.targetAgent)` (same pattern as suggestion prompt)
+2. **Output type instructions section**: Insert `getOutputTypeInstructions(input.targetAgent, "error")` between the Referenced Content / Issues section
+3. **Consolidation instruction**: Add "When multiple issues target the same file and related topics, consolidate them into well-organized sections rather than creating many small isolated additions"
+4. **Updated Instructions**: Add step 3 "decide the output type" before "fix each issue"
+5. **Updated JSON example**: Include `outputType` for non-skipped actions, show both `"fixed"` (inline edit) and `"added"` (new file) statuses
+6. **Updated footer**: `Status: "fixed", "added", or "skipped". Use "fixed" for inline edits and "added" for new files. Include outputType for non-skipped actions.`
+7. **NO phantom file remapping** — errors don't have phantom files
+
+### File 2: `src/shared/remediation/prompt-generator.test.ts`
+
+**Remove**: "error fix prompt is target-agnostic" test (lines 82-95) — this asserts the old behavior we're explicitly changing.
+
+**Update**: "error fix prompt does not include consolidation guidance" test (lines 640-649) — now errors DO include consolidation, so flip this test to assert consolidation IS present.
+
+**Add new tests**:
+- "error fix prompt includes target agent context" — verifies agent display name and description for all 3 targets
+- "error fix prompt includes output type instructions" — verifies `### Output Types`, `### Decision Criteria`, `"For each issue"` wording
+- "error fix prompt includes outputType in JSON example" — verifies `"outputType"`, `"standard"`, `"generic"` present
+- "error fix prompt prefers generic updates for errors" — verifies the error-specific default-to-generic guidance paragraph
+
+**Verify existing tests still pass** (no modifications needed):
+- "generates error fix prompt with correct structure" — all assertions still hold
+- "sorts errors by severity descending" — sorting logic unchanged
+- "includes snippet in error prompt" — rendering unchanged
+- "deduplicates snippets in error fix prompt" — dedup logic unchanged
+- All suggestion-specific tests — `buildSuggestionEnrichPrompt` is unchanged
+
+## Verification
+
+1. `bun run test` — all tests pass
+2. `bun run lint` — no lint errors
+3. Manual: run a remediation on a repo with errors like "missing git conventions" and verify the prompt includes output type instructions and the AI can create skills/standards
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+commit this
+
+---
+
+update changelog with a small sentence
