@@ -1,0 +1,40 @@
+Implement the following plan:
+
+# Fix: "Evaluate Impact" button not visible on Remediation History
+
+## Context
+
+The "Evaluate Impact" button on remediation history cards is fully implemented but hidden because `hasRepoUrl` evaluates to `false`. The check reads `repositoryUrl` from `evaluationData.metadata.repositoryUrl` (the result JSON), but this field is **null** in the database for this evaluation. Meanwhile, the DB `repository_url` column correctly stores the URL (`https://github.com/jayvicsanantonio/ai-timeline-automation`).
+
+**Root cause**: `RemediateTab` derives `hasRepoUrl` from `evaluationData.metadata.repositoryUrl`, but:
+1. The `result_json.metadata` may not contain `repositoryUrl` for evaluations run before the git metadata feature was added
+2. `currentRepositoryUrl` (which correctly reads from the DB column) is available in `App.tsx` but never passed to `RemediateTab`
+
+## Fix
+
+Pass `currentRepositoryUrl` from `App.tsx` down to `RemediateTab` → `RemediationHistory` instead of deriving it from result metadata.
+
+### Files to modify
+
+1. **`frontend/src/components/RemediateTab.tsx`**
+   - Add `repositoryUrl?: string | null` to `RemediateTabProps` (line 41-49)
+   - Replace the `hasRepoUrl` inline computation (lines 541-552) with a simple check on the new prop:
+     ```
+     hasRepoUrl={!!repositoryUrl && repositoryUrl !== "unknown" && (repositoryUrl.startsWith("http") || repositoryUrl.startsWith("git@"))}
+     ```
+
+2. **`frontend/src/App.tsx`**
+   - Add `repositoryUrl={currentRepositoryUrl}` to the `<RemediateTab>` usage (line 2017-2025)
+
+## Verification
+
+1. `bun run test` — all tests pass
+2. `bun run lint` — no lint errors
+3. Manual: load evaluation `dd283666-3a94-43cd-8565-7dff030c01d1`, go to Remediate tab, confirm "Evaluate Impact" button is visible on remediation history cards
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+commit

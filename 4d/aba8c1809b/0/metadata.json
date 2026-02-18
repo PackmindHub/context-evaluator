@@ -1,0 +1,73 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "4daba8c1809b",
+  "session_id": "e256147e-3a14-4fa0-8fe0-05ecfb2293b3",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-18T21:17:27.645756Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "frontend/src/App.tsx",
+    "frontend/src/components/RemediateTab.tsx"
+  ],
+  "agent": "Claude Code",
+  "token_usage": {
+    "input_tokens": 20,
+    "cache_creation_tokens": 30508,
+    "cache_read_tokens": 600808,
+    "output_tokens": 449,
+    "api_call_count": 16
+  },
+  "summary": {
+    "intent": "Fix the 'Evaluate Impact' button being hidden on Remediation History cards by correctly sourcing the repository URL from the database column instead of result JSON metadata.",
+    "outcome": "Successfully passed `currentRepositoryUrl` from `App.tsx` through to `RemediateTab` and `RemediationHistory`, replacing the broken IIFE that read from `evaluationData.metadata.repositoryUrl`. All 1274 tests pass and lint is clean; committed as 9f025fd.",
+    "learnings": {
+      "repo": [
+        "The DB `repository_url` column is reliably populated, but `result_json.metadata.repositoryUrl` can be null for evaluations run before the git metadata feature was added — never derive UI feature flags from result JSON metadata when the DB column is available.",
+        "The project uses `bun run test` and `bun run lint` as the standard verification commands; pre-commit hooks enforce tests, lint, and typecheck automatically.",
+        "Git commands are prefixed with `rtk` (a wrapper), but plain `git commit` was used for the actual commit — `rtk git` is used for status/diff/add operations."
+      ],
+      "code": [
+        {
+          "path": "frontend/src/components/RemediateTab.tsx",
+          "line": 41,
+          "end_line": 49,
+          "finding": "RemediateTabProps interface — added `repositoryUrl?: string | null` here to accept the DB-sourced URL."
+        },
+        {
+          "path": "frontend/src/components/RemediateTab.tsx",
+          "line": 541,
+          "end_line": 552,
+          "finding": "Original `hasRepoUrl` was computed via an IIFE reading `evaluationData.metadata.repositoryUrl`, which is null for older evaluations. Replaced with a direct check on the new `repositoryUrl` prop."
+        },
+        {
+          "path": "frontend/src/App.tsx",
+          "line": 2017,
+          "end_line": 2025,
+          "finding": "`\u003cRemediateTab\u003e` usage — added `repositoryUrl={currentRepositoryUrl}` to wire the DB-sourced value into the component."
+        }
+      ],
+      "workflow": [
+        "When a lint error is a formatting issue, a targeted Edit fix is sufficient — no need to run an autoformatter separately.",
+        "Pre-existing unrelated changes (Packmind artifact refactoring) were already in the working tree on the same files; the commit ended up bundling them since they couldn't be cleanly separated without reverting prior work."
+      ]
+    },
+    "friction": [
+      "A formatting lint error in `RemediateTab.tsx` required an extra edit-and-lint cycle after the functional changes were already correct.",
+      "The commit used plain `git commit` instead of `rtk git commit`, suggesting inconsistency in the `rtk` wrapper usage that could cause confusion."
+    ],
+    "open_items": [
+      "The Packmind artifact refactoring in `RemediateTab.tsx` and `RemediationHistoryCard.tsx` was pre-existing in the working tree and got bundled into this commit without review — should be verified that those changes are intentional and complete.",
+      "Older evaluations may have other fields missing from `result_json.metadata`; worth auditing which other UI features rely on metadata fields that could be null for legacy records."
+    ]
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-18T21:17:09.606681Z",
+    "agent_lines": 40,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 40,
+    "agent_percentage": 100
+  }
+}
