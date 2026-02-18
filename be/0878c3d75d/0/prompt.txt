@@ -1,0 +1,86 @@
+Implement the following plan:
+
+# Assessment: Remediation Impact Evaluation Flow
+
+## Context
+
+The user asked to confirm that when running an evaluation from a remediation report, the system:
+1. Clones a fresh git repository
+2. Applies the git patch from the remediation
+3. Runs the evaluation on that patched clone
+
+## Findings
+
+**The flow IS properly implemented.** Here's the verified chain:
+
+### Impact Evaluation Flow (`src/api/routes/remediation.ts:450-582`)
+
+1. **Fetch remediation** — validates it's `completed` with a `fullPatch`
+2. **Fetch parent evaluation** — gets `repositoryUrl`, `gitBranch`, `gitCommitSha`
+3. **Clone fresh repo** — `cloneRepository(repoUrl, { branch, commitSha })` creates a new temp directory in `tmp/clones/`
+4. **Apply patch** — `applyPatch(clonePath, fullPatch)` writes patch to temp file, runs `git apply --whitespace=fix`, cleans up temp file
+5. **Submit evaluation job** — runs full evaluation on the patched clone with `_parentEvaluationId` and `_sourceRemediationId` metadata
+6. **Link result** — `job-manager.ts:395-400` calls `linkResultEvaluation()` to store the result evaluation ID back on the remediation record
+
+### Key Files Verified
+
+| File | Role |
+|------|------|
+| `src/api/routes/remediation.ts:450-582` | Orchestrates clone → patch → evaluate |
+| `src/shared/remediation/git-operations.ts:69-85` | `applyPatch()` — writes patch file, runs `git apply`, cleans up |
+| `src/shared/file-system/git-cloner.ts:63-179` | `cloneRepository()` — shallow clone + commit checkout |
+| `src/api/jobs/job-manager.ts:395-400` | Links result evaluation to remediation |
+
+## Issue Found: Silent Commit Checkout Failure
+
+**File**: `src/shared/file-system/git-cloner.ts:134-158`
+
+When a specific `commitSha` is provided, the clone flow does:
+1. `git fetch --depth 1 origin <commitSha>`
+2. `git checkout <commitSha>`
+
+**Problem**: If either step fails, the error is silently caught and the code continues with branch HEAD:
+
+```typescript
+} catch {
+    if (verbose) {
+        console.log(`[Git] Warning: Could not checkout commit ${commitSha}, continuing with branch HEAD`);
+    }
+}
+```
+
+This means if the original commit is unreachable (force-push, rewritten history, garbage-collected), the impact evaluation would silently run against a **different commit** than the original evaluation. The before/after comparison would be invalid without any visible warning to the user.
+
+### Proposed Fix
+
+Make the commit checkout failure **non-silent** for impact evaluations. Two options:
+
+**Option A (Recommended): Throw on failure when commitSha is provided**
+- In `git-cloner.ts`, when `commitSha` is provided, treat checkout failure as a hard error instead of silently falling back to HEAD
+- This ensures the user gets a clear error rather than a misleading comparison
+- The `evaluateImpact` handler already has proper error handling for clone failures
+
+**Option B: Propagate a warning flag**
+- Return a `commitCheckoutFailed: boolean` flag in `CloneResult`
+- Let callers decide whether to proceed or abort
+- More flexible but adds complexity
+
+### Implementation (Option A)
+
+**`src/shared/file-system/git-cloner.ts`**:
+- Replace the silent `catch` block with a thrown error when `commitSha` was explicitly requested
+- The error message should indicate the commit is unreachable and suggest re-running from the current branch HEAD
+
+## Verification
+
+After the fix:
+1. Run `bun run test` to ensure existing tests pass
+2. Test impact evaluation with a valid remediation — should still work normally
+3. Verify that if `commitSha` checkout fails, the user gets a clear error instead of a silent fallback
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+commit
