@@ -3,9 +3,22 @@
   "checkpoint_id": "db6d4034b8cc",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 1,
+  "checkpoints_count": 2,
   "files_touched": [
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "frontend/src/components/ContextTab.tsx",
+    "frontend/src/components/RemediateTab.tsx",
+    "frontend/src/components/shared/ContextFilesBrowserModal.tsx",
+    "frontend/src/hooks/useEvaluationApi.ts",
+    "frontend/src/types/evaluation.ts",
+    "src/shared/file-system/context-files-summarizer.test.ts",
+    "src/shared/file-system/context-files-summarizer.ts",
+    "src/shared/file-system/file-finder.test.ts",
+    "src/shared/file-system/file-finder.ts",
+    "src/shared/remediation/prompt-generator.test.ts",
+    "src/shared/remediation/prompt-generator.ts",
+    "src/shared/types/evaluation.ts",
+    "src/shared/types/remediation.ts"
   ],
   "sessions": [
     {
@@ -14,13 +27,20 @@
       "context": "/db/6d4034b8cc/0/context.md",
       "content_hash": "/db/6d4034b8cc/0/content_hash.txt",
       "prompt": "/db/6d4034b8cc/0/prompt.txt"
+    },
+    {
+      "metadata": "/db/6d4034b8cc/1/metadata.json",
+      "transcript": "/db/6d4034b8cc/1/full.jsonl",
+      "context": "/db/6d4034b8cc/1/context.md",
+      "content_hash": "/db/6d4034b8cc/1/content_hash.txt",
+      "prompt": "/db/6d4034b8cc/1/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 9,
-    "cache_creation_tokens": 2290,
-    "cache_read_tokens": 457371,
-    "output_tokens": 181,
-    "api_call_count": 7
+    "input_tokens": 76,
+    "cache_creation_tokens": 293313,
+    "cache_read_tokens": 8365549,
+    "output_tokens": 6612,
+    "api_call_count": 70
   }
 }

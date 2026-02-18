@@ -1,0 +1,128 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "db6d4034b8cc",
+  "session_id": "33ed38b7-321b-45d5-b23f-a65ed1678324",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-18T10:12:10.133015Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "frontend/src/components/ContextTab.tsx",
+    "frontend/src/components/RemediateTab.tsx",
+    "frontend/src/components/shared/ContextFilesBrowserModal.tsx",
+    "frontend/src/hooks/useEvaluationApi.ts",
+    "frontend/src/types/evaluation.ts",
+    "src/shared/file-system/context-files-summarizer.test.ts",
+    "src/shared/file-system/context-files-summarizer.ts",
+    "src/shared/file-system/file-finder.test.ts",
+    "src/shared/file-system/file-finder.ts",
+    "src/shared/remediation/prompt-generator.test.ts",
+    "src/shared/remediation/prompt-generator.ts",
+    "src/shared/types/evaluation.ts",
+    "src/shared/types/remediation.ts"
+  ],
+  "agent": "Claude Code",
+  "token_usage": {
+    "input_tokens": 67,
+    "cache_creation_tokens": 291023,
+    "cache_read_tokens": 7908178,
+    "output_tokens": 6431,
+    "api_call_count": 63
+  },
+  "summary": {
+    "intent": "Implement full Cursor AI coding agent support (rules + skills detection, type system, file discovery, remediation prompts, and frontend display) in an agents-md-evaluator application.",
+    "outcome": "All planned changes were successfully implemented across 13 files with 1274 tests passing, lint clean, and typecheck clean. The commit 78d52f8 was created with all Cursor-specific changes staged selectively.",
+    "learnings": {
+      "repo": [
+        "Project uses bun as the runtime/test runner (`bun run test`, `bun run lint`, `bun run lint:fix`)",
+        "The repo supports 3 AI ecosystems: AGENTS.md, Claude Code (.claude/), GitHub Copilot (.github/) — Cursor is the 4th added",
+        "File discovery uses glob patterns with hidden-dir filtering; new agent file finders should model after `findClaudeRulesFiles`",
+        "Deduplication of agent-specific files against AGENTS.md/CLAUDE.md is a pattern applied to copilot and now cursor rules",
+        "Skills discovery (SKILL.md files) is centralized in skills-finder.ts but was not wired into the main findAgentsFiles() pipeline",
+        "IContextFile type in both backend (src/shared/types/evaluation.ts) and frontend (frontend/src/types/evaluation.ts) must be kept in sync manually",
+        "TargetAgent union type in frontend/src/hooks/useEvaluationApi.ts must be updated alongside TARGET_AGENTS in src/shared/types/remediation.ts",
+        "Pre-commit hooks run the full test suite (1274 tests), lint, and typecheck — no --no-verify shortcuts"
+      ],
+      "code": [
+        {
+          "path": "src/shared/types/evaluation.ts",
+          "line": 105,
+          "end_line": 105,
+          "finding": "IContextFile.type union — add new agent file types here; also add optional fields (description, alwaysApply) for agent-specific metadata"
+        },
+        {
+          "path": "src/shared/types/remediation.ts",
+          "line": 7,
+          "end_line": 11,
+          "finding": "TARGET_AGENTS object maps agent keys to display names; add new agents here"
+        },
+        {
+          "path": "src/shared/file-system/file-finder.ts",
+          "line": 14,
+          "end_line": 79,
+          "finding": "findClaudeRulesFiles() is the canonical model for implementing new agent rule file finders — same hidden-dir filtering, same parameters"
+        },
+        {
+          "path": "src/shared/file-system/file-finder.ts",
+          "line": 253,
+          "end_line": 256,
+          "finding": "Deduplication calls are chained here after findAgentsFiles() — add new deduplication calls in sequence"
+        },
+        {
+          "path": "src/shared/file-system/context-files-summarizer.ts",
+          "line": 29,
+          "end_line": 59,
+          "finding": "getContextFileType() determines type from file path — path substring checks like .includes('.cursor/rules/') are the pattern"
+        },
+        {
+          "path": "src/shared/remediation/prompt-generator.ts",
+          "line": 198,
+          "end_line": 210,
+          "finding": "getAgentContextDescription() and getGenericUpdateFile() are switch/case functions — add new agent cases here"
+        },
+        {
+          "path": "src/shared/remediation/prompt-generator.ts",
+          "line": 264,
+          "end_line": 340,
+          "finding": "getStandardInstructions() and getSkillInstructions() also need cursor cases; skill dirs are in a skillDirMap object"
+        },
+        {
+          "path": "frontend/src/components/RemediateTab.tsx",
+          "line": 548,
+          "end_line": 548,
+          "finding": "Target agent buttons are in an array — add ['cursor', 'Cursor'] tuple to add new remediation target"
+        },
+        {
+          "path": "frontend/src/components/ContextTab.tsx",
+          "finding": "Unused variables (skillsPathsCount, sortedSkillsPaths, skillsPaths) caused lint errors — be careful not to declare variables for future use; remove them if not used in JSX"
+        }
+      ],
+      "workflow": [
+        "Run `bun run lint:fix` before manual lint review — the formatter automatically fixes ~6 files of formatting issues",
+        "When staging a commit with mixed changes, use explicit file paths in `git add` rather than `git add .` to avoid committing unrelated changes",
+        "The assistant used `rtk` prefix for git commands (likely an alias/wrapper) but fell back to direct `git commit` for the actual commit",
+        "Loop-based tests in prompt-generator.test.ts iterate over all target agents — always add new agents to these arrays to maintain test coverage parity",
+        "Frontend type mirrors (frontend/src/types/ vs src/shared/types/) require manual synchronization — no code generation or sharing"
+      ]
+    },
+    "friction": [
+      "Unused variable lint errors from ContextTab.tsx required a cleanup pass after initial implementation (skillsPathsCount, sortedSkillsPaths, skillsPaths were declared but not used in JSX)",
+      "Formatting lint issues across 6 files required an extra `bun run lint:fix` step",
+      "Mixed unrelated changes in working directory required selective `git add` with explicit file paths to avoid committing CHANGELOG.md, App.tsx, Summary.tsx changes"
+    ],
+    "open_items": [
+      "Skills file paths are not displayed as individual file rows in ContextTab (skills shown via modal only) — the display pattern for skills in ContextTab may need revisiting",
+      "Cursor is intentionally NOT added as an evaluation provider — only as a remediation target; this decision should be documented if it may be revisited",
+      "Manual verification steps listed in the plan (running evaluation against a repo with .cursor/rules/ files, testing the Cursor remediation prompt end-to-end) were not performed in this session"
+    ]
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-18T10:11:36.613403Z",
+    "agent_lines": 1345,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 1345,
+    "agent_percentage": 100
+  }
+}

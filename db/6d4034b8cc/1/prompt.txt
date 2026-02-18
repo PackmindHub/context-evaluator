@@ -1,0 +1,173 @@
+Implement the following plan:
+
+# Plan: Add Cursor Support (Rules + Skills Detection & Remediation)
+
+## Context
+
+The application currently supports 3 AI agent ecosystems: **AGENTS.md**, **Claude Code** (.claude/), and **GitHub Copilot** (.github/). Cursor is a major AI coding agent that uses `.cursor/rules/` for rule files (`.md`/`.mdc` with YAML frontmatter) and `.cursor/skills/` for skill directories. We need to detect these files during evaluation and support Cursor as a remediation target.
+
+Additionally, skills directories (`.claude/skills/`, `.agents/skills/`, `.github/skills/`) are currently **not discovered** during evaluation. We'll add skill discovery for all agents.
+
+## Decisions
+
+- `.md` and `.mdc` files both typed as `"cursor-rules"` (single type)
+- Skills discovered for ALL agents, not just Cursor
+- Full evaluation with all 17 evaluators on Cursor files
+- All 4 Cursor rule types supported in remediation (alwaysApply, intelligent, glob-scoped, manual)
+- Deduplicate Cursor rules against AGENTS.md/CLAUDE.md
+- Single "Cursor" target in frontend (AI decides rules vs skills per issue)
+- Cursor is NOT added as an evaluation provider
+
+---
+
+## 1. Type System Changes
+
+### `src/shared/types/evaluation.ts` (line 105)
+- Extend `IContextFile.type` union: add `"cursor-rules"` and `"skills"`
+- Add optional fields to `IContextFile`: `description?: string`, `alwaysApply?: boolean`
+- Update JSDoc comment (line 98)
+
+### `src/shared/types/remediation.ts` (lines 7-11)
+- Add `"cursor": "Cursor"` to `TARGET_AGENTS`
+
+### `frontend/src/types/evaluation.ts` (line 96)
+- Mirror: add `"cursor-rules"` and `"skills"` to `IContextFile.type`
+
+### `frontend/src/hooks/useEvaluationApi.ts` (line 24)
+- Add `"cursor"` to `TargetAgent` union type
+
+---
+
+## 2. File Discovery
+
+### `src/shared/file-system/file-finder.ts`
+
+**Add `findCursorRulesFiles()` function** (model after `findClaudeRulesFiles`, lines 14-79):
+- Glob pattern: `**/.cursor/rules/**/*.md` and `**/.cursor/rules/**/*.mdc`
+- Same hidden-dir filtering logic as Claude rules
+- Same parameters: `baseDir`, `maxDepth`, `verbose`
+
+**Add `findSkillFiles()` function** (new):
+- Glob patterns: `**/.cursor/skills/**/SKILL.md`, `**/.claude/skills/**/SKILL.md`, `**/.agents/skills/**/SKILL.md`, `**/.github/skills/**/SKILL.md`
+- Returns all discovered SKILL.md files
+
+**Update `findAgentsFiles()`** (lines 205-221):
+- Add `findCursorRulesFiles()` and `findSkillFiles()` to the `Promise.all` array
+- Merge results into `allFiles`
+
+**Add `isCursorRulesFile()` helper** (model after `isCopilotInstructionsFile`, lines 372-389)
+
+**Add `deduplicateCursorRules()` function** (model after `deduplicateCopilotInstructions`, lines 399-455):
+- Same logic: skip cursor rule files with identical content to AGENTS.md/CLAUDE.md
+- Call it after `deduplicateCopilotInstructions()` at line 253-256
+
+---
+
+## 3. File Type Detection & Frontmatter
+
+### `src/shared/file-system/context-files-summarizer.ts`
+
+**Update `getContextFileType()`** (lines 29-59):
+- Add before line 33: `if (filePath.includes(".cursor/rules/")) return "cursor-rules";`
+- Add: check for skills paths → return `"skills"` for paths matching `/.cursor/skills/` or `/.claude/skills/` or `/.agents/skills/` or `/.github/skills/`
+
+**Add frontmatter helpers**:
+- `extractDescriptionFromFrontmatter(content)` → parses `description:` field from YAML frontmatter
+- `extractAlwaysApplyFromFrontmatter(content)` → parses `alwaysApply:` boolean field
+- Reuse existing `extractGlobsFromFrontmatter()` for globs
+
+**Update `summarizeContextFiles()`**:
+- For `"cursor-rules"` type: extract `globs`, `description`, `alwaysApply` from frontmatter
+- Populate `IContextFile.description` and `IContextFile.alwaysApply` fields
+
+---
+
+## 4. Remediation Prompt Generator
+
+### `src/shared/remediation/prompt-generator.ts`
+
+**`getAgentContextDescription()`** (line 198) — add `"cursor"` case:
+```
+Cursor uses `.cursor/rules/` for rule files (.md or .mdc) with optional YAML frontmatter.
+Rules support 4 modes: alwaysApply, auto-attached (description-based), glob-scoped, and manual.
+Skills are placed in `.cursor/skills/<skill-name>/`.
+```
+
+**`getGenericUpdateFile()`** (line 210) — add `"cursor"` case:
+- Return `.cursor/rules/general.mdc` (use .mdc since Cursor rules benefit from frontmatter)
+
+**`getStandardInstructions()`** (line 264) — add `"cursor"` case:
+- Title: `### Standard (Cursor Rule)`
+- Explain all 4 rule types with frontmatter examples:
+  - **Always apply**: `alwaysApply: true`
+  - **Auto-attached**: `description: "..."` only (no globs, no alwaysApply)
+  - **Glob-scoped**: `globs: "pattern"`
+  - **Manual**: `alwaysApply: false`, no description, no globs
+- Supported glob patterns: `**/*.ts`, `src/**/*`, etc.
+- File path: `.cursor/rules/<standard-slug>.mdc`
+
+**`getSkillInstructions()`** (line 340) — add to `skillDirMap`:
+- `"cursor": ".cursor/skills"`
+
+---
+
+## 5. Frontend
+
+### `frontend/src/components/RemediateTab.tsx` (line 548)
+- Add `["cursor", "Cursor"]` to the target agent buttons array
+
+### `frontend/src/components/shared/ContextFilesBrowserModal.tsx`
+- Handle `"cursor-rules"` and `"skills"` type display (badge/label)
+
+### `frontend/src/components/ContextTab.tsx`
+- If file type badges/labels exist, add Cursor rules and skills rendering
+
+---
+
+## 6. Tests
+
+### `src/shared/file-system/file-finder.test.ts`
+- Test `findCursorRulesFiles()`: discovers `.md` and `.mdc` in `.cursor/rules/`
+- Test `findSkillFiles()`: discovers SKILL.md in all 4 agent skill dirs
+- Test `findAgentsFiles()` includes cursor rules and skills
+- Test deduplication of cursor rules against AGENTS.md/CLAUDE.md
+
+### `src/shared/file-system/context-files-summarizer.test.ts`
+- Test `getContextFileType()` returns `"cursor-rules"` for `.cursor/rules/` paths
+- Test `getContextFileType()` returns `"skills"` for skill paths
+- Test `.mdc` frontmatter extraction (description, alwaysApply, globs)
+
+### `src/shared/remediation/prompt-generator.test.ts`
+- Test "cursor" target agent in all prompt generation functions
+- Verify all 4 rule types mentioned in standard instructions
+- Add "cursor" to existing loop-based tests
+
+---
+
+## 7. Implementation Order
+
+1. Types (evaluation.ts, remediation.ts, frontend types)
+2. File discovery (file-finder.ts — cursor rules + skills)
+3. File type detection & frontmatter (context-files-summarizer.ts)
+4. Deduplication (file-finder.ts)
+5. Remediation prompts (prompt-generator.ts)
+6. Frontend (RemediateTab.tsx, ContextFilesBrowserModal.tsx)
+7. Tests for all changes
+8. `bun run test` + `bun run lint`
+
+---
+
+## Verification
+
+1. **Unit tests**: `bun run test` — all existing + new tests pass
+2. **Lint**: `bun run lint` — no new issues
+3. **Manual**: Run evaluation against a repo with `.cursor/rules/` files → verify they appear in context files list
+4. **Manual**: Select "Cursor" target in RemediateTab → verify prompt includes all 4 rule type instructions
+5. **Manual**: Run remediation with Cursor target → verify generated `.mdc` files have correct frontmatter
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+commit
