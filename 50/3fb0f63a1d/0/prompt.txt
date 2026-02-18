@@ -1,0 +1,151 @@
+Implement the following plan:
+
+# Plan: Packmind Promotion After Remediation
+
+## Context
+
+Context Evaluator is a marketing tool to help developers understand gaps in their AI agent documentation. After remediation, it can create new **coding standards** (outputType: `"standard"`) and **skills** (outputType: `"skill"`). These artifacts are exactly what [Packmind](https://packmind.com) helps teams manage at scale — centralizing, governing, and distributing the engineering playbook across repos.
+
+The goal is to surface a contextual Packmind promotion when these artifacts have been created, making users aware they can go further: manage, distribute, and govern these artifacts with Packmind instead of manually copying markdown files across repos.
+
+## What We're Building
+
+Two promotion surfaces (both only shown when standards or skills were created):
+1. **In-card banner** — Inside each expanded `RemediationHistoryCard`, below the action summary
+2. **Persistent section** — At the bottom of the `RemediateTab`, when any completed remediation produced standards/skills
+
+Plus one new modal:
+- **`PackmindProductTourModal`** — Placeholder iframe container for the embedded product tour (content to be filled later)
+
+---
+
+## Files to Create
+
+### 1. `frontend/src/components/shared/PackmindLogo.tsx`
+Inline SVG component derived from `frontend/assets/packmind_logo_dark.svg` (already committed). The SVG is a horizontal logo (viewBox `0 0 950 151`) with two colors:
+- `#9CA2FA` — bracket icon (indigo, matches the app's primary palette)
+- `#EDE7E2` — "packmind" wordmark (off-white, visible on dark backgrounds)
+
+```tsx
+export function PackmindLogo({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 950 151" fill="none" xmlns="...">
+      {/* all paths from the SVG file */}
+    </svg>
+  );
+}
+```
+
+Typical usage: `<PackmindLogo className="h-6" />` (in-card) or `<PackmindLogo className="h-8" />` (persistent section). No need for an `<img>` or asset pipeline since it's an inline component.
+
+### 2. `frontend/src/components/shared/PackmindProductTourModal.tsx`
+New modal following the existing `Modal.tsx` pattern:
+- `glass-card` container, fixed z-50 backdrop, close button, escape key
+- Title: "Packmind Product Tour" with PackmindLogo
+- Content: Reserved `<iframe>` placeholder (empty `src`, full-width ~500px height) with a "Product tour coming soon" fallback label
+- Props: `{ isOpen: boolean; onClose: () => void }`
+
+---
+
+## Files to Modify
+
+### 3. `frontend/src/components/RemediationHistoryCard.tsx`
+
+**Helper function** (above component):
+```ts
+function hasPackmindArtifacts(actions: RemediationAction[]): boolean
+```
+Returns `true` if any action has `outputType === "standard" || outputType === "skill"`.
+
+**Count helper**:
+```ts
+function countPackmindArtifacts(actions: RemediationAction[]): { standards: number; skills: number }
+```
+
+**In-card banner** — Add below the `CompactActionSummary` block when `hasPackmindArtifacts(allActions)`:
+
+```
+┌── Packmind: Take It Further ─────────────────────────────────┐
+│  [PackmindLogo]  You've created X standard(s) & Y skill(s).  │
+│  Centralize, govern and distribute your AI agent playbook    │
+│  at scale with Packmind.                                      │
+│                                                               │
+│  [→ packmind.com]  [▷ Get product tour]                      │
+└───────────────────────────────────────────────────────────────┘
+```
+
+Style: Use `.experimental-notice` pattern (indigo border + gradient bg), or a new `.packmind-banner` class if styling needs to differ slightly. `packmind.com` link = `<a>` with `target="_blank"` + `.btn-secondary`. "Get product tour" = `.btn-primary` that opens `PackmindProductTourModal`.
+
+State: `const [showTourModal, setShowTourModal] = useState(false)` local to the card.
+
+### 4. `frontend/src/components/RemediateTab.tsx`
+
+**Helper**: `function historyHasPackmindArtifacts(history: RemediationHistoryItem[]): boolean`
+Iterates all history items, flattening actions from `result.summary.errorFixActions` + `result.summary.suggestionEnrichActions`, returns true if any has outputType standard/skill.
+
+**Persistent section** — Add below `<RemediationHistory ...>`, only render when `historyHasPackmindArtifacts(history)`:
+
+```
+┌── What's next with your playbook? ───────────────────────────┐
+│  [PackmindLogo]                                               │
+│  Your team's AI agent playbook is taking shape.              │
+│  Packmind helps you centralize coding standards and skills,   │
+│  distribute them across repos, and add governance workflows.  │
+│                                                               │
+│  [→ Explore Packmind]  [▷ Get product tour]                  │
+└───────────────────────────────────────────────────────────────┘
+```
+
+Slightly more prominent than the in-card version (use `.card` wrapper + indigo accent). State: `const [showTourModal, setShowTourModal] = useState(false)` local to `RemediateTab`.
+
+---
+
+## Style
+
+No new Tailwind colors needed. Reuse existing system:
+- Container: `.experimental-notice` pattern or `.card` + indigo border variable
+- Primary CTA: `.btn-primary`
+- Secondary CTA: `.btn-secondary`
+- Logo: ~24-28px height for in-card, ~32px for persistent section
+- Typography: `.text-subheading` for title, `.text-body` for description, `.text-caption` for secondary
+
+If a new `.packmind-banner` class is cleaner, add it to `frontend/src/styles.css`.
+
+---
+
+## Critical Files
+
+| File | Role |
+|------|------|
+| `frontend/src/components/RemediationHistoryCard.tsx` | In-card banner + modal trigger |
+| `frontend/src/components/RemediateTab.tsx` | Persistent section + modal trigger |
+| `frontend/src/components/shared/PackmindProductTourModal.tsx` | New modal (iframe placeholder) |
+| `frontend/src/components/shared/PackmindLogo.tsx` | New SVG logo component |
+| `frontend/src/types/remediation.ts` | Reference for `RemediationAction.outputType` |
+| `frontend/src/styles.css` | May add `.packmind-banner` class if needed |
+
+---
+
+## Logo Note
+
+The SVG is already available at `frontend/assets/packmind_logo_dark.svg`. We'll inline all SVG paths into the `PackmindLogo` component (no asset bundling needed). The logo aspect ratio is ~6.3:1, so using `h-6` (24px) to `h-8` (32px) renders it at 150–200px wide, which fits well in banners.
+
+---
+
+## Verification
+
+1. Run `bun run dev` and navigate to the Remediate tab
+2. Execute a remediation that creates standards or skills
+3. Expand the remediation card → confirm in-card banner appears below action summary
+4. Confirm banner does NOT appear for remediations with only generic actions
+5. Confirm persistent section appears at the bottom of the Remediate tab
+6. Click "Get product tour" → modal opens with iframe placeholder
+7. Click "Explore Packmind" → opens `https://packmind.com` in new tab
+8. Run `bun run test && bun run lint` to confirm no regressions
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+commit

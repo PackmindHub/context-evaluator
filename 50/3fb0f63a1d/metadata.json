@@ -1,0 +1,30 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "503fb0f63a1d",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "frontend/src/components/RemediateTab.tsx",
+    "frontend/src/components/RemediationHistoryCard.tsx",
+    "frontend/src/components/shared/PackmindLogo.tsx",
+    "frontend/src/components/shared/PackmindProductTourModal.tsx",
+    "frontend/src/styles.css"
+  ],
+  "sessions": [
+    {
+      "metadata": "/50/3fb0f63a1d/0/metadata.json",
+      "transcript": "/50/3fb0f63a1d/0/full.jsonl",
+      "context": "/50/3fb0f63a1d/0/context.md",
+      "content_hash": "/50/3fb0f63a1d/0/content_hash.txt",
+      "prompt": "/50/3fb0f63a1d/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 40,
+    "cache_creation_tokens": 54230,
+    "cache_read_tokens": 2216380,
+    "output_tokens": 478,
+    "api_call_count": 36
+  }
+}
