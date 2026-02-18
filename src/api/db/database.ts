@@ -223,6 +223,37 @@ function initializeDatabase(): Database {
     ON remediations(evaluation_id);
   `);
 
+	// Add parent_evaluation_id and source_remediation_id columns for remediation impact evaluation
+	try {
+		database.run(
+			`ALTER TABLE evaluations ADD COLUMN parent_evaluation_id TEXT;`,
+		);
+	} catch {
+		// Column already exists, ignore
+	}
+	try {
+		database.run(
+			`ALTER TABLE evaluations ADD COLUMN source_remediation_id TEXT;`,
+		);
+	} catch {
+		// Column already exists, ignore
+	}
+
+	// Index for finding evaluations triggered by a remediation
+	database.run(`
+    CREATE INDEX IF NOT EXISTS idx_evaluations_source_remediation
+    ON evaluations(source_remediation_id);
+  `);
+
+	// Add result_evaluation_id column to remediations for linking impact evaluations
+	try {
+		database.run(
+			`ALTER TABLE remediations ADD COLUMN result_evaluation_id TEXT;`,
+		);
+	} catch {
+		// Column already exists, ignore
+	}
+
 	console.log("[Database] Database initialized successfully");
 
 	return database;

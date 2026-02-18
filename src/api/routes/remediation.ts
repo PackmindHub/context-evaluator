@@ -3,6 +3,8 @@
  */
 
 import { buildTechnicalInventorySection } from "@shared/claude/prompt-builder";
+import { cloneRepository } from "@shared/file-system/git-cloner";
+import { applyPatch } from "@shared/remediation/git-operations";
 import {
 	generateRemediationPrompts,
 	type RemediationInput,
@@ -439,6 +441,143 @@ export class RemediationRoutes {
 		} catch (err: unknown) {
 			console.error("[RemediationRoutes] Error getting patch:", err);
 			return internalErrorResponse("Failed to get patch");
+		}
+	}
+
+	/**
+	 * POST /api/remediation/:id/evaluate — Evaluate the impact of a remediation
+	 */
+	async evaluateImpact(
+		_req: Request,
+		remediationId: string,
+	): Promise<Response> {
+		try {
+			// Fetch remediation
+			const remediation =
+				remediationRepository.getRemediationById(remediationId);
+			if (!remediation) {
+				return notFoundResponse("Remediation not found");
+			}
+			if (remediation.status !== "completed" || !remediation.fullPatch) {
+				return errorResponse(
+					"Remediation must be completed with a patch to evaluate impact",
+					"INVALID_STATE",
+					400,
+				);
+			}
+
+			// If a result evaluation already exists, check its state
+			if (remediation.resultEvaluationId) {
+				// Check if the evaluation job is still running in memory
+				const existingJob = this.jobManager.getJob(
+					remediation.resultEvaluationId,
+				);
+				if (
+					existingJob &&
+					(existingJob.status === "queued" || existingJob.status === "running")
+				) {
+					return new Response(
+						JSON.stringify({
+							error: "Impact evaluation is already in progress",
+							code: "IMPACT_EVAL_ACTIVE",
+							jobId: remediation.resultEvaluationId,
+							sseUrl: `/api/evaluate/${remediation.resultEvaluationId}/progress`,
+						}),
+						{
+							status: 409,
+							headers: { "Content-Type": "application/json" },
+						},
+					);
+				}
+				// Already completed — return existing evaluation ID
+				return okResponse({
+					jobId: remediation.resultEvaluationId,
+					sseUrl: `/api/evaluate/${remediation.resultEvaluationId}/progress`,
+					status: "already_exists",
+				});
+			}
+
+			// Fetch parent evaluation for repo URL and git metadata
+			const parentRecord = evaluationRepository.getEvaluationById(
+				remediation.evaluationId,
+			);
+			if (!parentRecord) {
+				return notFoundResponse("Parent evaluation not found");
+			}
+
+			// Guard: need a repository URL to clone
+			const repoUrl = parentRecord.repositoryUrl;
+			if (
+				!repoUrl ||
+				repoUrl === "unknown" ||
+				(!repoUrl.startsWith("http") && !repoUrl.startsWith("git@"))
+			) {
+				return errorResponse(
+					"Cannot evaluate impact: no repository URL available (local or imported evaluations are not supported)",
+					"NO_REPO_URL",
+					400,
+				);
+			}
+
+			// Clone the repo at the same commit
+			let cloneResult: { path: string; cleanup: () => Promise<void> };
+			try {
+				cloneResult = await cloneRepository(repoUrl, {
+					branch: parentRecord.gitBranch,
+					commitSha: parentRecord.gitCommitSha,
+				});
+			} catch (cloneError) {
+				console.error(
+					"[RemediationRoutes] Clone failed for impact evaluation:",
+					cloneError,
+				);
+				return internalErrorResponse(
+					`Failed to clone repository: ${cloneError instanceof Error ? cloneError.message : "Unknown error"}`,
+				);
+			}
+
+			// Apply the remediation patch
+			try {
+				await applyPatch(cloneResult.path, remediation.fullPatch);
+			} catch (patchError) {
+				// Cleanup clone directory on failure
+				try {
+					await cloneResult.cleanup();
+				} catch {
+					// Ignore cleanup errors
+				}
+				return new Response(
+					JSON.stringify({
+						error: `Failed to apply patch: ${patchError instanceof Error ? patchError.message : "Unknown error"}`,
+						code: "PATCH_APPLY_FAILED",
+					}),
+					{
+						status: 422,
+						headers: { "Content-Type": "application/json" },
+					},
+				);
+			}
+
+			// Submit evaluation job on the patched clone
+			const jobId = await this.jobManager.submitJob({
+				localPath: cloneResult.path,
+				repositoryUrl: repoUrl,
+				_cleanupFn: cloneResult.cleanup,
+				_parentEvaluationId: remediation.evaluationId,
+				_sourceRemediationId: remediationId,
+			});
+
+			return okResponse({
+				jobId,
+				sseUrl: `/api/evaluate/${jobId}/progress`,
+				status: "queued",
+			});
+		} catch (err: unknown) {
+			console.error(
+				"[RemediationRoutes] Error evaluating remediation impact:",
+				err,
+			);
+			return internalErrorResponse("Failed to start impact evaluation");
 		}
 	}
 

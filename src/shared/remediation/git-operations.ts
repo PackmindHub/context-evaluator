@@ -4,6 +4,7 @@
  */
 
 import type { IFileChange } from "@shared/types/remediation";
+import { join } from "path";
 
 interface GitStatusResult {
 	clean: boolean;
@@ -60,6 +61,27 @@ export async function resetWorkingDirectory(cwd: string): Promise<void> {
 	await runGit(["reset", "HEAD", "--quiet"], cwd);
 	await runGit(["checkout", "."], cwd);
 	await runGit(["clean", "-fd"], cwd);
+}
+
+/**
+ * Apply a patch (unified diff) to a working directory using git apply.
+ */
+export async function applyPatch(
+	cwd: string,
+	patchContent: string,
+): Promise<void> {
+	const patchFile = join(cwd, ".remediation-impact.patch");
+	try {
+		await Bun.write(patchFile, patchContent);
+		await runGit(["apply", "--whitespace=fix", patchFile], cwd);
+	} finally {
+		try {
+			const { unlink } = await import("fs/promises");
+			await unlink(patchFile);
+		} catch {
+			// Ignore cleanup errors
+		}
+	}
 }
 
 /**

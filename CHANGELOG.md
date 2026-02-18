@@ -14,6 +14,7 @@
   - SelectionSummaryBar "Remediate" action navigates directly to the Remediate tab
   - Individual issue removal from remediation queue via (X) button
 - **Context tab**: Move context files from Summary tab into a dedicated "Context" tab with tool-specific sections (AGENTS.md, Claude Code, GitHub Copilot, Cursor, Linked Docs). Each section groups its related items (e.g., Claude Code shows CLAUDE.md, Rules, and Skills). Uses the official Claude logo for the Claude Code section. Content browser modals now auto-select when only one item is present.
+- **Remediation impact evaluation**: "Evaluate Impact" button on each completed remediation card that clones the repo, applies the remediation patch, runs a full 17-evaluator analysis, and displays a before/after score comparison directly on the Remediate tab. Supports idempotent re-evaluation (returns existing result if already run), concurrent execution guard, and automatic cleanup of patched clone directories.
 - Run suggestion evaluators when no AGENTS.md or CLAUDE.md files are found, providing actionable suggestions about what documentation to create
 - OpenAI Codex provider (`--agent codex`)
 - `--concurrency` CLI option to control parallel evaluator execution

@@ -34,6 +34,7 @@ export interface IRemediationRecord {
 		errorFixStats?: IStoredPromptStats;
 		suggestionEnrichStats?: IStoredPromptStats;
 	} | null;
+	resultEvaluationId: string | null;
 	errorMessage: string | null;
 	createdAt: string;
 	completedAt: string | null;
@@ -59,6 +60,7 @@ interface RemediationRow {
 	total_output_tokens: number;
 	summary_json: string | null;
 	prompt_stats_json: string | null;
+	result_evaluation_id: string | null;
 	error_message: string | null;
 	created_at: string;
 	completed_at: string | null;
@@ -248,6 +250,16 @@ export class RemediationRepository {
 		return rows.map((row) => this.rowToRecord(row));
 	}
 
+	linkResultEvaluation(remediationId: string, evaluationId: string): void {
+		const db = getDatabase();
+		db.prepare(
+			`UPDATE remediations SET result_evaluation_id = ? WHERE id = ?`,
+		).run(evaluationId, remediationId);
+		console.log(
+			`[RemediationRepository] Linked result evaluation ${evaluationId} to remediation ${remediationId}`,
+		);
+	}
+
 	private rowToRecord(row: RemediationRow): IRemediationRecord {
 		let fileChanges: IFileChange[] = [];
 		if (row.file_changes_json) {
@@ -299,6 +311,7 @@ export class RemediationRepository {
 			totalOutputTokens: row.total_output_tokens,
 			summary,
 			promptStats,
+			resultEvaluationId: row.result_evaluation_id,
 			errorMessage: row.error_message,
 			createdAt: row.created_at,
 			completedAt: row.completed_at,

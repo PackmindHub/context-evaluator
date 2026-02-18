@@ -9,6 +9,10 @@ export interface IEvaluateRequest {
 	repositoryUrl?: string;
 	localPath?: string;
 	options?: IEvaluationOptions;
+	// Internal fields for remediation impact evaluation (not sent from frontend)
+	_cleanupFn?: () => Promise<void>;
+	_parentEvaluationId?: string;
+	_sourceRemediationId?: string;
 }
 
 // API Response types

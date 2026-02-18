@@ -3,30 +3,53 @@
  * Accordion behavior: expanding one card collapses others.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useEvaluationApi } from "../hooks/useEvaluationApi";
 import type { RemediationHistoryItem } from "../types/remediation";
-import { RemediationHistoryCard } from "./RemediationHistoryCard";
+import {
+	type ImpactEvalStatus,
+	RemediationHistoryCard,
+} from "./RemediationHistoryCard";
 import { Modal } from "./shared/Modal";
+
+interface ImpactEvalState {
+	jobId?: string;
+	status: ImpactEvalStatus;
+	score?: number;
+	grade?: string;
+}
 
 interface RemediationHistoryProps {
 	remediations: RemediationHistoryItem[];
 	onDelete: (id: string) => void;
+	onRefresh?: () => void;
 	cloudMode?: boolean;
 	autoExpandId?: string | null;
 	onAutoExpandHandled?: () => void;
+	parentScore?: number;
+	parentGrade?: string;
+	hasRepoUrl?: boolean;
 }
 
 export function RemediationHistory({
 	remediations,
 	onDelete,
+	onRefresh,
 	cloudMode = false,
 	autoExpandId,
 	onAutoExpandHandled,
+	parentScore,
+	hasRepoUrl = true,
 }: RemediationHistoryProps) {
+	const api = useEvaluationApi();
 	const [collapsed, setCollapsed] = useState(true);
 	const [expandedId, setExpandedId] = useState<string | null>(null);
 	const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 	const [isDeleting, setIsDeleting] = useState(false);
+	const [impactEvals, setImpactEvals] = useState<Map<string, ImpactEvalState>>(
+		new Map(),
+	);
+	const sseCleanupRef = useRef<Map<string, () => void>>(new Map());
 
 	// Auto-expand a specific card when requested (e.g., after remediation completes)
 	useEffect(() => {
@@ -36,6 +59,141 @@ export function RemediationHistory({
 			onAutoExpandHandled?.();
 		}
 	}, [autoExpandId, onAutoExpandHandled]);
+
+	// Load scores for remediations that already have a result evaluation
+	useEffect(() => {
+		for (const item of remediations) {
+			if (item.resultEvaluationId) {
+				// Skip if we already have score for this one
+				const existing = impactEvals.get(item.id);
+				if (existing?.score !== undefined) continue;
+
+				api.getEvaluationScore(item.resultEvaluationId).then((data) => {
+					if (data.contextScore !== undefined) {
+						setImpactEvals((prev) => {
+							const next = new Map(prev);
+							next.set(item.id, {
+								status: "completed",
+								score: data.contextScore,
+								grade: data.contextGrade,
+							});
+							return next;
+						});
+					}
+				});
+			}
+		}
+	}, [remediations, api, impactEvals]);
+
+	// Cleanup SSE connections on unmount
+	useEffect(() => {
+		return () => {
+			for (const cleanup of sseCleanupRef.current.values()) {
+				cleanup();
+			}
+		};
+	}, []);
+
+	const handleEvaluateImpact = useCallback(
+		async (remediationId: string) => {
+			try {
+				setImpactEvals((prev) => {
+					const next = new Map(prev);
+					next.set(remediationId, { status: "running" });
+					return next;
+				});
+
+				const result = await api.evaluateRemediationImpact(remediationId);
+
+				if (result.status === "already_exists") {
+					// Fetch score directly
+					const scoreData = await api.getEvaluationScore(result.jobId);
+					setImpactEvals((prev) => {
+						const next = new Map(prev);
+						next.set(remediationId, {
+							jobId: result.jobId,
+							status: "completed",
+							score: scoreData.contextScore,
+							grade: scoreData.contextGrade,
+						});
+						return next;
+					});
+					return;
+				}
+
+				// Connect to evaluation SSE for progress
+				const sseUrl = result.sseUrl.startsWith("/")
+					? `${window.location.origin}${result.sseUrl}`
+					: result.sseUrl;
+
+				const eventSource = new EventSource(sseUrl);
+
+				const cleanup = () => {
+					eventSource.close();
+					sseCleanupRef.current.delete(remediationId);
+				};
+				sseCleanupRef.current.set(remediationId, cleanup);
+
+				eventSource.onmessage = (event) => {
+					try {
+						const data = JSON.parse(event.data);
+
+						if (data.type === "job.completed") {
+							cleanup();
+							// Fetch the score from the completed evaluation
+							api.getEvaluationScore(result.jobId).then((scoreData) => {
+								setImpactEvals((prev) => {
+									const next = new Map(prev);
+									next.set(remediationId, {
+										jobId: result.jobId,
+										status: "completed",
+										score: scoreData.contextScore,
+										grade: scoreData.contextGrade,
+									});
+									return next;
+								});
+							});
+							onRefresh?.();
+						} else if (data.type === "job.failed") {
+							cleanup();
+							setImpactEvals((prev) => {
+								const next = new Map(prev);
+								next.set(remediationId, {
+									jobId: result.jobId,
+									status: "failed",
+								});
+								return next;
+							});
+						}
+					} catch {
+						// Ignore parse errors
+					}
+				};
+
+				eventSource.onerror = () => {
+					cleanup();
+					setImpactEvals((prev) => {
+						const next = new Map(prev);
+						const current = next.get(remediationId);
+						if (current?.status === "running") {
+							next.set(remediationId, {
+								...current,
+								status: "failed",
+							});
+						}
+						return next;
+					});
+				};
+			} catch {
+				setImpactEvals((prev) => {
+					const next = new Map(prev);
+					next.set(remediationId, { status: "failed" });
+					return next;
+				});
+			}
+		},
+		[api, onRefresh],
+	);
 
 	const handleToggleCard = useCallback((id: string) => {
 		setExpandedId((prev) => (prev === id ? null : id));
@@ -83,18 +241,27 @@ export function RemediationHistory({
 
 			{!collapsed && (
 				<div className="mt-3 space-y-2">
-					{remediations.map((item, idx) => (
-						<RemediationHistoryCard
-							key={item.id}
-							item={item}
-							index={idx}
-							total={remediations.length}
-							expanded={expandedId === item.id}
-							onToggle={() => handleToggleCard(item.id)}
-							onDelete={() => setDeleteTargetId(item.id)}
-							cloudMode={cloudMode}
-						/>
-					))}
+					{remediations.map((item, idx) => {
+						const evalState = impactEvals.get(item.id);
+						return (
+							<RemediationHistoryCard
+								key={item.id}
+								item={item}
+								index={idx}
+								total={remediations.length}
+								expanded={expandedId === item.id}
+								onToggle={() => handleToggleCard(item.id)}
+								onDelete={() => setDeleteTargetId(item.id)}
+								onEvaluateImpact={() => handleEvaluateImpact(item.id)}
+								cloudMode={cloudMode}
+								parentScore={parentScore}
+								impactEvalStatus={evalState?.status}
+								impactScore={evalState?.score}
+								impactGrade={evalState?.grade}
+								hasRepoUrl={hasRepoUrl}
+							/>
+						);
+					})}
 				</div>
 			)}
 

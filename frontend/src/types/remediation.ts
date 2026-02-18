@@ -100,6 +100,7 @@ export interface RemediationHistoryItem {
 		errorFixStats?: PromptStats;
 		suggestionEnrichStats?: PromptStats;
 	} | null;
+	resultEvaluationId: string | null;
 	errorMessage: string | null;
 	createdAt: string;
 	completedAt: string | null;

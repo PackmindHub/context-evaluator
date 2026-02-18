@@ -12,6 +12,8 @@ import type {
 import { FileChangeCard } from "./FileChangeCard";
 import { PatchDownload } from "./PatchDownload";
 
+export type ImpactEvalStatus = "idle" | "running" | "completed" | "failed";
+
 interface RemediationHistoryCardProps {
 	item: RemediationHistoryItem;
 	index: number;
@@ -19,7 +21,14 @@ interface RemediationHistoryCardProps {
 	expanded: boolean;
 	onToggle: () => void;
 	onDelete: () => void;
+	onEvaluateImpact?: () => void;
 	cloudMode?: boolean;
+	parentScore?: number;
+	parentGrade?: string;
+	impactEvalStatus?: ImpactEvalStatus;
+	impactScore?: number;
+	impactGrade?: string;
+	hasRepoUrl?: boolean;
 }
 
 function formatTimestamp(iso: string): string {
@@ -39,7 +48,13 @@ export function RemediationHistoryCard({
 	expanded,
 	onToggle,
 	onDelete,
+	onEvaluateImpact,
 	cloudMode = false,
+	parentScore,
+	impactEvalStatus = "idle",
+	impactScore,
+	impactGrade,
+	hasRepoUrl = true,
 }: RemediationHistoryCardProps) {
 	const label = `Remediation #${total - index}`;
 	const statLabel = `${item.errorCount} error${item.errorCount !== 1 ? "s" : ""}, ${item.suggestionCount} suggestion${item.suggestionCount !== 1 ? "s" : ""}`;
@@ -151,6 +166,63 @@ export function RemediationHistoryCard({
 				</div>
 			</button>
 
+			{/* Impact evaluation row */}
+			{!isFailed && (
+				<div className="px-3 pb-2 flex items-center gap-3">
+					{impactEvalStatus === "idle" &&
+						!item.resultEvaluationId &&
+						hasRepoUrl && (
+							<button
+								onClick={(e) => {
+									e.stopPropagation();
+									onEvaluateImpact?.();
+								}}
+								className="text-xs px-2.5 py-1 rounded bg-slate-700 text-slate-300 hover:bg-slate-600 hover:text-slate-100 transition-colors"
+							>
+								Evaluate Impact
+							</button>
+						)}
+					{impactEvalStatus === "running" && (
+						<span className="flex items-center gap-1.5 text-xs text-slate-400">
+							<svg
+								className="animate-spin h-3 w-3"
+								fill="none"
+								viewBox="0 0 24 24"
+							>
+								<circle
+									className="opacity-25"
+									cx="12"
+									cy="12"
+									r="10"
+									stroke="currentColor"
+									strokeWidth="4"
+								/>
+								<path
+									className="opacity-75"
+									fill="currentColor"
+									d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+								/>
+							</svg>
+							Evaluating impact...
+						</span>
+					)}
+					{impactEvalStatus === "failed" && (
+						<span className="text-xs text-red-400">
+							Impact evaluation failed
+						</span>
+					)}
+					{(impactEvalStatus === "completed" || item.resultEvaluationId) &&
+						impactScore !== undefined &&
+						parentScore !== undefined && (
+							<ScoreComparison
+								before={parentScore}
+								after={impactScore}
+								afterGrade={impactGrade}
+							/>
+						)}
+				</div>
+			)}
+
 			{/* Expanded details */}
 			{expanded && (
 				<div className="border-t border-slate-700/50 p-3 space-y-4">
@@ -242,6 +314,39 @@ function CompactActionSummary({
 					</div>
 				))}
 			</div>
+		</div>
+	);
+}
+
+function ScoreComparison({
+	before,
+	after,
+	afterGrade,
+}: {
+	before: number;
+	after: number;
+	afterGrade?: string;
+}) {
+	const delta = after - before;
+	const deltaSign = delta > 0 ? "+" : "";
+	const deltaColor =
+		delta > 0
+			? "text-green-400"
+			: delta < 0
+				? "text-red-400"
+				: "text-slate-400";
+
+	return (
+		<div className="flex items-center gap-2 text-xs">
+			<span className="text-slate-400">Score:</span>
+			<span className="text-slate-300">{before.toFixed(1)}</span>
+			<span className="text-slate-500">&rarr;</span>
+			<span className="text-slate-200 font-medium">{after.toFixed(1)}</span>
+			<span className={`font-medium ${deltaColor}`}>
+				({deltaSign}
+				{delta.toFixed(1)})
+			</span>
+			{afterGrade && <span className="text-slate-500">{afterGrade}</span>}
 		</div>
 	);
 }

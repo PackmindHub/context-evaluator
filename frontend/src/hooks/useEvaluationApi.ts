@@ -94,6 +94,17 @@ export interface ImportReportResponse {
 	status: string;
 }
 
+export interface EvaluateImpactResponse {
+	jobId: string;
+	sseUrl: string;
+	status: "queued" | "already_exists";
+}
+
+export interface EvaluationScoreResponse {
+	contextScore?: number;
+	contextGrade?: string;
+}
+
 interface IUseEvaluationApiReturn {
 	submitJob: (
 		repositoryUrl: string,
@@ -139,6 +150,12 @@ interface IUseEvaluationApiReturn {
 	deleteRemediation: (remediationId: string) => Promise<void>;
 	downloadPatch: (remediationId: string) => Promise<void>;
 	importReport: (reportJson: unknown) => Promise<ImportReportResponse>;
+	evaluateRemediationImpact: (
+		remediationId: string,
+	) => Promise<EvaluateImpactResponse>;
+	getEvaluationScore: (
+		evaluationId: string,
+	) => Promise<EvaluationScoreResponse>;
 	isLoading: boolean;
 	error: string | null;
 	clearError: () => void;
@@ -568,6 +585,68 @@ export function useEvaluationApi(): IUseEvaluationApiReturn {
 		[],
 	);
 
+	const evaluateRemediationImpact = useCallback(
+		async (remediationId: string): Promise<EvaluateImpactResponse> => {
+			try {
+				const response = await fetch(
+					`/api/remediation/${remediationId}/evaluate`,
+					{
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+					},
+				);
+
+				if (!response.ok) {
+					const errorData = await response.json().catch(() => ({}));
+					// 409 with existing jobId means evaluation is in progress
+					if (response.status === 409 && errorData.jobId) {
+						return {
+							jobId: errorData.jobId,
+							sseUrl: errorData.sseUrl,
+							status: "queued",
+						};
+					}
+					throw new Error(errorData.error || `HTTP error ${response.status}`);
+				}
+
+				return (await response.json()) as EvaluateImpactResponse;
+			} catch (err) {
+				const message =
+					err instanceof Error
+						? err.message
+						: "Failed to start impact evaluation";
+				setError(message);
+				throw err;
+			}
+		},
+		[],
+	);
+
+	const getEvaluationScore = useCallback(
+		async (evaluationId: string): Promise<EvaluationScoreResponse> => {
+			try {
+				const response = await fetch(`/api/evaluations/${evaluationId}`, {
+					method: "GET",
+					headers: { "Content-Type": "application/json" },
+				});
+
+				if (!response.ok) {
+					throw new Error(`HTTP error ${response.status}`);
+				}
+
+				const data = await response.json();
+				return {
+					contextScore: data.contextScore,
+					contextGrade: data.contextGrade,
+				};
+			} catch (err) {
+				console.warn("[API] Failed to fetch evaluation score:", err);
+				return {};
+			}
+		},
+		[],
+	);
+
 	const clearError = useCallback(() => {
 		setError(null);
 	}, []);
@@ -587,6 +666,8 @@ export function useEvaluationApi(): IUseEvaluationApiReturn {
 			deleteRemediation,
 			downloadPatch,
 			importReport,
+			evaluateRemediationImpact,
+			getEvaluationScore,
 			isLoading,
 			error,
 			clearError,
@@ -605,6 +686,8 @@ export function useEvaluationApi(): IUseEvaluationApiReturn {
 			deleteRemediation,
 			downloadPatch,
 			importReport,
+			evaluateRemediationImpact,
+			getEvaluationScore,
 			isLoading,
 			error,
 			clearError,

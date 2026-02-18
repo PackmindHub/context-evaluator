@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import type { Metadata } from "../types/evaluation";
+import { ContextTreeView } from "./ContextTreeView";
 import { ContextFilesBrowserModal } from "./shared/ContextFilesBrowserModal";
 import { LinkedDocsBrowserModal } from "./shared/LinkedDocsBrowserModal";
 import { SkillsBrowserModal } from "./shared/SkillsBrowserModal";
@@ -119,10 +120,14 @@ const CursorLogo: React.FC<{ className?: string }> = ({
 );
 
 export const ContextTab: React.FC<ContextTabProps> = ({ metadata }) => {
+	const [viewMode, setViewMode] = useState<"list" | "tree">("list");
 	const [showSkillsModal, setShowSkillsModal] = useState(false);
 	const [showCopilotSkillsModal, setShowCopilotSkillsModal] = useState(false);
 	const [showCursorSkillsModal, setShowCursorSkillsModal] = useState(false);
 	const [showLinkedDocsModal, setShowLinkedDocsModal] = useState(false);
+	const [initialSelectedPath, setInitialSelectedPath] = useState<
+		string | undefined
+	>(undefined);
 	const [contextFilesModalType, setContextFilesModalType] = useState<
 		| "agents"
 		| "claude"
@@ -244,6 +249,28 @@ export const ContextTab: React.FC<ContextTabProps> = ({ metadata }) => {
 	const hasAnything =
 		hasAgentsMd || hasClaudeCode || hasCopilot || hasCursor || hasLinkedDocs;
 
+	/** Handle clicks from tree view — open the appropriate modal pre-selecting the file */
+	const handleTreeFileClick = useCallback((path: string, fileType: string) => {
+		setInitialSelectedPath(path);
+		if (fileType === "skills") {
+			// Determine which skills modal to open based on the path
+			if (path.startsWith(".github/skills/")) {
+				setShowCopilotSkillsModal(true);
+			} else if (path.startsWith(".cursor/skills/")) {
+				setShowCursorSkillsModal(true);
+			} else {
+				setShowSkillsModal(true);
+			}
+		} else if (fileType === "linked-doc") {
+			setShowLinkedDocsModal(true);
+		} else {
+			// Context file types: agents, claude, copilot, rules, cursor-rules
+			setContextFilesModalType(
+				fileType as "agents" | "claude" | "copilot" | "rules" | "cursor-rules",
+			);
+		}
+	}, []);
+
 	if (!hasAnything) {
 		return (
 			<div className="glass-card p-12 text-center">
@@ -257,8 +284,72 @@ export const ContextTab: React.FC<ContextTabProps> = ({ metadata }) => {
 
 	return (
 		<div className="space-y-4 animate-fade-in">
-			{/* AGENTS.md section */}
-			{hasAgentsMd && (
+			{/* View toggle */}
+			<div className="flex justify-end">
+				<div className="flex bg-slate-800/50 rounded-lg p-0.5">
+					<button
+						onClick={() => setViewMode("list")}
+						className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs transition-colors ${
+							viewMode === "list"
+								? "bg-slate-700 text-slate-200"
+								: "text-slate-400 hover:text-slate-300"
+						}`}
+						title="List view"
+					>
+						<svg
+							className="w-3.5 h-3.5"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								strokeLinecap="round"
+								strokeLinejoin="round"
+								strokeWidth={2}
+								d="M4 6h16M4 12h16M4 18h16"
+							/>
+						</svg>
+						List
+					</button>
+					<button
+						onClick={() => setViewMode("tree")}
+						className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs transition-colors ${
+							viewMode === "tree"
+								? "bg-slate-700 text-slate-200"
+								: "text-slate-400 hover:text-slate-300"
+						}`}
+						title="Tree view"
+					>
+						<svg
+							className="w-3.5 h-3.5"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								strokeLinecap="round"
+								strokeLinejoin="round"
+								strokeWidth={2}
+								d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+							/>
+						</svg>
+						Tree
+					</button>
+				</div>
+			</div>
+
+			{/* Tree view */}
+			{viewMode === "tree" && (
+				<ContextTreeView
+					contextFiles={contextFiles}
+					skills={skills}
+					linkedDocs={linkedDocs}
+					onFileClick={handleTreeFileClick}
+				/>
+			)}
+
+			{/* List view (original layout) */}
+			{viewMode === "list" && hasAgentsMd && (
 				<SectionCard
 					icon={<DocIcon className="w-4 h-4 text-slate-300" />}
 					title="AGENTS.md"
@@ -277,7 +368,7 @@ export const ContextTab: React.FC<ContextTabProps> = ({ metadata }) => {
 			)}
 
 			{/* Claude Code section */}
-			{hasClaudeCode && (
+			{viewMode === "list" && hasClaudeCode && (
 				<SectionCard
 					icon={
 						<svg
@@ -327,7 +418,7 @@ export const ContextTab: React.FC<ContextTabProps> = ({ metadata }) => {
 			)}
 
 			{/* GitHub Copilot section */}
-			{hasCopilot && (
+			{viewMode === "list" && hasCopilot && (
 				<SectionCard
 					icon={<CopilotLogo className="w-4 h-4 text-slate-300" />}
 					title="GitHub Copilot"
@@ -359,7 +450,7 @@ export const ContextTab: React.FC<ContextTabProps> = ({ metadata }) => {
 			)}
 
 			{/* Cursor section */}
-			{hasCursor && (
+			{viewMode === "list" && hasCursor && (
 				<SectionCard
 					icon={<CursorLogo className="w-4 h-4 text-slate-300" />}
 					title="Cursor"
@@ -391,7 +482,7 @@ export const ContextTab: React.FC<ContextTabProps> = ({ metadata }) => {
 			)}
 
 			{/* Linked Docs section */}
-			{hasLinkedDocs && (
+			{viewMode === "list" && hasLinkedDocs && (
 				<SectionCard
 					icon={<LinkIcon className="w-4 h-4 text-slate-300" />}
 					title="Linked Docs"
@@ -415,29 +506,49 @@ export const ContextTab: React.FC<ContextTabProps> = ({ metadata }) => {
 			{/* Modals */}
 			<SkillsBrowserModal
 				isOpen={showSkillsModal}
-				onClose={() => setShowSkillsModal(false)}
+				onClose={() => {
+					setShowSkillsModal(false);
+					setInitialSelectedPath(undefined);
+				}}
 				skills={[...claudeSkills, ...genericSkills]}
+				initialSelectedPath={initialSelectedPath}
 			/>
 			<SkillsBrowserModal
 				isOpen={showCopilotSkillsModal}
-				onClose={() => setShowCopilotSkillsModal(false)}
+				onClose={() => {
+					setShowCopilotSkillsModal(false);
+					setInitialSelectedPath(undefined);
+				}}
 				skills={copilotSkills}
+				initialSelectedPath={initialSelectedPath}
 			/>
 			<SkillsBrowserModal
 				isOpen={showCursorSkillsModal}
-				onClose={() => setShowCursorSkillsModal(false)}
+				onClose={() => {
+					setShowCursorSkillsModal(false);
+					setInitialSelectedPath(undefined);
+				}}
 				skills={cursorSkills}
+				initialSelectedPath={initialSelectedPath}
 			/>
 			<ContextFilesBrowserModal
 				isOpen={contextFilesModalType !== null}
-				onClose={() => setContextFilesModalType(null)}
+				onClose={() => {
+					setContextFilesModalType(null);
+					setInitialSelectedPath(undefined);
+				}}
 				contextFiles={contextFiles}
 				filterType={contextFilesModalType ?? undefined}
+				initialSelectedPath={initialSelectedPath}
 			/>
 			<LinkedDocsBrowserModal
 				isOpen={showLinkedDocsModal}
-				onClose={() => setShowLinkedDocsModal(false)}
+				onClose={() => {
+					setShowLinkedDocsModal(false);
+					setInitialSelectedPath(undefined);
+				}}
 				linkedDocs={linkedDocs}
+				initialSelectedPath={initialSelectedPath}
 			/>
 		</div>
 	);

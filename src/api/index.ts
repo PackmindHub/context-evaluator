@@ -325,6 +325,13 @@ export class APIServer {
 			);
 		}
 		if (
+			path.match(/^\/api\/remediation\/[^/]+\/evaluate$/) &&
+			req.method === "POST"
+		) {
+			const remediationId = path.split("/")[3]!;
+			return this.remediationRoutes.evaluateImpact(req, remediationId);
+		}
+		if (
 			path.match(/^\/api\/remediation\/[^/]+\/progress$/) &&
 			req.method === "GET"
 		) {

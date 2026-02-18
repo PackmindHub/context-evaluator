@@ -507,9 +507,24 @@ export function RemediateTab({
 			<RemediationHistory
 				remediations={remediations}
 				onDelete={handleDeleteRemediation}
+				onRefresh={refreshHistory}
 				cloudMode={cloudMode}
 				autoExpandId={autoExpandRemediationId}
 				onAutoExpandHandled={() => setAutoExpandRemediationId(null)}
+				parentScore={evaluationData?.metadata?.contextScore?.score}
+				parentGrade={evaluationData?.metadata?.contextScore?.grade}
+				hasRepoUrl={(() => {
+					// repositoryUrl is present at runtime but not in frontend Metadata type
+					// biome-ignore lint/suspicious/noExplicitAny: runtime metadata field
+					const url = (evaluationData?.metadata as any)?.repositoryUrl as
+						| string
+						| undefined;
+					return (
+						!!url &&
+						url !== "unknown" &&
+						(url.startsWith("http") || url.startsWith("git@"))
+					);
+				})()}
 			/>
 
 			{/* Empty state when no issues selected */}

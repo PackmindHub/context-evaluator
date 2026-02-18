@@ -9,6 +9,8 @@ interface LinkedDocsBrowserModalProps {
 	onClose: () => void;
 	/** Linked documentation files to display */
 	linkedDocs: ILinkedDocSummary[];
+	/** Optional doc path to pre-select when modal opens */
+	initialSelectedPath?: string;
 }
 
 /**
@@ -19,6 +21,7 @@ export const LinkedDocsBrowserModal: React.FC<LinkedDocsBrowserModalProps> = ({
 	isOpen,
 	onClose,
 	linkedDocs,
+	initialSelectedPath,
 }) => {
 	// Transform linked docs to generic content items, sorted alphabetically by path
 	const items: ContentItem[] = useMemo(() => {
@@ -62,6 +65,7 @@ export const LinkedDocsBrowserModal: React.FC<LinkedDocsBrowserModalProps> = ({
 			selectPromptText="Select a document to view its content"
 			noContentText="Content not available"
 			noContentSubtext="Re-run evaluation to load document content"
+			initialSelectedId={initialSelectedPath}
 		/>
 	);
 };

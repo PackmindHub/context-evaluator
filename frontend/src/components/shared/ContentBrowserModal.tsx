@@ -40,6 +40,8 @@ interface ContentBrowserModalProps {
 	noContentText?: string;
 	/** Subtext for no content state */
 	noContentSubtext?: string;
+	/** Optional item ID to pre-select when modal opens */
+	initialSelectedId?: string;
 }
 
 /**
@@ -58,6 +60,7 @@ export const ContentBrowserModal: React.FC<ContentBrowserModalProps> = ({
 	selectPromptText = "Select an item to view its content",
 	noContentText = "Content not available",
 	noContentSubtext = "Re-run evaluation to load content",
+	initialSelectedId,
 }) => {
 	const [searchQuery, setSearchQuery] = useState("");
 	const [selectedItemIndex, setSelectedItemIndex] = useState<number | null>(
@@ -123,13 +126,18 @@ export const ContentBrowserModal: React.FC<ContentBrowserModalProps> = ({
 		};
 	}, [isOpen, handleKeyDown]);
 
-	// Reset state when modal opens; auto-select if only one item
+	// Reset state when modal opens; auto-select if only one item or initialSelectedId
 	useEffect(() => {
 		if (isOpen) {
 			setSearchQuery("");
-			setSelectedItemIndex(items.length === 1 ? 0 : null);
+			if (initialSelectedId) {
+				const idx = items.findIndex((item) => item.id === initialSelectedId);
+				setSelectedItemIndex(idx >= 0 ? idx : null);
+			} else {
+				setSelectedItemIndex(items.length === 1 ? 0 : null);
+			}
 		}
-	}, [isOpen, items.length]);
+	}, [isOpen, items, initialSelectedId]);
 
 	if (!isOpen) return null;
 

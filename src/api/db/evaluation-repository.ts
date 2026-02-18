@@ -39,6 +39,8 @@ export interface IEvaluationHistoryItem {
 	gitBranch?: string;
 	gitCommitSha?: string;
 	isImported?: boolean;
+	parentEvaluationId?: string;
+	sourceRemediationId?: string;
 	errorMessage?: string;
 	errorCode?: string;
 	createdAt: string;
@@ -78,6 +80,8 @@ interface EvaluationRow {
 	git_branch: string | null;
 	git_commit_sha: string | null;
 	is_imported: number;
+	parent_evaluation_id: string | null;
+	source_remediation_id: string | null;
 	result_json: string | null;
 	final_prompts_json: string | null;
 	error_message: string | null;
@@ -109,14 +113,14 @@ export class EvaluationRepository {
         total_files, total_issues, critical_count, high_count, medium_count,
         curated_count, total_cost_usd, total_duration_ms, total_input_tokens, total_output_tokens,
         context_score, context_grade, failed_evaluator_count,
-        git_branch, git_commit_sha,
+        git_branch, git_commit_sha, parent_evaluation_id, source_remediation_id,
         result_json, final_prompts_json, error_message, error_code, created_at, completed_at
       ) VALUES (
         $id, $repositoryUrl, $evaluationMode, $evaluatorsCount, $status,
         $totalFiles, $totalIssues, $criticalCount, $highCount, $mediumCount,
         $curatedCount, $totalCostUsd, $totalDurationMs, $totalInputTokens, $totalOutputTokens,
         $contextScore, $contextGrade, $failedEvaluatorCount,
-        $gitBranch, $gitCommitSha,
+        $gitBranch, $gitCommitSha, $parentEvaluationId, $sourceRemediationId,
         $resultJson, $finalPromptsJson, $errorMessage, $errorCode, $createdAt, $completedAt
       )
     `);
@@ -146,6 +150,8 @@ export class EvaluationRepository {
 			$failedEvaluatorCount: metadata.failedEvaluators?.length || 0,
 			$gitBranch: metadata.gitBranch || null,
 			$gitCommitSha: metadata.gitCommitSha || null,
+			$parentEvaluationId: request._parentEvaluationId || null,
+			$sourceRemediationId: request._sourceRemediationId || null,
 			$resultJson: JSON.stringify(result),
 			$finalPromptsJson: finalPrompts ? JSON.stringify(finalPrompts) : null,
 			$errorMessage: null,
@@ -174,13 +180,13 @@ export class EvaluationRepository {
         id, repository_url, evaluation_mode, evaluators_count, status,
         total_files, total_issues, critical_count, high_count, medium_count,
         curated_count, total_cost_usd, total_duration_ms, total_input_tokens, total_output_tokens,
-        git_branch, git_commit_sha,
+        git_branch, git_commit_sha, parent_evaluation_id, source_remediation_id,
         result_json, final_prompts_json, error_message, error_code, created_at, completed_at
       ) VALUES (
         $id, $repositoryUrl, $evaluationMode, $evaluatorsCount, $status,
         $totalFiles, $totalIssues, $criticalCount, $highCount, $mediumCount,
         $curatedCount, $totalCostUsd, $totalDurationMs, $totalInputTokens, $totalOutputTokens,
-        $gitBranch, $gitCommitSha,
+        $gitBranch, $gitCommitSha, $parentEvaluationId, $sourceRemediationId,
         $resultJson, $finalPromptsJson, $errorMessage, $errorCode, $createdAt, $completedAt
       )
     `);
@@ -203,6 +209,8 @@ export class EvaluationRepository {
 			$totalOutputTokens: 0,
 			$gitBranch: null,
 			$gitCommitSha: null,
+			$parentEvaluationId: request._parentEvaluationId || null,
+			$sourceRemediationId: request._sourceRemediationId || null,
 			$resultJson: null,
 			$finalPromptsJson: null,
 			$errorMessage: error.message,
@@ -529,6 +537,8 @@ export class EvaluationRepository {
 			gitBranch: row.git_branch || undefined,
 			gitCommitSha: row.git_commit_sha || undefined,
 			isImported: row.is_imported === 1 ? true : undefined,
+			parentEvaluationId: row.parent_evaluation_id || undefined,
+			sourceRemediationId: row.source_remediation_id || undefined,
 			errorMessage: row.error_message || undefined,
 			errorCode: row.error_code || undefined,
 			createdAt: row.created_at,

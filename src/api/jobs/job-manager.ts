@@ -3,6 +3,7 @@ import type { IEvaluateRequest, IJob, IJobLog } from "@shared/types/api";
 import type { ProgressEvent } from "@shared/types/evaluation";
 import { jobManagerLogger } from "@shared/utils/logger";
 import { evaluationRepository } from "../db/evaluation-repository";
+import { remediationRepository } from "../db/remediation-repository";
 import { JobStore } from "./job-store";
 
 /**
@@ -389,6 +390,21 @@ export class JobManager {
 					result,
 					job.createdAt,
 				);
+
+				// Link result evaluation back to the source remediation
+				if (job.request._sourceRemediationId) {
+					try {
+						remediationRepository.linkResultEvaluation(
+							job.request._sourceRemediationId,
+							jobId,
+						);
+					} catch (linkError) {
+						jobManagerLogger.error(
+							`Failed to link result evaluation to remediation:`,
+							linkError,
+						);
+					}
+				}
 			} catch (dbError) {
 				jobManagerLogger.error(
 					`Failed to persist evaluation to database:`,
@@ -451,6 +467,18 @@ export class JobManager {
 		} finally {
 			// Remove from running set
 			this.runningJobs.delete(jobId);
+
+			// Run cleanup function if provided (e.g., remove patched clone directory)
+			if (job.request._cleanupFn) {
+				try {
+					await job.request._cleanupFn();
+				} catch (cleanupError) {
+					jobManagerLogger.error(
+						`Error running cleanup for job ${jobId}:`,
+						cleanupError,
+					);
+				}
+			}
 
 			// Cleanup callbacks and buffer
 			this.progressCallbacks.delete(jobId);
