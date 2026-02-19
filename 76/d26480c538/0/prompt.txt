@@ -1,0 +1,80 @@
+Implement the following plan:
+
+# Plan: Add Bullet Point Formatting Guidance to Remediation Prompts
+
+## Context
+
+When the remediation pipeline fixes or enriches AGENTS.md documentation, the AI sometimes writes new content as dense prose paragraphs — the same anti-pattern flagged by the evaluators. The prompts currently have no explicit instruction to use concise, structured bullet point lists. This means the remediation can produce content that would itself be flagged by the evaluators on the next pass.
+
+## Approach
+
+Add a single formatting instruction to the **Instructions** / **Execution Instructions** section of all 4 execution prompts in `src/shared/remediation/prompt-generator.ts`:
+
+> "Format all added/edited content with concise bullet point lists. Avoid dense prose paragraphs — each distinct fact, rule, step, or constraint should be its own bullet point."
+
+This instruction belongs in the execution step (where content is actually written), not the planning step.
+
+## Files to Modify
+
+**`src/shared/remediation/prompt-generator.ts`** — 4 locations:
+
+### 1. `buildErrorFixPrompt()` — `## Instructions` block (line ~553)
+
+Insert between step 8 and step 9:
+
+```
+8. Keep changes minimal — only fix what's genuinely flagged
+9. Format all added or edited content with concise bullet point lists — avoid dense prose paragraphs; each distinct fact, rule, step, or constraint should be its own bullet
+10. Do not add commentary, headers, or sections beyond what's needed
+```
+
+(current step 9 becomes 10, step 10 becomes 11)
+
+### 2. `buildSuggestionEnrichPrompt()` — `## Instructions` block (line ~638)
+
+Insert between step 8 and step 9:
+
+```
+8. Keep additions minimal — only add what's needed to close the gap
+9. Format all added content with concise bullet point lists — avoid dense prose paragraphs; each distinct fact, rule, step, or constraint should be its own bullet
+10. After making all changes, output a JSON summary:
+```
+
+(current step 9 becomes 10)
+
+### 3. `buildErrorExecutionPrompt()` — `## Execution Instructions` block (line ~797)
+
+Insert between step 5 and step 6:
+
+```
+5. Keep changes minimal — only fix what the plan specifies
+6. Format all added or edited content with concise bullet point lists — avoid dense prose paragraphs; each distinct fact, rule, step, or constraint should be its own bullet
+7. Do not add commentary, headers, or sections beyond what's needed
+```
+
+(current step 6 becomes 7, step 7 becomes 8)
+
+### 4. `buildSuggestionExecutionPrompt()` — `## Execution Instructions` block (line ~932)
+
+Insert between step 6 and step 7:
+
+```
+6. Keep additions minimal — only add what the plan specifies
+7. Format all added content with concise bullet point lists — avoid dense prose paragraphs; each distinct fact, rule, step, or constraint should be its own bullet
+8. After making all changes, output a JSON summary:
+```
+
+(current step 7 becomes 8)
+
+## Verification
+
+1. Run `bun run test` — no tests should break (prompt text changes don't affect test logic)
+2. Run `bun run lint` — no lint errors
+3. Optionally run a remediation pass on a sample AGENTS.md with dense prose and verify the output contains bullet lists
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+commit

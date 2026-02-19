@@ -1,0 +1,77 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "76d26480c538",
+  "session_id": "30f23024-f90c-430e-adbc-ba78841964a9",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-19T13:15:09.252015Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "src/shared/remediation/prompt-generator.ts"
+  ],
+  "agent": "Claude Code",
+  "token_usage": {
+    "input_tokens": 17,
+    "cache_creation_tokens": 20704,
+    "cache_read_tokens": 482589,
+    "output_tokens": 395,
+    "api_call_count": 13
+  },
+  "summary": {
+    "intent": "Add explicit bullet point formatting instructions to all 4 execution prompts in the remediation pipeline to prevent the AI from generating dense prose paragraphs when fixing or enriching AGENTS.md documentation.",
+    "outcome": "Successfully inserted formatting guidance into 4 locations in `src/shared/remediation/prompt-generator.ts`, renumbered affected steps, verified 1309 tests pass and lint is clean, and committed the change.",
+    "learnings": {
+      "repo": [
+        "The remediation pipeline has 4 distinct prompt builders: buildErrorFixPrompt, buildSuggestionEnrichPrompt, buildErrorExecutionPrompt, and buildSuggestionExecutionPrompt — all in src/shared/remediation/prompt-generator.ts",
+        "Formatting instructions belong in execution prompts (where content is written), not planning prompts",
+        "The project uses `bun run test` and `bun run lint` for verification, with 1309 tests in the suite",
+        "Git commands are run via `rtk` wrapper (e.g., `rtk git status`, `rtk git commit`)"
+      ],
+      "code": [
+        {
+          "path": "src/shared/remediation/prompt-generator.ts",
+          "line": 553,
+          "end_line": 553,
+          "finding": "buildErrorFixPrompt() ## Instructions block — formatting step inserted between old steps 8 and 9"
+        },
+        {
+          "path": "src/shared/remediation/prompt-generator.ts",
+          "line": 638,
+          "end_line": 638,
+          "finding": "buildSuggestionEnrichPrompt() ## Instructions block — formatting step inserted between old steps 8 and 9"
+        },
+        {
+          "path": "src/shared/remediation/prompt-generator.ts",
+          "line": 797,
+          "end_line": 797,
+          "finding": "buildErrorExecutionPrompt() ## Execution Instructions block — formatting step inserted between old steps 5 and 6"
+        },
+        {
+          "path": "src/shared/remediation/prompt-generator.ts",
+          "line": 932,
+          "end_line": 932,
+          "finding": "buildSuggestionExecutionPrompt() ## Execution Instructions block — formatting step inserted between old steps 6 and 7"
+        }
+      ],
+      "workflow": [
+        "Prompt text changes to instruction strings do not affect test logic — tests passed without modification after adding new numbered steps",
+        "Step renumbering is required when inserting into numbered instruction lists to maintain coherent ordering"
+      ]
+    },
+    "friction": [
+      "Initial `bun run test` call used the `rtk` wrapper which may have failed or produced different output, requiring a fallback to direct `bun run test`"
+    ],
+    "open_items": [
+      "Optionally run a remediation pass on a sample AGENTS.md with dense prose to empirically verify the new formatting instruction produces bullet list output (mentioned in plan but not executed)"
+    ]
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-19T13:14:54.798878Z",
+    "agent_lines": 10,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 10,
+    "agent_percentage": 100
+  }
+}
