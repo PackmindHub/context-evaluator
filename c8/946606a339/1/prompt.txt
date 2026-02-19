@@ -1,0 +1,116 @@
+Implement the following plan:
+
+# Plan: Fix Remediation Direction for CLAUDE.md/AGENTS.md Colocated Pairs
+
+## Context
+
+When both `AGENTS.md` and `CLAUDE.md` coexist in a directory, the system rule is:
+- **AGENTS.md** = single source of truth (canonical)
+- **CLAUDE.md** = pointer only, containing solely `@AGENTS.md`
+
+The bug: a remediation plan chose the opposite direction — making CLAUDE.md canonical and having AGENTS.md redirect to it. This caused two problems:
+1. Wrong canonical file (CLAUDE.md instead of AGENTS.md)
+2. CLAUDE.md received content beyond the single `@AGENTS.md` line
+
+## Root Causes
+
+### Root Cause 1: stale evaluation metadata
+`evaluationData.result?.metadata?.projectContext?.colocatedPairs` is `undefined` for evaluations predating the colocatedPairs feature. With empty `colocatedPairs`, the remediation engine skips consolidation and omits the consolidation notice from all prompts. The AI planner then encounters both files with real content and makes its own judgment — choosing CLAUDE.md as canonical.
+
+**Evidence**: `engine.ts:188` reads pairs from metadata; if evaluation was old, `colocatedPairs === []` → no notice → no constraint.
+
+### Root Cause 2: consolidation notice is too weak
+The current notice (in `buildConsolidationNotice`) says:
+> "AGENTS.md is the single source of truth. Never edit CLAUDE.md files that contain `@AGENTS.md`."
+
+This is soft language. The AI planner read the files, saw AGENTS.md had quality problems, and decided CLAUDE.md was a better canonical. The notice didn't prevent it.
+
+### Root Cause 3: no validation on the generated plan
+Phase 1 generates a free-form markdown plan. There is no post-generation validation to catch a plan that targets CLAUDE.md as a canonical destination.
+
+## Fix
+
+### Change 1: Re-detect colocated pairs at remediation time (backward compat)
+**File**: `src/shared/remediation/engine.ts`
+
+After the working directory is set up and files exist on disk (before prompt generation), re-scan for colocated pairs using `identifyColocatedPairs()` from the file-system module. Merge with any pairs already stored in evaluation metadata (union, dedup by directory). This ensures old evaluations without stored colocatedPairs still trigger correct consolidation behavior.
+
+```typescript
+// After cloning / after checkCleanWorkingTree step
+import { identifyColocatedPairs } from "@shared/file-system/colocated-file-consolidator";
+
+const discoveredPairs = identifyColocatedPairs(allAgentsFiles, workDir);
+// Merge with pc?.colocatedPairs (dedup by directory)
+const colocatedPairs = mergePairs(pc?.colocatedPairs ?? [], discoveredPairs);
+```
+
+`allAgentsFiles` already exists in engine.ts from the evaluation metadata (`pc?.agentsFilePaths`). If not available, scan using the existing file discovery function.
+
+### Change 2: Harden the consolidation notice
+**File**: `src/shared/remediation/prompt-generator.ts` — `buildConsolidationNotice()`
+
+Replace the current soft notice with an explicit, rule-like constraint:
+
+```
+## ⚠ CRITICAL FILE RULE — CLAUDE.md IS READ-ONLY
+In the following directories, AGENTS.md is the ONLY source of truth.
+CLAUDE.md contains a single line: `@AGENTS.md`. This MUST NOT change.
+
+{pair list}
+
+STRICT RULES:
+1. Never add content to CLAUDE.md. It must remain as the single line `@AGENTS.md`.
+2. If issues mention CLAUDE.md, fix them by editing AGENTS.md instead.
+3. If both files have duplicate or conflicting content, consolidate into AGENTS.md.
+4. Never make CLAUDE.md the canonical file — even if AGENTS.md has quality problems.
+```
+
+### Change 3: Add constraint to plan output format
+**File**: `src/shared/remediation/prompt-generator.ts` — `buildErrorPlanPrompt()`
+
+In the `## Planning Instructions` section, add:
+
+```
+- NEVER plan to add content to CLAUDE.md files that contain `@AGENTS.md`
+- If both AGENTS.md and CLAUDE.md exist in the same directory, all fixes go to AGENTS.md
+```
+
+And in the `## Output Format` example, add a note:
+
+```
+# Note: **Target file:** must never be CLAUDE.md when a consolidation notice applies
+```
+
+Same addition to `buildSuggestionPlanPrompt()`.
+
+### Change 4: Add plan validation (optional, belt-and-suspenders)
+**File**: `src/shared/remediation/engine.ts`
+
+After Phase 1 returns `errorPlan`, if `colocatedPairs.length > 0`, scan the plan text for patterns like "CLAUDE.md canonical", "make CLAUDE.md the", "merge into CLAUDE.md", or `**Target file:** CLAUDE.md`. If detected, log a warning and prepend a correction block to the plan before passing it to Phase 2 (execution). This is a cheap safeguard that doesn't require another AI call.
+
+## Files to Modify
+
+| File | Change |
+|------|--------|
+| `src/shared/remediation/engine.ts` | Re-detect colocated pairs post-clone; optional plan validation |
+| `src/shared/remediation/prompt-generator.ts` | Harden consolidation notice; add planning constraints |
+
+## Key Existing Functions to Reuse
+
+- `identifyColocatedPairs()` — `src/shared/file-system/colocated-file-consolidator.ts`
+- `consolidateColocatedFiles()` — `src/shared/remediation/file-consolidator.ts` (already called)
+- `buildConsolidationNotice()` — `src/shared/remediation/prompt-generator.ts` (strengthen in-place)
+
+## Verification
+
+1. Run `bun run test` — ensure all existing tests pass
+2. Test with evaluation ID `dd283666-3a94-43cd-8565-7dff030c01d1`:
+   - Trigger remediation and verify the plan correctly targets AGENTS.md
+   - Verify CLAUDE.md remains `@AGENTS.md` in the diff output
+3. Test with a fresh evaluation of a project that has both AGENTS.md and CLAUDE.md:
+   - Ensure consolidation notice appears in the generated plan prompt
+   - Ensure the plan does not propose making CLAUDE.md canonical
+4. Run `bun run lint` for Biome compliance
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
