@@ -1,0 +1,111 @@
+Implement the following plan:
+
+# Plan: Surface All 4 Remediation Prompts in the UI + Fix CLAUDE.md Consolidation
+
+## Context
+
+Two tasks:
+
+1. **Show all 4 prompts per remediation**: The user wants to inspect the full prompts sent to the AI for each phase (error plan, error execution, suggestion plan, suggestion execution). Currently the UI only shows the plan *responses* (AI output), not the *prompts* (AI input). Phases 2 & 4 execution prompts are also silently stripped before being saved to the database.
+
+2. **Fix CLAUDE.md conflict persisting after remediation impact evaluation**: When the suggestion execution AI (Phase 4) modifies `CLAUDE.md`, the final `fullPatch` captures that state instead of `@AGENTS.md`. The impact evaluation then re-finds the conflict. Fix: re-apply consolidation after Phase 4, before `captureGitDiff()`.
+
+---
+
+## Part 1: Surface All 4 Prompts
+
+### Current State
+
+| Phase | Description | Stored? | Displayed? |
+|-------|-------------|---------|------------|
+| 1 | Error Plan prompt | ✓ `plan_data_json.errorPlanPrompt` | ✗ No |
+| 1 | Error Plan response | ✓ `plan_data_json.errorPlan` | ✓ Yes |
+| 2 | Error Execution prompt | ✗ **Stripped in repo** | ✗ No |
+| 3 | Suggestion Plan prompt | ✓ `plan_data_json.suggestionPlanPrompt` | ✗ No |
+| 3 | Suggestion Plan response | ✓ `plan_data_json.suggestionPlan` | ✓ Yes |
+| 4 | Suggestion Execution prompt | ✗ **Stripped in repo** | ✗ No |
+
+### Changes
+
+#### 1. `src/api/db/remediation-repository.ts`
+
+**`IRemediationPlanData` interface** — add 2 fields:
+```typescript
+errorFixPrompt?: string;           // Phase 2 execution prompt
+suggestionEnrichPrompt?: string;   // Phase 4 execution prompt
+```
+
+**`serializeRemediation()` / `updateCompletedRemediation()`** — stop stripping; add to planData:
+```typescript
+if (result.errorFixStats?.prompt) planData.errorFixPrompt = result.errorFixStats.prompt;
+if (result.suggestionEnrichStats?.prompt) planData.suggestionEnrichPrompt = result.suggestionEnrichStats.prompt;
+```
+
+#### 2. `frontend/src/types/remediation.ts`
+
+**`PlanData` interface** — add 2 fields:
+```typescript
+errorFixPrompt?: string;
+suggestionEnrichPrompt?: string;
+```
+
+#### 3. `frontend/src/components/RemediationHistoryCard.tsx`
+
+Add 4 collapsible prompt sections (using the existing `CollapsiblePlanSection` component), grouped logically near the existing plan response sections:
+
+```
+[Errors section]
+  → "Error Fix Plan Prompt" (errorPlanPrompt) — NEW
+  → "Error Fix Plan" (errorPlan) — already shown
+  → "Error Fix Execution Prompt" (errorFixPrompt) — NEW
+
+[Suggestions section]
+  → "Suggestion Plan Prompt" (suggestionPlanPrompt) — NEW
+  → "Suggestion Enrichment Plan" (suggestionPlan) — already shown
+  → "Suggestion Execution Prompt" (suggestionEnrichPrompt) — NEW
+```
+
+Use the existing `CollapsiblePlanSection` component for each. No new component needed.
+
+---
+
+## Part 2: Fix CLAUDE.md Consolidation in fullPatch
+
+### Change
+
+**`src/shared/remediation/engine.ts`** — add re-consolidation between Phase 4 completion (line ~624) and `captureGitDiff()` (line ~628):
+
+```typescript
+// Re-consolidate to ensure AI hasn't overwritten CLAUDE.md during phases 2/4
+if (colocatedPairs.length > 0) {
+  await consolidateColocatedFiles(workDir, colocatedPairs);
+}
+```
+
+`consolidateColocatedFiles()` already skips pairs where CLAUDE.md is already `@AGENTS.md`, so this is a no-op when AI behaved correctly.
+
+---
+
+## Critical Files
+
+- `src/api/db/remediation-repository.ts` — add fields + stop stripping prompts (~lines 14-21, 99-139)
+- `src/shared/remediation/engine.ts` — add re-consolidation step (~line 624)
+- `frontend/src/types/remediation.ts` — add 2 fields to `PlanData`
+- `frontend/src/components/RemediationHistoryCard.tsx` — add 4 `CollapsiblePlanSection` entries
+
+---
+
+## Verification
+
+1. Run `bun run test` — no existing tests should break
+2. Run `bun run lint` — no lint errors
+3. Run a full remediation via `bun run dev`; open the remediation card in the UI and verify all 4 prompt sections appear (collapsible)
+4. Confirm prompts are long-form text (matching what `buildErrorPlanPrompt()` / `buildSuggestionExecutionPrompt()` generate)
+5. For the CLAUDE.md fix: run a remediation on a repo with conflicting files, then "Evaluate Impact" — confirm no conflict issue in the result
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+commit
