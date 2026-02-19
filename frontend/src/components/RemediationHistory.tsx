@@ -97,13 +97,14 @@ export function RemediationHistory({
 	const handleEvaluateImpact = useCallback(
 		async (remediationId: string) => {
 			try {
+				const result = await api.evaluateRemediationImpact(remediationId);
+
+				// Update state with jobId immediately so the card can show a progress link
 				setImpactEvals((prev) => {
 					const next = new Map(prev);
-					next.set(remediationId, { status: "running" });
+					next.set(remediationId, { status: "running", jobId: result.jobId });
 					return next;
 				});
-
-				const result = await api.evaluateRemediationImpact(remediationId);
 
 				if (result.status === "already_exists") {
 					// Fetch score directly
@@ -172,17 +173,8 @@ export function RemediationHistory({
 
 				eventSource.onerror = () => {
 					cleanup();
-					setImpactEvals((prev) => {
-						const next = new Map(prev);
-						const current = next.get(remediationId);
-						if (current?.status === "running") {
-							next.set(remediationId, {
-								...current,
-								status: "failed",
-							});
-						}
-						return next;
-					});
+					// SSE disconnected but job may still be running in the background.
+					// Keep current state (with jobId) so the user can track via the link.
 				};
 			} catch {
 				setImpactEvals((prev) => {
@@ -256,6 +248,7 @@ export function RemediationHistory({
 								cloudMode={cloudMode}
 								parentScore={parentScore}
 								impactEvalStatus={evalState?.status}
+								impactJobId={evalState?.jobId}
 								impactScore={evalState?.score}
 								impactGrade={evalState?.grade}
 								hasRepoUrl={hasRepoUrl}

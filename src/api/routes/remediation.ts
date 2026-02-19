@@ -3,6 +3,7 @@
  */
 
 import { buildTechnicalInventorySection } from "@shared/claude/prompt-builder";
+import type { FileEvaluationResult } from "@shared/evaluation/runner";
 import { cloneRepository } from "@shared/file-system/git-cloner";
 import { applyPatch } from "@shared/remediation/git-operations";
 import {
@@ -10,7 +11,11 @@ import {
 	type RemediationInput,
 	type RemediationIssue,
 } from "@shared/remediation/prompt-generator";
-import type { Issue } from "@shared/types/evaluation";
+import {
+	type Issue,
+	isIndependentFormat,
+	isUnifiedFormat,
+} from "@shared/types/evaluation";
 import {
 	type IRemediationRequest,
 	TARGET_AGENTS,
@@ -558,10 +563,40 @@ export class RemediationRoutes {
 				);
 			}
 
+			// Extract evaluators from parent evaluation result
+			let parentEvaluatorIds: string[] | undefined;
+			const parentResult = parentRecord.result;
+			if (parentResult) {
+				const evaluatorNames = new Set<string>();
+				if (isIndependentFormat(parentResult)) {
+					for (const fileResult of Object.values(
+						parentResult.files,
+					) as FileEvaluationResult[]) {
+						for (const evaluation of fileResult.evaluations) {
+							if (evaluation.evaluator) {
+								evaluatorNames.add(evaluation.evaluator.replace(/\.md$/, ""));
+							}
+						}
+					}
+				} else if (isUnifiedFormat(parentResult)) {
+					for (const result of parentResult.results) {
+						if (result.evaluator) {
+							evaluatorNames.add(result.evaluator.replace(/\.md$/, ""));
+						}
+					}
+				}
+				if (evaluatorNames.size > 0) {
+					parentEvaluatorIds = [...evaluatorNames];
+				}
+			}
+
 			// Submit evaluation job on the patched clone
 			const jobId = await this.jobManager.submitJob({
 				localPath: cloneResult.path,
 				repositoryUrl: repoUrl,
+				options: {
+					selectedEvaluators: parentEvaluatorIds,
+				},
 				_cleanupFn: cloneResult.cleanup,
 				_parentEvaluationId: remediation.evaluationId,
 				_sourceRemediationId: remediationId,
