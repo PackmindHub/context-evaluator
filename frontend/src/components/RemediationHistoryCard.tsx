@@ -13,7 +13,7 @@ import {
 	countPackmindArtifacts,
 	formatArtifactCount,
 } from "../utils/packmind-artifacts";
-import { FileChangeCard } from "./FileChangeCard";
+import { DiffViewer } from "./DiffViewer";
 import { PatchDownload } from "./PatchDownload";
 import { PackmindLogo } from "./shared/PackmindLogo";
 import { PackmindProductTourModal } from "./shared/PackmindProductTourModal";
@@ -90,6 +90,8 @@ export function RemediationHistoryCard({
 			summary: item.summary ?? undefined,
 			errorFixStats: item.promptStats?.errorFixStats,
 			suggestionEnrichStats: item.promptStats?.suggestionEnrichStats,
+			errorPlanStats: item.promptStats?.errorPlanStats,
+			suggestionPlanStats: item.promptStats?.suggestionPlanStats,
 		};
 	}, [item, isFailed]);
 
@@ -257,10 +259,22 @@ export function RemediationHistoryCard({
 					) : (
 						result && (
 							<>
-								{/* Action summary */}
-								{result.summary?.parsed && (
-									<CompactActionSummary summary={result.summary} />
+								{/* Plan sections (collapsible) */}
+								{item.planData?.errorPlan && (
+									<CollapsiblePlanSection
+										title="Error Fix Plan"
+										content={item.planData.errorPlan}
+									/>
 								)}
+								{item.planData?.suggestionPlan && (
+									<CollapsiblePlanSection
+										title="Suggestion Enrichment Plan"
+										content={item.planData.suggestionPlan}
+									/>
+								)}
+
+								{/* Unified file list (replaces CompactActionSummary + FileChangeCard rows) */}
+								<UnifiedFilesSection result={result} />
 
 								{/* Packmind promotion banner */}
 								{result.summary?.parsed &&
@@ -311,27 +325,6 @@ export function RemediationHistoryCard({
 											</div>
 										);
 									})()}
-
-								{/* File changes */}
-								{result.fileChanges.length === 0 ? (
-									<p className="text-sm text-slate-500">
-										No file changes were made.
-									</p>
-								) : (
-									<div className="space-y-2">
-										{result.fileChanges.map((file: FileChange) => {
-											const fileSummaries = getFileSummaries(file.path, result);
-											return (
-												<FileChangeCard
-													key={file.path}
-													file={file}
-													defaultExpanded={result.fileChanges.length <= 3}
-													summaries={fileSummaries}
-												/>
-											);
-										})}
-									</div>
-								)}
 							</>
 						)
 					)}
@@ -341,70 +334,166 @@ export function RemediationHistoryCard({
 	);
 }
 
-function CompactActionSummary({
-	summary,
-}: {
-	summary: NonNullable<RemediationResult["summary"]>;
-}) {
-	const allActions = [
-		...summary.errorFixActions,
-		...summary.suggestionEnrichActions,
-	];
+// ---------------------------------------------------------------------------
+// UnifiedFilesSection
+// ---------------------------------------------------------------------------
+
+interface UnifiedFileEntry {
+	key: string;
+	actions: RemediationAction[];
+	fileChanges: FileChange[];
+	totalAdditions: number;
+	totalDeletions: number;
+	displayStatus: "added" | "modified" | "deleted" | null;
+}
+
+function buildUnifiedEntries(result: RemediationResult): {
+	entries: UnifiedFileEntry[];
+	skippedActions: RemediationAction[];
+} {
+	const allActions = result.summary?.parsed
+		? [
+				...result.summary.errorFixActions,
+				...result.summary.suggestionEnrichActions,
+			]
+		: [];
 
 	const addressedActions = allActions.filter((a) => a.status !== "skipped");
 	const skippedActions = allActions.filter((a) => a.status === "skipped");
 
-	const groupMap = new Map<string, typeof addressedActions>();
+	// Group addressed actions by file key
+	const groupMap = new Map<string, RemediationAction[]>();
 	for (const action of addressedActions) {
 		const key = action.file ?? "General changes";
 		if (!groupMap.has(key)) groupMap.set(key, []);
 		groupMap.get(key)?.push(action);
 	}
 
-	const sortedKeys = [...groupMap.keys()].sort((a, b) => {
-		if (a === "General changes") return 1;
-		if (b === "General changes") return -1;
-		return a.localeCompare(b);
-	});
+	// Track which fileChanges have been matched
+	const matchedFilePaths = new Set<string>();
+
+	const entriesFromActions: UnifiedFileEntry[] = [...groupMap.keys()].map(
+		(key) => {
+			const filenames = key.split(" + ").map((f) => f.trim());
+			const matched: FileChange[] = [];
+			for (const filename of filenames) {
+				for (const fc of result.fileChanges) {
+					if (fc.path.endsWith(filename)) {
+						matched.push(fc);
+						matchedFilePaths.add(fc.path);
+					}
+				}
+			}
+			const totalAdditions = matched.reduce((s, fc) => s + fc.additions, 0);
+			const totalDeletions = matched.reduce((s, fc) => s + fc.deletions, 0);
+			const displayStatus = computeDisplayStatus(matched);
+			return {
+				key,
+				actions: groupMap.get(key) ?? [],
+				fileChanges: matched,
+				totalAdditions,
+				totalDeletions,
+				displayStatus,
+			};
+		},
+	);
+
+	// Add fileChanges not matched by any action group
+	const unmatchedEntries: UnifiedFileEntry[] = result.fileChanges
+		.filter((fc) => !matchedFilePaths.has(fc.path))
+		.map((fc) => ({
+			key: fc.path,
+			actions: [],
+			fileChanges: [fc],
+			totalAdditions: fc.additions,
+			totalDeletions: fc.deletions,
+			displayStatus: fc.status,
+		}));
+
+	// Sort: "General changes" last, then alphabetical
+	const allEntries = [...entriesFromActions, ...unmatchedEntries].sort(
+		(a, b) => {
+			if (a.key === "General changes") return 1;
+			if (b.key === "General changes") return -1;
+			return a.key.localeCompare(b.key);
+		},
+	);
+
+	return { entries: allEntries, skippedActions };
+}
+
+function computeDisplayStatus(
+	fileChanges: FileChange[],
+): "added" | "modified" | "deleted" | null {
+	if (fileChanges.length === 0) return null;
+	// Priority: modified > deleted > added
+	if (fileChanges.some((fc) => fc.status === "modified")) return "modified";
+	if (fileChanges.some((fc) => fc.status === "deleted")) return "deleted";
+	return "added";
+}
+
+function UnifiedFilesSection({ result }: { result: RemediationResult }) {
+	const { entries, skippedActions } = useMemo(
+		() => buildUnifiedEntries(result),
+		[result],
+	);
+	const [skippedOpen, setSkippedOpen] = useState(false);
+
+	const addressedCount = result.summary?.addressedCount ?? 0;
+	const skippedCount = result.summary?.skippedCount ?? 0;
+
+	if (entries.length === 0 && skippedActions.length === 0) {
+		return <p className="text-sm text-slate-500">No file changes were made.</p>;
+	}
 
 	return (
 		<div className="bg-slate-900/30 rounded-lg p-3">
+			{/* Section header */}
 			<div className="flex items-center justify-between mb-2">
 				<span className="text-xs font-semibold text-slate-300">
 					Action Summary
 				</span>
-				<span className="text-xs text-slate-500">
-					{summary.addressedCount} addressed
-					{summary.skippedCount > 0 && `, ${summary.skippedCount} skipped`}
-				</span>
+				{result.summary?.parsed && (
+					<span className="text-xs text-slate-500">
+						{addressedCount} addressed
+						{skippedCount > 0 && `, ${skippedCount} skipped`}
+					</span>
+				)}
 			</div>
-			<div className="space-y-2">
-				{sortedKeys.map((key) => (
-					<div key={key}>
-						<div className="text-xs font-mono text-slate-400 mb-1 pl-1 border-l border-slate-600">
-							{key}
-						</div>
-						<div className="space-y-1 pl-3">
-							{groupMap.get(key)?.map((action) => (
-								<div
-									key={`${action.issueIndex}-${action.status}`}
-									className="flex items-start gap-2 text-xs"
-								>
-									<span className="text-green-400 mt-0.5">✓</span>
-									<span className="text-slate-400 flex-1">
-										{action.summary}
-									</span>
-								</div>
-							))}
-						</div>
-					</div>
-				))}
-				{skippedActions.length > 0 && (
-					<div>
-						<div className="text-xs font-semibold text-slate-500 mb-1 mt-1">
-							Skipped ({skippedActions.length})
-						</div>
-						<div className="space-y-1 pl-3">
+
+			{/* File rows */}
+			{entries.length > 0 && (
+				<div className="space-y-1">
+					{entries.map((entry) => (
+						<UnifiedFileRow key={entry.key} entry={entry} />
+					))}
+				</div>
+			)}
+
+			{/* Skipped actions */}
+			{skippedActions.length > 0 && (
+				<div className="mt-2">
+					<button
+						onClick={() => setSkippedOpen(!skippedOpen)}
+						className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-400 transition-colors"
+					>
+						<svg
+							className={`w-3 h-3 transition-transform ${skippedOpen ? "rotate-90" : ""}`}
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								strokeLinecap="round"
+								strokeLinejoin="round"
+								strokeWidth={2}
+								d="M9 5l7 7-7 7"
+							/>
+						</svg>
+						Skipped ({skippedActions.length})
+					</button>
+					{skippedOpen && (
+						<div className="space-y-1 pl-4 mt-1">
 							{skippedActions.map((action) => (
 								<div
 									key={`${action.issueIndex}-${action.status}`}
@@ -417,9 +506,106 @@ function CompactActionSummary({
 								</div>
 							))}
 						</div>
-					</div>
+					)}
+				</div>
+			)}
+		</div>
+	);
+}
+
+function UnifiedFileRow({ entry }: { entry: UnifiedFileEntry }) {
+	const [expanded, setExpanded] = useState(false);
+	const hasDiff = entry.fileChanges.length > 0;
+
+	const badgeClass =
+		entry.displayStatus === "added"
+			? "change-badge-added"
+			: entry.displayStatus === "deleted"
+				? "change-badge-deleted"
+				: entry.displayStatus === "modified"
+					? "change-badge-modified"
+					: "";
+
+	return (
+		<div className="rounded border border-slate-700/40 bg-slate-800/30">
+			{/* Row header */}
+			<div className="flex items-center gap-2 px-2 py-1.5">
+				{/* Chevron — only shown when there's a diff to expand */}
+				{hasDiff ? (
+					<button
+						onClick={() => setExpanded(!expanded)}
+						className="flex-shrink-0 text-slate-400 hover:text-slate-300 transition-colors"
+						aria-label={expanded ? "Collapse diff" : "Expand diff"}
+					>
+						<svg
+							className={`w-3.5 h-3.5 transition-transform ${expanded ? "rotate-90" : ""}`}
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								strokeLinecap="round"
+								strokeLinejoin="round"
+								strokeWidth={2}
+								d="M9 5l7 7-7 7"
+							/>
+						</svg>
+					</button>
+				) : (
+					<span className="w-3.5 h-3.5 flex-shrink-0" />
+				)}
+
+				{/* File key */}
+				<span className="font-mono text-xs text-slate-200 flex-1 min-w-0 truncate">
+					{entry.key}
+				</span>
+
+				{/* Status badge */}
+				{entry.displayStatus && (
+					<span
+						className={`text-xs px-1.5 py-0.5 rounded font-medium flex-shrink-0 ${badgeClass}`}
+					>
+						{entry.displayStatus}
+					</span>
+				)}
+
+				{/* +/- stats */}
+				{(entry.totalAdditions > 0 || entry.totalDeletions > 0) && (
+					<span className="flex items-center gap-1.5 text-xs flex-shrink-0">
+						{entry.totalAdditions > 0 && (
+							<span className="text-green-400">+{entry.totalAdditions}</span>
+						)}
+						{entry.totalDeletions > 0 && (
+							<span className="text-red-400">-{entry.totalDeletions}</span>
+						)}
+					</span>
 				)}
 			</div>
+
+			{/* Row body */}
+			{expanded ? (
+				/* Expanded: show diff(s) */
+				<div className="border-t border-slate-700/40 pt-2 pb-2 space-y-2">
+					{entry.fileChanges.map((fc) => (
+						<DiffViewer key={fc.path} diff={fc.diff} />
+					))}
+				</div>
+			) : (
+				/* Collapsed: show action bullets (if any) */
+				entry.actions.length > 0 && (
+					<div className="border-t border-slate-700/30 px-6 py-1.5 space-y-1">
+						{entry.actions.map((action) => (
+							<div
+								key={`${action.issueIndex}-${action.status}`}
+								className="flex items-start gap-2 text-xs"
+							>
+								<span className="text-green-400 mt-0.5">✓</span>
+								<span className="text-slate-400 flex-1">{action.summary}</span>
+							</div>
+						))}
+					</div>
+				)
+			)}
 		</div>
 	);
 }
@@ -457,18 +643,43 @@ function ScoreComparison({
 	);
 }
 
-function getFileSummaries(
-	filePath: string,
-	result: RemediationResult,
-): RemediationAction[] {
-	if (!result.summary?.parsed) return [];
+function CollapsiblePlanSection({
+	title,
+	content,
+}: {
+	title: string;
+	content: string;
+}) {
+	const [open, setOpen] = useState(false);
 
-	const allActions = [
-		...result.summary.errorFixActions,
-		...result.summary.suggestionEnrichActions,
-	];
-
-	return allActions.filter(
-		(a) => a.file && a.status !== "skipped" && filePath.endsWith(a.file),
+	return (
+		<div className="bg-slate-900/30 rounded-lg border border-slate-700/50">
+			<button
+				onClick={() => setOpen(!open)}
+				className="w-full flex items-center gap-2 p-2.5 text-left"
+			>
+				<svg
+					className={`w-3 h-3 text-slate-400 transition-transform flex-shrink-0 ${open ? "rotate-90" : ""}`}
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+				>
+					<path
+						strokeLinecap="round"
+						strokeLinejoin="round"
+						strokeWidth={2}
+						d="M9 5l7 7-7 7"
+					/>
+				</svg>
+				<span className="text-xs font-semibold text-slate-400">{title}</span>
+			</button>
+			{open && (
+				<div className="px-3 pb-3 border-t border-slate-700/30">
+					<pre className="text-xs text-slate-400 whitespace-pre-wrap font-mono mt-2 max-h-64 overflow-y-auto custom-scrollbar">
+						{content}
+					</pre>
+				</div>
+			)}
+		</div>
 	);
 }
