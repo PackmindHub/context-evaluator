@@ -1,0 +1,86 @@
+Implement the following plan:
+
+# Plan: Pass original evaluators to impact evaluation
+
+## Context
+
+When clicking "Evaluate Impact" on a remediation, the system clones the repo, applies the patch, and runs a new evaluation. However, it submits the job **without any evaluation options** — meaning it runs the default set of evaluators (all 17) instead of matching the evaluators that ran in the original evaluation. If the original evaluation used a subset (e.g., only "errors" filter or specific selected evaluators), the impact evaluation won't match, making the score comparison misleading.
+
+## Approach
+
+Extract which evaluators ran from the parent evaluation's stored result, then pass them as `selectedEvaluators` in the impact evaluation job options.
+
+## Changes
+
+### 1. `src/api/routes/remediation.ts` — `evaluateImpact()` method (~line 562)
+
+After fetching `parentRecord` (line 501), extract the evaluator names from the parent's result JSON:
+
+- For **independent format** (`files` object): keys are file paths, each `FileResult` has `evaluations[].evaluator` containing the evaluator filename (e.g., `content-quality.md`)
+- For **unified format** (`results` array): each result has `evaluator` field
+
+Build a `selectedEvaluators` list (evaluator IDs without `.md` extension) and pass it in the `options` field of `submitJob()`:
+
+```typescript
+// Extract evaluators from parent evaluation result
+const parentResult = parentRecord.result;
+let parentEvaluatorIds: string[] | undefined;
+
+if (parentResult) {
+  const evaluatorNames = new Set<string>();
+  if (isIndependentFormat(parentResult)) {
+    for (const fileResult of Object.values(parentResult.files)) {
+      for (const evaluation of fileResult.evaluations) {
+        if (evaluation.evaluator) {
+          evaluatorNames.add(evaluation.evaluator.replace(/\.md$/, ""));
+        }
+      }
+    }
+  } else if (isUnifiedFormat(parentResult)) {
+    for (const result of parentResult.results) {
+      if (result.evaluator) {
+        evaluatorNames.add(result.evaluator.replace(/\.md$/, ""));
+      }
+    }
+  }
+  if (evaluatorNames.size > 0) {
+    parentEvaluatorIds = [...evaluatorNames];
+  }
+}
+```
+
+Then update the `submitJob` call:
+
+```typescript
+const jobId = await this.jobManager.submitJob({
+  localPath: cloneResult.path,
+  repositoryUrl: repoUrl,
+  options: {
+    selectedEvaluators: parentEvaluatorIds,
+  },
+  _cleanupFn: cloneResult.cleanup,
+  _parentEvaluationId: remediation.evaluationId,
+  _sourceRemediationId: remediationId,
+});
+```
+
+### 2. Imports in `src/api/routes/remediation.ts`
+
+Add imports for `isIndependentFormat` and `isUnifiedFormat` from `@shared/types/evaluation`.
+
+## Files to modify
+
+- `src/api/routes/remediation.ts` — extract parent evaluators and pass to job submission
+
+## Verification
+
+1. Run `bun run test` to ensure no regressions
+2. Run `bun run lint` to ensure code passes linting
+3. Manual test: run an evaluation with a subset of evaluators (e.g., errors only), create a remediation, then click "Evaluate Impact" and verify the impact evaluation runs the same evaluator set
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+commit
