@@ -1,0 +1,76 @@
+Implement the following plan:
+
+# Always-Visible Git URL in AppHeader
+
+## Context
+
+The repository URL is currently displayed inside the Summary tab body, which scrolls out of view when the user browses the report tabs (Errors, Suggestions, Context, etc.). The user wants the URL to remain visible at all times while navigating the report. Since `AppHeader` is already `sticky top-0 z-50`, adding the URL there is the minimal and correct solution.
+
+## Approach
+
+Add a centered repo name/link to the AppHeader's existing single row when an evaluation is active. Between the logo (left) and nav links (right), show the extracted repository name as a small GitHub-icon + clickable link. This leverages the `justify-between` flex layout: logo on left, repo in center, nav on right.
+
+- No new component, no new fixed bar, no z-index juggling
+- Disappears when no evaluation is active (keeps the header clean on the home/empty state)
+- For GitHub URLs: show extracted repo name (e.g. `user/repo`)
+- For local paths: show the path as-is (no GitHub icon in that case)
+
+## Files to Modify
+
+### 1. `frontend/src/components/AppHeader.tsx`
+- Add `repositoryUrl?: string | null` to `AppHeaderProps`
+- Import `extractRepoName` from `../lib/formatters`
+- In the flex row (between logo button and nav links div), add a centered element:
+  ```tsx
+  {repositoryUrl && (
+    <a
+      href={repositoryUrl.startsWith("http") ? repositoryUrl : undefined}
+      target={repositoryUrl.startsWith("http") ? "_blank" : undefined}
+      rel="noopener noreferrer"
+      className="flex items-center gap-1.5 text-slate-300 hover:text-slate-100 transition-colors text-sm"
+    >
+      {/* GitHub icon (only for http URLs) */}
+      <span className="font-medium">{extractRepoName(repositoryUrl)}</span>
+      {/* external link icon for http URLs */}
+    </a>
+  )}
+  ```
+- Wrap in an `absolute left-1/2 -translate-x-1/2` container so it stays truly centered regardless of logo/nav widths
+
+### 2. `frontend/src/App.tsx`
+- Pass `currentRepositoryUrl` to `<AppHeader>` (line ~1841):
+  ```tsx
+  <AppHeader
+    currentPage="home"
+    onLogoClick={handleClear}
+    historyCount={historyApi.history.length}
+    repositoryUrl={currentRepositoryUrl}   // ← add this
+  />
+  ```
+
+## Key References
+
+- `extractRepoName` — `frontend/src/lib/formatters.ts` (already used in Summary.tsx)
+- `currentRepositoryUrl` — App.tsx state, already passed to Summary and RemediateTab
+- AppHeader layout — `frontend/src/components/AppHeader.tsx` line 43: `flex items-center justify-between`
+
+## Verification
+
+1. `bun run test` — no regressions
+2. `bun run typecheck` — no type errors
+3. Manually: load an evaluation → confirm repo name appears centered in the sticky header on all tabs → confirm it's absent when no evaluation is loaded
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+it should not be in the header but instead below, currently the repo is displayed in the header bar
+
+---
+
+commit
+
+---
+
+[Request interrupted by user]
