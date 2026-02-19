@@ -1,0 +1,57 @@
+Implement the following plan:
+
+# Plan: Hide Remediation Prompt Sections Behind `?debug=true`
+
+## Context
+
+The remediation tab currently always displays six collapsible prompt sections ("Error Fix Plan Prompt", "Error Fix Plan", "Error Fix Execution Prompt", "Suggestion Plan Prompt", "Suggestion Enrichment Plan", "Suggestion Execution Prompt"). These are debug/internal details that should only be visible when the URL contains the query parameter `?debug=true`.
+
+## File to Modify
+
+**`frontend/src/components/RemediationHistoryCard.tsx`** — lines 263–298
+
+## Implementation
+
+Add a `isDebugMode` constant near the top of the component (or inline in the render block) that reads the URL search params:
+
+```ts
+const isDebugMode = new URLSearchParams(window.location.search).get('debug') === 'true';
+```
+
+Then wrap the six `CollapsiblePlanSection` blocks (lines 263–298) inside a single `{isDebugMode && (...)}` guard:
+
+```tsx
+{isDebugMode && (
+  <>
+    {item.planData?.errorPlanPrompt && (
+      <CollapsiblePlanSection title="Error Fix Plan Prompt" content={item.planData.errorPlanPrompt} />
+    )}
+    {item.planData?.errorPlan && (
+      <CollapsiblePlanSection title="Error Fix Plan" content={item.planData.errorPlan} />
+    )}
+    {item.planData?.errorFixPrompt && (
+      <CollapsiblePlanSection title="Error Fix Execution Prompt" content={item.planData.errorFixPrompt} />
+    )}
+    {item.planData?.suggestionPlanPrompt && (
+      <CollapsiblePlanSection title="Suggestion Plan Prompt" content={item.planData.suggestionPlanPrompt} />
+    )}
+    {item.planData?.suggestionPlan && (
+      <CollapsiblePlanSection title="Suggestion Enrichment Plan" content={item.planData.suggestionPlan} />
+    )}
+    {item.planData?.suggestionEnrichPrompt && (
+      <CollapsiblePlanSection title="Suggestion Execution Prompt" content={item.planData.suggestionEnrichPrompt} />
+    )}
+  </>
+)}
+```
+
+The `isDebugMode` check uses `window.location.search` directly (no hook needed — this value is stable for the lifetime of a page load).
+
+## Verification
+
+- Visit the remediation tab normally → the 6 prompt sections should not appear
+- Visit with `?debug=true` appended to the URL → all 6 prompt sections appear as before
+- Run `bun run test` and `bun run lint` to confirm no regressions
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.claude/projects/-Users-cedricteyton-Code-agents-md-evaluator/0a5b1fd3-cd69-467a-a7c7-6ca116a4ada7.jsonl
