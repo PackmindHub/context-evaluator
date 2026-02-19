@@ -2,6 +2,11 @@ import {
 	convertJsonReportToEvaluationOutput,
 	type IJsonReport,
 } from "@cli/output/report-formatters";
+import {
+	calculateScore,
+	computeContextScore,
+	getGradeFromScore,
+} from "@shared/evaluation/context-scorer";
 import type {
 	IBatchEvaluateRequest,
 	IEvaluateRequest,
@@ -11,6 +16,7 @@ import { evaluationRepository } from "../db/evaluation-repository";
 import type { BatchManager } from "../jobs/batch-manager";
 import type { JobManager } from "../jobs/job-manager";
 import type { DailyRateLimiter } from "../rate-limiter";
+import { extractIssuesFromEvaluation } from "../utils/issue-extractor";
 
 /**
  * Evaluation routes
@@ -441,6 +447,89 @@ export class EvaluationRoutes {
 					status: 500,
 					headers: { "Content-Type": "application/json" },
 				},
+			);
+		}
+	}
+
+	/**
+	 * POST /api/evaluations/:id/recalculate-score
+	 * Debug endpoint (use ?debug=true) - recalculates context score using current formula
+	 * without re-running AI evaluators. Updates DB and returns the new score.
+	 */
+	async recalculateScore(
+		_req: Request,
+		evaluationId: string,
+	): Promise<Response> {
+		try {
+			const record = evaluationRepository.getEvaluationById(evaluationId);
+
+			if (!record) {
+				return new Response(
+					JSON.stringify({
+						error: "Evaluation not found",
+						code: "EVALUATION_NOT_FOUND",
+					}),
+					{ status: 404, headers: { "Content-Type": "application/json" } },
+				);
+			}
+
+			if (!record.result) {
+				return new Response(
+					JSON.stringify({
+						error: "Evaluation has no result data",
+						code: "NO_RESULT_DATA",
+					}),
+					{ status: 422, headers: { "Content-Type": "application/json" } },
+				);
+			}
+
+			// Extract issues from stored result
+			const issues = extractIssuesFromEvaluation(record.result);
+
+			// Reconstruct scorer input from metadata
+			const metadata = record.result.metadata;
+			const projectContext = metadata.projectContext;
+			const filesFound =
+				projectContext?.agentsFilePaths?.length ?? metadata.totalFiles ?? 0;
+
+			// Recompute score with current formula (synchronous, no AI calls)
+			const breakdown = computeContextScore({
+				issues,
+				filesFound,
+				projectContext,
+			});
+			const score = calculateScore(breakdown);
+			const grade = getGradeFromScore(score);
+
+			// Persist updated score to DB (also patches result_json)
+			evaluationRepository.updateEvaluationScore(
+				evaluationId,
+				score,
+				grade,
+				breakdown,
+			);
+
+			console.log(
+				`[EvaluationRoutes] Recalculated score for ${evaluationId}: ${score} (${grade})`,
+			);
+
+			return new Response(JSON.stringify({ score, grade, breakdown }), {
+				status: 200,
+				headers: { "Content-Type": "application/json" },
+			});
+		} catch (err: unknown) {
+			console.error(
+				"[EvaluationRoutes] Error in POST /api/evaluations/:id/recalculate-score:",
+				err,
+			);
+			const error = err as Error;
+
+			return new Response(
+				JSON.stringify({
+					error: error.message || "Internal server error",
+					code: "INTERNAL_ERROR",
+				}),
+				{ status: 500, headers: { "Content-Type": "application/json" } },
 			);
 		}
 	}

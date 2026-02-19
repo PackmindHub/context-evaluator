@@ -339,6 +339,62 @@ export class EvaluationRepository {
 	}
 
 	/**
+	 * Update context score and grade for an evaluation.
+	 * Updates both the denormalized columns AND the score inside result_json
+	 * so that the frontend (which reads metadata.contextScore from result_json)
+	 * reflects the new value without a full re-evaluation.
+	 */
+	updateEvaluationScore(
+		id: string,
+		score: number,
+		grade: ContextScoreGrade,
+		breakdown?: unknown,
+	): boolean {
+		const db = getDatabase();
+
+		// First, patch result_json to update metadata.contextScore in place
+		const row = db
+			.prepare<{ result_json: string | null }, string>(
+				`SELECT result_json FROM evaluations WHERE id = ?`,
+			)
+			.get(id);
+
+		let newResultJson: string | null = row?.result_json ?? null;
+		if (newResultJson) {
+			try {
+				const parsed = JSON.parse(newResultJson);
+				if (parsed?.metadata) {
+					const existingContextScore = parsed.metadata.contextScore ?? {};
+					parsed.metadata.contextScore = {
+						...existingContextScore,
+						score,
+						grade,
+						...(breakdown ? { breakdown } : {}),
+					};
+					newResultJson = JSON.stringify(parsed);
+				}
+			} catch {
+				// If JSON patching fails, proceed without updating result_json
+				newResultJson = row?.result_json ?? null;
+			}
+		}
+
+		const stmt = db.prepare(`
+      UPDATE evaluations
+      SET context_score = $score, context_grade = $grade, result_json = $resultJson
+      WHERE id = $id
+    `);
+
+		const result = stmt.run({
+			$id: id,
+			$score: score,
+			$grade: grade,
+			$resultJson: newResultJson,
+		});
+		return result.changes > 0;
+	}
+
+	/**
 	 * Delete evaluation by ID
 	 */
 	deleteEvaluation(id: string): boolean {

@@ -389,7 +389,10 @@ export const Summary: React.FC<SummaryProps> = ({
 
 			{/* Context Score - Prominent Display */}
 			{metadata.contextScore && (
-				<ContextScoreCard contextScore={metadata.contextScore} />
+				<ContextScoreCard
+					contextScore={metadata.contextScore}
+					evaluationId={evaluationId}
+				/>
 			)}
 
 			{/* Project Context */}

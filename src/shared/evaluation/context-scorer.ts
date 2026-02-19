@@ -46,7 +46,8 @@ const MAX_LINKED_DOCS_BONUS = 1.0; // Increased from 0.75 to reward more docs
 const MAX_SETUP_BONUS = 4.5; // Increased from 3.5 to reward extensive documentation
 
 /**
- * LOC-based issue allowances (free issues before penalties apply)
+ * LOC-based issue allowances (kept for display purposes in breakdown context)
+ * @deprecated Not used in penalty calculation (replaced by power law formula)
  */
 const LOC_TIERS = {
 	small: { maxLOC: 5000, freeIssues: 5 },
@@ -75,9 +76,17 @@ const ISSUE_TYPE_WEIGHTS = {
 };
 
 /**
+ * Power law penalty parameters: penalty = min(MAX, COEFFICIENT × W^EXPONENT)
+ * Calibrated so that W=3.4 → penalty≈1.5 (score≈6.5) and W=5.84 → penalty≈4.0 (score≈4.0)
+ * Monotone by construction: correcting any issue reduces W, which reduces penalty.
+ */
+const PENALTY_COEFFICIENT = 0.163;
+const PENALTY_EXPONENT = 1.81;
+
+/**
  * Maximum issue penalty (soft cap)
  */
-const MAX_ISSUE_PENALTY = 3.0;
+const MAX_ISSUE_PENALTY = 5.0;
 
 // ============================================================================
 // Helper Functions
@@ -130,16 +139,15 @@ function getIssueAllowance(
 /**
  * Calculate bonus for AGENTS.md files using logarithmic scaling
  * Progressive scaling that continues to reward additional files:
- * - 1 file → 1.5
- * - 2 files → ~1.9
- * - 3 files → ~2.13
- * - 5 files → ~2.43
- * - 10 files → 2.5 (max)
+ * - 1 file → 2.0
+ * - 2 files → ~2.4
+ * - 3 files → 2.5 (max)
+ * - 10+ files → 2.5 (max)
  */
 export function calculateAgentsFilesBonus(fileCount: number): number {
 	if (fileCount <= 0) return 0;
-	// Base 1.5 for first file, then +0.4 * log2(fileCount) for additional files
-	const bonus = 1.5 + 0.4 * Math.log2(fileCount);
+	// Base 2.0 for first file, then +0.4 * log2(fileCount) for additional files
+	const bonus = 2.0 + 0.4 * Math.log2(fileCount);
 	return Math.min(MAX_AGENTS_FILES_BONUS, Math.round(bonus * 100) / 100);
 }
 
@@ -340,24 +348,25 @@ export function computeContextScore(
 		weightedIssueCount += severityWeight * typeWeight;
 	}
 
-	// Calculate excess issues beyond allowance
-	// Use weighted count for fairer comparison
+	// Calculate excess issues beyond allowance (kept for display in breakdown)
+	// @deprecated: not used in penalty calculation, superseded by power law formula
 	const excessIssues = Math.max(0, weightedIssueCount - issueAllowance * 0.5);
 
-	// Calculate penalty with soft cap
-	// Use logarithmic scaling for diminishing returns
-	const rawPenalty = Math.log2(1 + excessIssues) * 1.2;
-
 	// =========================================================================
-	// 2b. Apply Documentation Maturity Factor
-	// Reduces penalty for repos with good file coverage (low issues-per-file ratio)
+	// 2b. Power law penalty (monotone: fewer issues always yields lower penalty)
+	// penalty = min(MAX, COEFFICIENT × W^EXPONENT)
 	// =========================================================================
 	const issuesPerFile =
 		agentsFileCount > 0 ? issues.length / agentsFileCount : issues.length;
-	const documentationMaturityFactor =
-		getDocumentationMaturityFactor(issuesPerFile);
-	const adjustedPenalty = rawPenalty * documentationMaturityFactor;
-	const issuePenalty = Math.min(MAX_ISSUE_PENALTY, adjustedPenalty);
+	// documentationMaturityFactor kept in context for display, no longer applied to penalty
+	const documentationMaturityFactor = 1.0;
+	const issuePenalty =
+		weightedIssueCount === 0
+			? 0
+			: Math.min(
+					MAX_ISSUE_PENALTY,
+					PENALTY_COEFFICIENT * Math.pow(weightedIssueCount, PENALTY_EXPONENT),
+				);
 
 	// =========================================================================
 	// 3. Build Breakdown Object
@@ -409,8 +418,8 @@ export function calculateScore(breakdown: IContextScoreBreakdown): number {
 		breakdown.setupBonus.total -
 		breakdown.issuePenalty.penalty;
 
-	// Clamp between 1 and 10
-	const score = Math.max(1, Math.min(10, rawScore));
+	// Clamp between 3.0 and 10 (floor ensures "Developing" minimum)
+	const score = Math.max(3.0, Math.min(10, rawScore));
 
 	return Math.round(score * 10) / 10; // Round to 1 decimal
 }

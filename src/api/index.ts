@@ -255,6 +255,13 @@ export class APIServer {
 			const evaluationId = path.split("/")[3]!;
 			return this.evaluationRoutes.getEvaluationPrompts(req, evaluationId);
 		}
+		if (
+			path.match(/^\/api\/evaluations\/[^/]+\/recalculate-score$/) &&
+			req.method === "POST"
+		) {
+			const evaluationId = path.split("/")[3]!;
+			return this.evaluationRoutes.recalculateScore(req, evaluationId);
+		}
 		if (path.match(/^\/api\/evaluations\/[^/]+$/)) {
 			const evaluationId = path.split("/").pop()!;
 			if (req.method === "GET") {

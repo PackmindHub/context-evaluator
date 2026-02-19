@@ -95,20 +95,20 @@ describe("Context Scorer", () => {
 			expect(calculateAgentsFilesBonus(0)).toBe(0);
 		});
 
-		test("should return 1.5 for 1 file", () => {
-			expect(calculateAgentsFilesBonus(1)).toBe(1.5);
+		test("should return 2.0 for 1 file", () => {
+			expect(calculateAgentsFilesBonus(1)).toBe(2.0);
 		});
 
 		test("should use logarithmic scaling for multiple files", () => {
-			// 2 files: 1.5 + 0.4 * log2(2) = 1.5 + 0.4 = 1.9
-			expect(calculateAgentsFilesBonus(2)).toBe(1.9);
-			// 3 files: 1.5 + 0.4 * log2(3) ≈ 1.5 + 0.63 = 2.13
-			expect(calculateAgentsFilesBonus(3)).toBeCloseTo(2.13, 1);
+			// 2 files: 2.0 + 0.4 * log2(2) = 2.0 + 0.4 = 2.4
+			expect(calculateAgentsFilesBonus(2)).toBe(2.4);
+			// 3 files: 2.0 + 0.4 * log2(3) ≈ 2.634 → capped at 2.5
+			expect(calculateAgentsFilesBonus(3)).toBe(2.5);
 		});
 
 		test("should continue to reward more files up to cap", () => {
-			// 5 files: 1.5 + 0.4 * log2(5) ≈ 2.43
-			expect(calculateAgentsFilesBonus(5)).toBeCloseTo(2.43, 1);
+			// 5 files: 2.0 + 0.4 * log2(5) ≈ 2.929 → capped at 2.5
+			expect(calculateAgentsFilesBonus(5)).toBe(2.5);
 			// 10 files should hit the max cap of 2.5
 			expect(calculateAgentsFilesBonus(10)).toBe(2.5);
 			// More files should also be capped at 2.5
@@ -190,10 +190,10 @@ describe("Context Scorer", () => {
 
 			const result = computeContextScore(input);
 
-			// Base (6) + AGENTS.md bonus (1.5) - no penalty = 7.5
+			// Base (6) + AGENTS.md bonus (2.0) - no penalty = 8.0
 			expect(result.baseScore).toBe(6);
-			expect(result.setupBonus.agentsFilesBonus).toBe(1.5);
-			expect(result.setupBonus.total).toBe(1.5);
+			expect(result.setupBonus.agentsFilesBonus).toBe(2.0);
+			expect(result.setupBonus.total).toBe(2.0);
 			expect(result.issuePenalty.penalty).toBe(0);
 			expect(result.context.agentsFileCount).toBe(1);
 		});
@@ -227,14 +227,14 @@ describe("Context Scorer", () => {
 
 			const result = computeContextScore(input);
 
-			// AGENTS.md bonus: 3 files = 1.5 + 0.4 * log2(3) ≈ 2.13
-			expect(result.setupBonus.agentsFilesBonus).toBeCloseTo(2.13, 1);
+			// AGENTS.md bonus: 3 files = 2.0 + 0.4 * log2(3) ≈ 2.634 → capped at 2.5
+			expect(result.setupBonus.agentsFilesBonus).toBe(2.5);
 			// Skills bonus: 4 skills = 0.2 * log2(5) ≈ 0.46
 			expect(result.setupBonus.skillsBonus).toBeCloseTo(0.46, 1);
 			// Linked docs bonus: 3 docs = 0.2 * log2(4) = 0.4
 			expect(result.setupBonus.linkedDocsBonus).toBe(0.4);
-			// Total should be sum of above
-			expect(result.setupBonus.total).toBeCloseTo(2.99, 1);
+			// Total should be sum of above: 2.5 + 0.46 + 0.4 = 3.36
+			expect(result.setupBonus.total).toBeCloseTo(3.36, 1);
 		});
 
 		test("should cap setup bonus at 4.5", () => {
@@ -391,12 +391,12 @@ describe("Context Scorer", () => {
 			const result = computeContextScore(input);
 
 			// 20 high-severity errors * 0.45 weight = 9 weighted issues
-			// Small project allowance = 5, so excess = 9 - 2.5 = 6.5
+			// excessIssues kept for display: 9 - 2.5 = 6.5
 			expect(result.issuePenalty.weightedIssueCount).toBe(9);
 			expect(result.issuePenalty.excessIssues).toBeGreaterThan(0);
 			expect(result.issuePenalty.penalty).toBeGreaterThan(0);
-			// Penalty should be capped at 3.0
-			expect(result.issuePenalty.penalty).toBeLessThanOrEqual(3.0);
+			// Penalty should be capped at 5.0 (new max)
+			expect(result.issuePenalty.penalty).toBeLessThanOrEqual(5.0);
 		});
 	});
 
@@ -436,7 +436,7 @@ describe("Context Scorer", () => {
 			expect(score).toBe(7.8); // Rounded to 1 decimal
 		});
 
-		test("should clamp score at minimum 1", () => {
+		test("should clamp score at minimum 3.0", () => {
 			const breakdown = {
 				baseScore: 6,
 				setupBonus: {
@@ -449,7 +449,7 @@ describe("Context Scorer", () => {
 					weightedIssueCount: 20,
 					issueAllowance: 5,
 					excessIssues: 17.5,
-					penalty: 3.0,
+					penalty: 5.0,
 				},
 				context: {
 					projectSizeTier: "small" as const,
@@ -467,8 +467,8 @@ describe("Context Scorer", () => {
 
 			const score = calculateScore(breakdown);
 
-			// 6 + 0 - 3.0 = 3.0, but floor would be 1 if penalty could exceed limits
-			expect(score).toBeGreaterThanOrEqual(1);
+			// 6 + 0 - 5.0 = 1.0, clamped to floor 3.0
+			expect(score).toBeGreaterThanOrEqual(3.0);
 		});
 
 		test("should clamp score at maximum 10", () => {
@@ -633,7 +633,7 @@ describe("Context Scorer", () => {
 			expect(getGradeFromScore(score)).toBe("Excellent");
 		});
 
-		test("single AGENTS.md with no issues should score 7.5 (Good)", () => {
+		test("single AGENTS.md with no issues should score 8.0 (Good)", () => {
 			const input: IContextScorerInput = {
 				issues: [],
 				filesFound: 1,
@@ -642,12 +642,12 @@ describe("Context Scorer", () => {
 			const result = computeContextScore(input);
 			const score = calculateScore(result);
 
-			// 6 + 1.5 - 0 = 7.5
-			expect(score).toBe(7.5);
+			// 6 + 2.0 - 0 = 8.0
+			expect(score).toBe(8.0);
 			expect(getGradeFromScore(score)).toBe("Good");
 		});
 
-		test("10 files with 20 skills should score higher than before (user scenario)", () => {
+		test("10 files with 20 skills should produce a Good score (user scenario)", () => {
 			const projectContext: IProjectContext = {
 				languages: "TypeScript",
 				frameworks: "React",
@@ -687,14 +687,13 @@ describe("Context Scorer", () => {
 			// Files bonus: 2.5 (10 files hits max)
 			// Skills bonus: ~0.88 (20 skills)
 			// Total setup: ~3.38
-			// Issues: 10 * 0.45 = 4.5 weighted, excess = ~2
-			// Raw penalty: log2(3) * 1.2 ≈ 1.9
-			// Maturity factor: 1.0 issues/file → 0.7
-			// Adjusted penalty: 1.9 * 0.7 ≈ 1.33
-			// Score: 6 + 3.38 - 1.33 ≈ 8.05
-			expect(score).toBeGreaterThanOrEqual(7.0);
+			// Issues: 10 * 0.45 = 4.5 weighted
+			// Power law penalty: 0.163 * 4.5^1.81 ≈ 2.48
+			// Score: 6 + 3.38 - 2.48 ≈ 6.9 (Good)
+			expect(score).toBeGreaterThanOrEqual(6.5);
 			expect(result.context.issuesPerFile).toBe(1);
-			expect(result.context.documentationMaturityFactor).toBe(0.7);
+			// documentationMaturityFactor is now always 1.0 (simplified)
+			expect(result.context.documentationMaturityFactor).toBe(1.0);
 		});
 
 		test("suggestions-only should have minimal impact on score", () => {

@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useState } from "react";
 import { useAnimatedCounter } from "../../hooks/useAnimatedCounter";
+import { useEvaluationApi } from "../../hooks/useEvaluationApi";
 import type { ContextScoreGrade, IContextScore } from "../../types/evaluation";
 
 // Helper function to get score color class based on grade (red to green gradient)
@@ -54,6 +55,8 @@ function getScoreGlowStyle(grade: ContextScoreGrade): React.CSSProperties {
 
 interface ContextScoreCardProps {
 	contextScore: IContextScore;
+	evaluationId?: string;
+	onScoreRecalculated?: (score: number, grade: string) => void;
 }
 
 /**
@@ -61,8 +64,33 @@ interface ContextScoreCardProps {
  */
 export const ContextScoreCard: React.FC<ContextScoreCardProps> = ({
 	contextScore,
+	evaluationId,
+	onScoreRecalculated,
 }) => {
 	const animatedScore = useAnimatedCounter(contextScore.score, 800);
+	const { recalculateScore } = useEvaluationApi();
+	const [isRecalculating, setIsRecalculating] = useState(false);
+	const [recalcError, setRecalcError] = useState<string | null>(null);
+
+	const isDebugMode =
+		typeof window !== "undefined" &&
+		new URLSearchParams(window.location.search).has("debug");
+
+	const handleRecalculate = async () => {
+		if (!evaluationId) return;
+		setIsRecalculating(true);
+		setRecalcError(null);
+		try {
+			const result = await recalculateScore(evaluationId);
+			onScoreRecalculated?.(result.score, result.grade);
+		} catch (err) {
+			setRecalcError(
+				err instanceof Error ? err.message : "Recalculation failed",
+			);
+		} finally {
+			setIsRecalculating(false);
+		}
+	};
 
 	return (
 		<div className="glass-card p-6">
@@ -85,6 +113,23 @@ export const ContextScoreCard: React.FC<ContextScoreCardProps> = ({
 					>
 						{contextScore.grade}
 					</span>
+
+					{/* Recalculate button — debug mode only */}
+					{isDebugMode && evaluationId && (
+						<div className="mt-3">
+							<button
+								type="button"
+								onClick={handleRecalculate}
+								disabled={isRecalculating}
+								className="px-3 py-1 text-xs font-medium rounded border border-slate-600 text-slate-400 hover:text-slate-200 hover:border-slate-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+							>
+								{isRecalculating ? "Recalculating…" : "Recalculate Score"}
+							</button>
+							{recalcError && (
+								<p className="text-xs text-red-400 mt-1">{recalcError}</p>
+							)}
+						</div>
+					)}
 				</div>
 
 				{/* Summary and Recommendations */}

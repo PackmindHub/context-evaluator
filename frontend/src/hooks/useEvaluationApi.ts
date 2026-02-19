@@ -105,6 +105,12 @@ export interface EvaluationScoreResponse {
 	contextGrade?: string;
 }
 
+export interface RecalculateScoreResponse {
+	score: number;
+	grade: string;
+	breakdown: unknown;
+}
+
 interface IUseEvaluationApiReturn {
 	submitJob: (
 		repositoryUrl: string,
@@ -156,6 +162,7 @@ interface IUseEvaluationApiReturn {
 	getEvaluationScore: (
 		evaluationId: string,
 	) => Promise<EvaluationScoreResponse>;
+	recalculateScore: (evaluationId: string) => Promise<RecalculateScoreResponse>;
 	isLoading: boolean;
 	error: string | null;
 	clearError: () => void;
@@ -647,6 +654,38 @@ export function useEvaluationApi(): IUseEvaluationApiReturn {
 		[],
 	);
 
+	const recalculateScore = useCallback(
+		async (evaluationId: string): Promise<RecalculateScoreResponse> => {
+			setIsLoading(true);
+			setError(null);
+
+			try {
+				const response = await fetch(
+					`/api/evaluations/${evaluationId}/recalculate-score`,
+					{
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+					},
+				);
+
+				if (!response.ok) {
+					const errorData = await response.json().catch(() => ({}));
+					throw new Error(errorData.error || `HTTP error ${response.status}`);
+				}
+
+				return (await response.json()) as RecalculateScoreResponse;
+			} catch (err) {
+				const message =
+					err instanceof Error ? err.message : "Failed to recalculate score";
+				setError(message);
+				throw err;
+			} finally {
+				setIsLoading(false);
+			}
+		},
+		[],
+	);
+
 	const clearError = useCallback(() => {
 		setError(null);
 	}, []);
@@ -668,6 +707,7 @@ export function useEvaluationApi(): IUseEvaluationApiReturn {
 			importReport,
 			evaluateRemediationImpact,
 			getEvaluationScore,
+			recalculateScore,
 			isLoading,
 			error,
 			clearError,
@@ -688,6 +728,7 @@ export function useEvaluationApi(): IUseEvaluationApiReturn {
 			importReport,
 			evaluateRemediationImpact,
 			getEvaluationScore,
+			recalculateScore,
 			isLoading,
 			error,
 			clearError,
