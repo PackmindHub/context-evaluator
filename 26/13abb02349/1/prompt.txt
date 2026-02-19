@@ -1,0 +1,145 @@
+Implement the following plan:
+
+# Plan: Fix Evaluate Impact UX - Show Started Message + Progress Link
+
+## Context
+
+When "Evaluate Impact" is clicked on a remediation history card, the frontend:
+1. Calls `POST /api/remediation/:id/evaluate` to queue a new evaluation job
+2. Opens an `EventSource` SSE connection to `/api/evaluate/:jobId/progress` to track completion
+3. On SSE error → marks impact eval as "failed"
+
+The problem: SSE fails with `ERR_INCOMPLETE_CHUNKED_ENCODING` (stream cut off during a long evaluation). This falsely shows "Impact evaluation failed" even though the backend job is still running.
+
+The user wants: (1) a clear "evaluation started" message and (2) a link to the full evaluation report page (`/evaluation/:jobId`) to track progress independently of the SSE stream.
+
+## Approach
+
+Minimal fix in two files:
+
+1. **`RemediationHistory.tsx`** — after the API call returns `result.jobId`, immediately store it in state (so the card can link to it). Fix the SSE error handler to **not** mark as "failed" — if we have a jobId, the eval is running in the background.
+
+2. **`RemediationHistoryCard.tsx`** — add `impactJobId?: string` prop. In the "running" UI state, show "Evaluation started" with a `<a>` link to `/evaluation/{impactJobId}`. This replaces just the spinner/label.
+
+## Critical Files
+
+- `frontend/src/components/RemediationHistory.tsx` — orchestrates impact eval, manages SSE, sets state
+- `frontend/src/components/RemediationHistoryCard.tsx` — renders the "Evaluate Impact" button and status row
+
+## Changes
+
+### 1. `RemediationHistory.tsx`
+
+**a) Store jobId immediately after API response** (before SSE events arrive):
+
+Currently line ~100-104 sets `{ status: "running" }` without jobId. Move the jobId update to right after `api.evaluateRemediationImpact()` returns:
+
+```diff
+ const result = await api.evaluateRemediationImpact(remediationId);
+
++// Update state to include jobId so the card can show a progress link
++setImpactEvals((prev) => {
++  const next = new Map(prev);
++  next.set(remediationId, { status: "running", jobId: result.jobId });
++  return next;
++});
+
+ if (result.status === "already_exists") { ... }
+```
+
+(Remove the early `{ status: "running" }` set at line ~100.)
+
+**b) Fix SSE error handler** — don't show "failed" on SSE disconnect:
+
+```diff
+ eventSource.onerror = () => {
+   cleanup();
+-  setImpactEvals((prev) => {
+-    const next = new Map(prev);
+-    const current = next.get(remediationId);
+-    if (current?.status === "running") {
+-      next.set(remediationId, { ...current, status: "failed" });
+-    }
+-    return next;
+-  });
++  // SSE disconnected but job may still be running in the background.
++  // Keep current state (with jobId) so the user can track via the link.
+ };
+```
+
+**c) Pass jobId to `RemediationHistoryCard`**:
+
+```diff
+ <RemediationHistoryCard
+   ...
+   impactEvalStatus={evalState?.status}
++  impactJobId={evalState?.jobId}
+   impactScore={evalState?.score}
+   impactGrade={evalState?.grade}
+   hasRepoUrl={hasRepoUrl}
+ />
+```
+
+### 2. `RemediationHistoryCard.tsx`
+
+**a) Add prop** to interface:
+```diff
+ interface RemediationHistoryCardProps {
+   ...
+   impactEvalStatus?: ImpactEvalStatus;
++  impactJobId?: string;
+   impactScore?: number;
+```
+
+**b) Destructure prop**:
+```diff
+ export function RemediationHistoryCard({
+   ...
+   impactEvalStatus = "idle",
++  impactJobId,
+   impactScore,
+```
+
+**c) Update "running" state UI** to show message + link:
+
+```diff
+ {impactEvalStatus === "running" && (
+-  <span className="flex items-center gap-1.5 text-xs text-slate-400">
+-    <svg className="animate-spin h-3 w-3">...</svg>
+-    Evaluating impact...
+-  </span>
++  <span className="flex items-center gap-1.5 text-xs text-slate-400">
++    <svg className="animate-spin h-3 w-3">...</svg>
++    Evaluation started
++    {impactJobId && (
++      <a
++        href={`/evaluation/${impactJobId}`}
++        className="text-blue-400 hover:text-blue-300 underline ml-1"
++        onClick={(e) => e.stopPropagation()}
++      >
++        Track progress →
++      </a>
++    )}
++  </span>
+ )}
+```
+
+## Verification
+
+1. Run `bun run dev`
+2. Open a completed evaluation with a repo URL
+3. Go to the Remediate tab → Past Remediations
+4. Click "Evaluate Impact" on a remediation card
+5. Verify:
+   - Spinner + "Evaluation started" + "Track progress →" link appears immediately
+   - Clicking "Track progress →" navigates to `/evaluation/:jobId` with progress
+   - If SSE disconnects, status stays "running" (not "failed")
+   - If SSE succeeds, score comparison auto-updates as before
+6. Run `bun run test` to ensure no regressions
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+commit
