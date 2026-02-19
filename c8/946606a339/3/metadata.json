@@ -1,0 +1,63 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "c8946606a339",
+  "session_id": "60d1d443-9b4c-4851-9ceb-1e383e9e0700",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-19T12:48:41.961752Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "src/shared/remediation/prompt-generator.ts"
+  ],
+  "agent": "Claude Code",
+  "token_usage": {
+    "input_tokens": 19,
+    "cache_creation_tokens": 25586,
+    "cache_read_tokens": 567089,
+    "output_tokens": 2646,
+    "api_call_count": 15
+  },
+  "summary": {
+    "intent": "Improve the strategy selection logic in the remediation pipeline to bias toward creating standards and skills over generic updates, with clearer decision criteria and more granular error category guidance.",
+    "outcome": "Successfully modified `getOutputTypeInstructions()` in `prompt-generator.ts` with enriched descriptions, two new decision criteria, split completeness category, and explicit bias framing. All 1309 tests passed and lint was clean. The commit landed in `84b5be2` alongside other staged files.",
+    "learnings": {
+      "repo": [
+        "The project uses `rtk` as a command wrapper (likely a task runner or alias) — `rtk git` and `rtk bun` are used instead of bare commands, but bare `bun` also works.",
+        "Pre-commit hooks run the full test suite (1309 tests), lint, and typecheck before every commit.",
+        "A `prepare-commit-msg` hook rewrites the commit message to match a checkpoint format, which can cause the original commit message to be replaced silently.",
+        "The remediation pipeline routes fixes to three output types: standard (rule file), skill (SKILL.md), or generic update (main agent file).",
+        "`getOutputTypeInstructions()` is a pure string-builder function — no test logic changes were needed, only snapshot updates if tests checked exact wording (none did in this case)."
+      ],
+      "code": [
+        {
+          "path": "src/shared/remediation/prompt-generator.ts",
+          "line": 238,
+          "end_line": 289,
+          "finding": "The `getOutputTypeInstructions()` function builds the output type decision prompt. The error-specific guidance is assembled via an `errorDefaultGuidance` template variable injected at the end of the return string."
+        }
+      ],
+      "workflow": [
+        "The `rtk git log` command falsely reported failure after a successful commit due to a post-hook returning non-zero exit code — always verify commit success with `git show` or `git log` rather than trusting exit codes when hooks are involved.",
+        "When a commit appears to fail but hooks all passed, check `git log` directly — the commit may have succeeded with a rewritten message.",
+        "Staging specific files by name (rather than `git add -A`) is the safe default when other files may be in progress."
+      ]
+    },
+    "friction": [
+      "The `rtk` wrapper obscured whether git commands succeeded or failed — `rtk git log --oneline -3` after the commit appeared to show failure, requiring a follow-up `git show` to confirm success.",
+      "The `prepare-commit-msg` hook silently replaced the carefully crafted commit message with a checkpoint-generated one, making the commit message less descriptive than intended."
+    ],
+    "open_items": [
+      "The commit message was overwritten by the `prepare-commit-msg` hook to 'Surface all 4 remediation prompts in UI + fix CLAUDE.md re-consolidation' — the actual prompt-generator changes are bundled with unrelated files in that commit, which may make git history harder to navigate.",
+      "Manual verification of generated prompts (via `bun run evaluate` or test output inspection) was listed as a verification step but not confirmed as completed in the transcript."
+    ]
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-19T12:48:21.905286Z",
+    "agent_lines": 34,
+    "human_added": 91,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 125,
+    "agent_percentage": 27.200000000000003
+  }
+}

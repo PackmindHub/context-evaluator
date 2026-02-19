@@ -1,0 +1,147 @@
+Implement the following plan:
+
+# Plan: Improve Strategy Selection for Standards, Skills, and Generic Updates
+
+## Context
+
+The remediation pipeline routes each issue fix to one of three output types: **standard** (rule file), **skill** (SKILL.md), or **generic update** (main agent file). The current guidance has two weaknesses:
+
+1. **Biased toward generic**: "When in doubt, prefer a standard" sounds good but the generic update is currently the catch-all for a broad range of issues (anything under `completeness`, `outdated-documentation`, `structure-formatting`), when those could often be better expressed as standards or skills.
+2. **Decision criteria are under-specified**: The 3 questions don't distinguish between content needing project-specific resources (→ skill) and static reference content (→ generic).
+
+The builder.io article reinforces: skills win when context varies by task; rules are always-on non-negotiables; generic/main-file is for static reference material only. The user wants the pipeline to more actively create standards and skills, reserving generic for truly static content.
+
+## File to Modify
+
+- `src/shared/remediation/prompt-generator.ts` — the `getOutputTypeInstructions()` function (lines 238–289)
+  - The type descriptions (lines 268–272)
+  - The decision criteria (lines 274–280)
+  - The error-specific guidance (lines 249–262)
+
+## Changes
+
+### 1. Stronger bias framing in the output types intro
+
+Replace the neutral "decide on ONE output type" intro with an explicit preference statement:
+
+> **Strongly prefer standards and skills over generic updates.** Generic updates are for static reference content only — not for documenting behaviors, constraints, or processes.
+
+### 2. Enrich the output type descriptions
+
+- **Standard**: add concrete examples — naming conventions, code style guidelines, non-negotiables
+- **Skill**: emphasize repeatable workflows, multi-step processes, project-specific context (file paths, patterns, templates)
+- **Generic Update**: narrow the scope explicitly to "static reference content" (project structure, setup steps, architecture notes)
+
+### 3. Two new decision criteria (Q4 and Q5)
+
+Current: 3 questions. New: 5 questions.
+
+```
+4. Would it need project-specific resources to execute? File paths, patterns, templates, or context specific to a task → skill.
+5. Is it static reference information? Setup instructions, architecture overviews, project structure → generic update.
+```
+
+### 4. Replace "when in doubt" fallback
+
+Current: `When in doubt, prefer a standard.`
+
+New:
+> **Bias toward creating standards and skills.** A single issue can produce both a standard (rules) and a skill (procedures). Only fall back to generic update when the content is clearly static reference material with no behavioral or procedural dimension.
+
+### 5. Richer error category hints
+
+Current `completeness` is lumped into "usually generic update". Split it:
+
+```
+- `outdated-documentation`, `structure-formatting` → usually **generic update** (factual corrections)
+- `completeness` (missing workflow/process documentation) → usually **skill**
+- `completeness` (missing constraints or conventions) → usually **standard**
+- `git-workflow`, `testing`, `deployment` → usually **skill** (procedural)
+- `security`, `code-style`, `language-clarity` → usually **standard** (constraints)
+```
+
+Also add: missing env var documentation → generic (or standard if it defines required vs optional vars).
+
+## Exact Code Change
+
+In `getOutputTypeInstructions()`, replace the template literal section from the `### Output Types` header through the end of the function return (lines ~264–288):
+
+**Old:**
+```
+### Output Types
+
+For each ${itemLabel}, decide on ONE output type based on the decision criteria below.
+
+**Standard** — A short, declarative rule file always loaded into context. Defines constraints and conventions the agent must follow at all times.
+
+**Skill** — A folder with a SKILL.md file loaded on-demand via progressive disclosure. Provides procedural knowledge activated when a task matches its description. Skills can contain additional documentation about project structure, context, and resources that go beyond the bullet-point rules of standards.
+
+**Generic Update** — A direct addition or edit to `${genericFile}`. Use for content that doesn't fit standards or skills (e.g., project structure, setup steps, architecture notes).
+
+### Decision Criteria
+
+1. **Must the agent always know this?** If yes -> standard. If only relevant during a specific task -> skill.
+2. **Is it a constraint or a capability?** Constraints and guardrails -> standard. Capabilities and workflows -> skill.
+3. **Is it short and declarative?** Bullet-point rules -> standard. Procedural paragraphs with sequenced steps -> skill.
+
+When in doubt, prefer a standard. A single ${itemLabel} can produce both a standard (rules) and a skill (procedures).${errorDefaultGuidance}
+```
+
+**New:**
+```
+### Output Types
+
+For each ${itemLabel}, decide on ONE output type. **Strongly prefer standards and skills over generic updates.** Generic updates are for static reference content only — not for documenting behaviors, constraints, or processes.
+
+**Standard** — A short, declarative rule file always loaded into context. Defines constraints, naming conventions, code style guidelines, and non-negotiables the agent must follow at all times.
+
+**Skill** — A folder with a SKILL.md file loaded on-demand via progressive disclosure. Provides procedural knowledge activated when a task matches its description. Skills are ideal for repeatable workflows, multi-step processes, and tasks requiring project-specific context (file paths, patterns, templates). Skills can contain richer instructional content — references, examples, and supporting resources — beyond the bullet-point rules of standards.
+
+**Generic Update** — A direct addition or edit to `${genericFile}`. Use only for static reference content that doesn't fit standards or skills (e.g., project structure, setup steps, architecture notes, environment variable documentation).
+
+### Decision Criteria
+
+1. **Must the agent always know this?** If yes → standard. If only relevant during a specific task → skill.
+2. **Is it a constraint or a capability?** Constraints, guardrails, naming conventions, code style rules → standard. Capabilities, workflows, repeatable processes → skill.
+3. **Is it short and declarative?** Bullet-point rules → standard. Procedural paragraphs with sequenced steps → skill.
+4. **Would it need project-specific resources to execute?** File paths, patterns, templates, or context specific to a task → skill.
+5. **Is it static reference information?** Setup instructions, architecture overviews, project structure → generic update.
+
+**Bias toward creating standards and skills.** A single ${itemLabel} can produce both a standard (rules) and a skill (procedures). Only fall back to generic update when the content is clearly static reference material with no behavioral or procedural dimension.${errorDefaultGuidance}
+```
+
+And update `errorDefaultGuidance`:
+
+**Old:**
+```
+- `outdated-documentation`, `structure-formatting`, `completeness` → usually **generic update**
+- `git-workflow`, `testing`, `deployment` → usually **skill** (procedural)
+- `security`, `code-style` → usually **standard** (constraints) or **generic**
+```
+
+**New:**
+```
+- `outdated-documentation`, `structure-formatting` → usually **generic update** (factual corrections: wrong paths, outdated names)
+- `completeness` (missing workflow or process documentation) → usually **skill**
+- `completeness` (missing constraints, conventions, or rules) → usually **standard**
+- `git-workflow`, `testing`, `deployment` → usually **skill** (procedural)
+- `security`, `code-style`, `language-clarity` → usually **standard** (constraints)
+- Missing environment variable or setup documentation → usually **generic update**
+```
+
+## Tests
+
+No test logic changes needed — `getOutputTypeInstructions()` is a pure string-builder function. Existing tests in `prompt-generator.test.ts` that snapshot the prompt output will need updating to match the new text (or tests only check structural elements, not exact wording — verify first).
+
+## Verification
+
+1. Run `bun run test` — fix any snapshot tests that reference the old output type instruction text
+2. Run `bun run lint` — Biome formatting check
+3. Manually inspect a generated prompt (e.g., via `bun run evaluate` or by reading test output) to confirm the new decision criteria appear correctly in both error and suggestion contexts
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+commit
