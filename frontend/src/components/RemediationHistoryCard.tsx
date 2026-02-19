@@ -260,16 +260,40 @@ export function RemediationHistoryCard({
 						result && (
 							<>
 								{/* Plan sections (collapsible) */}
+								{item.planData?.errorPlanPrompt && (
+									<CollapsiblePlanSection
+										title="Error Fix Plan Prompt"
+										content={item.planData.errorPlanPrompt}
+									/>
+								)}
 								{item.planData?.errorPlan && (
 									<CollapsiblePlanSection
 										title="Error Fix Plan"
 										content={item.planData.errorPlan}
 									/>
 								)}
+								{item.planData?.errorFixPrompt && (
+									<CollapsiblePlanSection
+										title="Error Fix Execution Prompt"
+										content={item.planData.errorFixPrompt}
+									/>
+								)}
+								{item.planData?.suggestionPlanPrompt && (
+									<CollapsiblePlanSection
+										title="Suggestion Plan Prompt"
+										content={item.planData.suggestionPlanPrompt}
+									/>
+								)}
 								{item.planData?.suggestionPlan && (
 									<CollapsiblePlanSection
 										title="Suggestion Enrichment Plan"
 										content={item.planData.suggestionPlan}
+									/>
+								)}
+								{item.planData?.suggestionEnrichPrompt && (
+									<CollapsiblePlanSection
+										title="Suggestion Execution Prompt"
+										content={item.planData.suggestionEnrichPrompt}
 									/>
 								)}
 

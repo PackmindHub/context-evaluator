@@ -803,13 +803,11 @@ describe("prompt-generator", () => {
 
 			const result = generateRemediationPrompts(input);
 
-			expect(result.errorFixPrompt).toContain("File Consolidation Notice");
+			expect(result.errorFixPrompt).toContain("CRITICAL FILE RULE");
 			expect(result.errorFixPrompt).toContain(
-				"AGENTS.md is the single source of truth",
+				"AGENTS.md is the ONLY source of truth",
 			);
-			expect(result.errorFixPrompt).toContain(
-				"Never edit CLAUDE.md files that contain `@AGENTS.md`",
-			);
+			expect(result.errorFixPrompt).toContain("Never add content to CLAUDE.md");
 		});
 
 		test("suggestion prompt includes consolidation notice", () => {
@@ -821,9 +819,7 @@ describe("prompt-generator", () => {
 
 			const result = generateRemediationPrompts(input);
 
-			expect(result.suggestionEnrichPrompt).toContain(
-				"File Consolidation Notice",
-			);
+			expect(result.suggestionEnrichPrompt).toContain("CRITICAL FILE RULE");
 		});
 
 		test("prompt excludes CLAUDE.md from context files list when pairs exist", () => {
@@ -849,7 +845,7 @@ describe("prompt-generator", () => {
 
 			const result = generateRemediationPrompts(input);
 
-			expect(result.errorFixPrompt).not.toContain("File Consolidation Notice");
+			expect(result.errorFixPrompt).not.toContain("CRITICAL FILE RULE");
 		});
 	});
 });

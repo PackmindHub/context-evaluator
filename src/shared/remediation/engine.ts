@@ -4,6 +4,7 @@
  */
 
 import { buildTechnicalInventorySection } from "@shared/claude/prompt-builder";
+import { identifyColocatedPairs } from "@shared/file-system/colocated-file-consolidator";
 import { cloneRepository } from "@shared/file-system/git-cloner";
 import { getProvider } from "@shared/providers/registry";
 import type { ProviderName } from "@shared/providers/types";
@@ -186,11 +187,34 @@ export async function executeRemediation(
 
 		// 2.5. Consolidate colocated AGENTS.md/CLAUDE.md pairs
 		const pc = evaluationData.result?.metadata?.projectContext;
-		const colocatedPairs: Array<{
+
+		// Re-detect colocated pairs at remediation time for backward compat with
+		// evaluations predating the colocatedPairs feature (where pc?.colocatedPairs === undefined).
+		// Build absolute paths from stored agentsFilePaths, then merge with stored pairs.
+		const storedPairs: Array<{
 			directory: string;
 			agentsPath: string;
 			claudePath: string;
 		}> = pc?.colocatedPairs ?? [];
+
+		const storedAgentsFilePaths: string[] = pc?.agentsFilePaths ?? [];
+		const absoluteAgentsFilePaths = storedAgentsFilePaths.map((p) =>
+			p.startsWith("/") ? p : `${workDir}/${p}`,
+		);
+		const discoveredPairs =
+			absoluteAgentsFilePaths.length > 0
+				? identifyColocatedPairs(absoluteAgentsFilePaths, workDir)
+				: [];
+
+		// Merge stored + discovered, deduplicating by directory
+		const pairsByDir = new Map<
+			string,
+			{ directory: string; agentsPath: string; claudePath: string }
+		>();
+		for (const pair of [...storedPairs, ...discoveredPairs]) {
+			pairsByDir.set(pair.directory, pair);
+		}
+		const colocatedPairs = Array.from(pairsByDir.values());
 
 		if (colocatedPairs.length > 0) {
 			emitStep(onProgress, "consolidating_files", "started");
@@ -377,6 +401,26 @@ export async function executeRemediation(
 			console.log(
 				`[Remediation] Phase 1 completed: ${planDurationMs}ms, $${planCost.toFixed(4)}`,
 			);
+
+			// Belt-and-suspenders: warn if the plan targets CLAUDE.md as canonical
+			if (colocatedPairs.length > 0 && errorPlan) {
+				const claudeCanonicalPatterns = [
+					/\*\*target file:\*\*\s*claude\.md/i,
+					/make claude\.md the/i,
+					/claude\.md canonical/i,
+					/merge into claude\.md/i,
+				];
+				const planViolation = claudeCanonicalPatterns.some((re) =>
+					re.test(errorPlan ?? ""),
+				);
+				if (planViolation) {
+					console.warn(
+						"[Remediation] WARNING: Phase 1 plan appears to target CLAUDE.md as canonical. " +
+							"This violates the consolidation rule. The execution prompt includes strong constraints to override this.",
+					);
+				}
+			}
+
 			emitStep(onProgress, "planning_error_fix", "completed");
 
 			onProgress?.({
@@ -577,6 +621,12 @@ export async function executeRemediation(
 					runningTotalOutputTokens,
 				},
 			});
+		}
+
+		// Re-consolidate to ensure AI hasn't overwritten CLAUDE.md during phases 2/4
+		// consolidateColocatedFiles skips pairs where CLAUDE.md is already "@AGENTS.md"
+		if (colocatedPairs.length > 0) {
+			await consolidateColocatedFiles(workDir, colocatedPairs);
 		}
 
 		// 5. Capture final combined diff (includes both error + suggestion changes)

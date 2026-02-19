@@ -254,30 +254,35 @@ function getOutputTypeInstructions(
 - New constraints or guardrails (security rules, coding conventions) → **standard**
 
 Use the evaluator category in each issue header as a signal:
-- \`outdated-documentation\`, \`structure-formatting\`, \`completeness\` → usually **generic update**
+- \`outdated-documentation\`, \`structure-formatting\` → usually **generic update** (factual corrections: wrong paths, outdated names)
+- \`completeness\` (missing workflow or process documentation) → usually **skill**
+- \`completeness\` (missing constraints, conventions, or rules) → usually **standard**
 - \`git-workflow\`, \`testing\`, \`deployment\` → usually **skill** (procedural)
-- \`security\`, \`code-style\` → usually **standard** (constraints) or **generic**
+- \`security\`, \`code-style\`, \`language-clarity\` → usually **standard** (constraints)
+- Missing environment variable or setup documentation → usually **generic update**
 
 When multiple issues share the same evaluator category and topic, consolidate them into a single output rather than creating many small separate additions.`
 			: "";
 
 	return `### Output Types
 
-For each ${itemLabel}, decide on ONE output type based on the decision criteria below.
+For each ${itemLabel}, decide on ONE output type. **Strongly prefer standards and skills over generic updates.** Generic updates are for static reference content only — not for documenting behaviors, constraints, or processes.
 
-**Standard** — A short, declarative rule file always loaded into context. Defines constraints and conventions the agent must follow at all times.
+**Standard** — A short, declarative rule file always loaded into context. Defines constraints, naming conventions, code style guidelines, and non-negotiables the agent must follow at all times.
 
-**Skill** — A folder with a SKILL.md file loaded on-demand via progressive disclosure. Provides procedural knowledge activated when a task matches its description. Skills can contain additional documentation about project structure, context, and resources that go beyond the bullet-point rules of standards.
+**Skill** — A folder with a SKILL.md file loaded on-demand via progressive disclosure. Provides procedural knowledge activated when a task matches its description. Skills are ideal for repeatable workflows, multi-step processes, and tasks requiring project-specific context (file paths, patterns, templates). Skills can contain richer instructional content — references, examples, and supporting resources — beyond the bullet-point rules of standards.
 
-**Generic Update** — A direct addition or edit to \`${genericFile}\`. Use for content that doesn't fit standards or skills (e.g., project structure, setup steps, architecture notes).
+**Generic Update** — A direct addition or edit to \`${genericFile}\`. Use only for static reference content that doesn't fit standards or skills (e.g., project structure, setup steps, architecture notes, environment variable documentation).
 
 ### Decision Criteria
 
-1. **Must the agent always know this?** If yes -> standard. If only relevant during a specific task -> skill.
-2. **Is it a constraint or a capability?** Constraints and guardrails -> standard. Capabilities and workflows -> skill.
-3. **Is it short and declarative?** Bullet-point rules -> standard. Procedural paragraphs with sequenced steps -> skill.
+1. **Must the agent always know this?** If yes → standard. If only relevant during a specific task → skill.
+2. **Is it a constraint or a capability?** Constraints, guardrails, naming conventions, code style rules → standard. Capabilities, workflows, repeatable processes → skill.
+3. **Is it short and declarative?** Bullet-point rules → standard. Procedural paragraphs with sequenced steps → skill.
+4. **Would it need project-specific resources to execute?** File paths, patterns, templates, or context specific to a task → skill.
+5. **Is it static reference information?** Setup instructions, architecture overviews, project structure → generic update.
 
-When in doubt, prefer a standard. A single ${itemLabel} can produce both a standard (rules) and a skill (procedures).${errorDefaultGuidance}
+**Bias toward creating standards and skills.** A single ${itemLabel} can produce both a standard (rules) and a skill (procedures). Only fall back to generic update when the content is clearly static reference material with no behavioral or procedural dimension.${errorDefaultGuidance}
 
 ${standardInstructions}
 
@@ -462,16 +467,23 @@ function buildConsolidationNotice(
 	const pairList = colocatedPairs
 		.map(
 			(p) =>
-				`- \`${p.directory}/\`: AGENTS.md is source of truth, CLAUDE.md contains \`@AGENTS.md\``,
+				`- \`${p.directory}/\`: \`${p.agentsPath}\` is the canonical file — \`${p.claudePath}\` contains only \`@AGENTS.md\``,
 		)
 		.join("\n");
 
 	return `
-## File Consolidation Notice
-AGENTS.md is the single source of truth. CLAUDE.md files in the following directories have been consolidated and now contain only \`@AGENTS.md\`:
+## ⚠ CRITICAL FILE RULE — CLAUDE.md IS READ-ONLY
+In the following directories, AGENTS.md is the ONLY source of truth.
+CLAUDE.md contains a single line: \`@AGENTS.md\`. This MUST NOT change.
+
 ${pairList}
 
-**Never edit CLAUDE.md files that contain \`@AGENTS.md\`.** All changes must go to AGENTS.md.
+STRICT RULES:
+1. Never add content to CLAUDE.md. It must remain as the single line \`@AGENTS.md\`.
+2. If issues mention CLAUDE.md, fix them by editing AGENTS.md instead.
+3. If both files have duplicate or conflicting content, consolidate into AGENTS.md.
+4. Never make CLAUDE.md the canonical file — even if AGENTS.md has quality problems.
+
 `;
 }
 
@@ -728,6 +740,8 @@ ${outputTypeInstructions}
 3. Group related issues into consolidated tasks (issues targeting the same file and topic)
 4. For each task, decide the output type (standard, skill, or generic update)
 5. Describe the fix strategy: what will change, where, and why
+6. NEVER plan to add content to CLAUDE.md files that contain \`@AGENTS.md\`
+7. If both AGENTS.md and CLAUDE.md exist in the same directory, all fixes go to AGENTS.md
 
 ## Output Format
 Produce a markdown plan with this structure:
@@ -744,6 +758,8 @@ Produce a markdown plan with this structure:
 ## Skipped Issues
 - #4: <reason for skipping>
 \`\`\`
+
+Note: **Target file:** must never be CLAUDE.md when a consolidation notice applies above.
 
 Keep the plan concise. Focus on WHAT to do, not HOW to write the code.`;
 }
@@ -856,6 +872,8 @@ Evaluator-suggested file paths (e.g., \`packages/api/AGENTS.md\`) may not match 
 4. For each task, decide the output type (standard, skill, or generic update)
 5. Describe the enrichment strategy: what to add, where, and why
 6. Sort tasks by impact (highest first)
+7. NEVER plan to add content to CLAUDE.md files that contain \`@AGENTS.md\`
+8. If both AGENTS.md and CLAUDE.md exist in the same directory, all additions go to AGENTS.md
 
 ## Output Format
 Produce a markdown plan with this structure:
@@ -872,6 +890,8 @@ Produce a markdown plan with this structure:
 ## Skipped Gaps
 - #4: <reason for skipping>
 \`\`\`
+
+Note: **Target file:** must never be CLAUDE.md when a consolidation notice applies above.
 
 Keep the plan concise. Focus on WHAT to do, not HOW to write the code.`;
 }

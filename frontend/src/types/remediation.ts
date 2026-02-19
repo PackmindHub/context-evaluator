@@ -41,6 +41,8 @@ export interface PlanData {
 	suggestionPlan?: string;
 	errorPlanPrompt?: string;
 	suggestionPlanPrompt?: string;
+	errorFixPrompt?: string;
+	suggestionEnrichPrompt?: string;
 	errorFixDiff?: string;
 	errorFixFileChanges?: FileChange[];
 }

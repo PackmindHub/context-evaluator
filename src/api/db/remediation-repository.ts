@@ -16,6 +16,8 @@ export interface IRemediationPlanData {
 	suggestionPlan?: string;
 	errorPlanPrompt?: string;
 	suggestionPlanPrompt?: string;
+	errorFixPrompt?: string;
+	suggestionEnrichPrompt?: string;
 	errorFixDiff?: string;
 	errorFixFileChanges?: IFileChange[];
 }
@@ -96,7 +98,7 @@ export class RemediationRepository {
 			(i) => i.issueType === "suggestion",
 		).length;
 
-		// Build prompt stats without the raw prompt text
+		// Build prompt stats (strip raw prompt text — stored separately in planData)
 		const promptStats: {
 			errorFixStats?: IStoredPromptStats;
 			suggestionEnrichStats?: IStoredPromptStats;
@@ -133,6 +135,10 @@ export class RemediationRepository {
 			planData.errorPlanPrompt = result.errorPlanPrompt;
 		if (result.suggestionPlanPrompt)
 			planData.suggestionPlanPrompt = result.suggestionPlanPrompt;
+		if (result.errorFixStats?.prompt)
+			planData.errorFixPrompt = result.errorFixStats.prompt;
+		if (result.suggestionEnrichStats?.prompt)
+			planData.suggestionEnrichPrompt = result.suggestionEnrichStats.prompt;
 		if (result.errorFixDiff) planData.errorFixDiff = result.errorFixDiff;
 		if (result.errorFixFileChanges)
 			planData.errorFixFileChanges = result.errorFixFileChanges;
