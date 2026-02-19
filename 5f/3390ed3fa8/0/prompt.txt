@@ -1,0 +1,187 @@
+Implement the following plan:
+
+# Plan : Refonte du Scoring + Bouton Recalculer
+
+## Contexte
+
+Le système de scoring actuel présente deux problèmes :
+
+1. **Non-monotone** : après une remédiation (35 → 21 issues), le score est passé de 7.9 à 6.8 — une **régression**. La cause : la donnée `totalLOC` est 0 dans l'évaluation après remédiation (bug de collecte), ce qui fait chuter le tier de `large` (allowance=15) à `small` (allowance=5), rendant la pénalité soudainement sévère même avec moins d'issues.
+
+2. **Trop clément** : 35 issues et pourtant 7.9/10, car les issues tombaient sous le seuil de l'allowance. L'utilisateur cible : ~4/10 pour 35 issues, ~6.5/10 pour 12 issues, ~8/10 pour 0 issue.
+
+**Objectif** :
+- Nouvelle formule mathématiquement monotone (corriger des issues ≠ jamais baisser le score)
+- Calibrage ajusté selon les cibles de l'utilisateur
+- Bouton "Recalculer" visible via `?debug=true` pour tester la formule sur les rapports existants
+
+---
+
+## Partie 1 — Nouvelle formule de scoring
+
+### Principe
+
+Remplacer la pénalité LOC-dépendante par une **power law** pure sur `weightedIssueCount` :
+
+```
+score = clamp(3.0, 10, base + setupBonus - issuePenalty)
+issuePenalty = min(5.0, 0.163 × weightedIssueCount^1.81)
+```
+
+**Monotonique par construction** : `weightedIssueCount` est additif (chaque issue ajoute un poids positif). La fonction `a×x^b` est strictement croissante. Corriger une issue → diminue `W` → diminue la pénalité → augmente ou préserve le score.
+
+### Calibrage mathématique
+
+Données réelles (DB) pour les deux évaluations du cas utilisateur (2 fichiers) :
+- Original : `W=5.84` (35 issues) → cible score ≈ 4.0 → pénalité cible = 8.0 - 4.0 = **4.0**
+- Remédié : `W=3.4` (21 issues) → cible score ≈ 6.5 → pénalité cible = 8.0 - 6.5 = **1.5**
+
+Résolution power law `a × x^b` :
+- `(5.84/3.4)^b = 4.0/1.5 = 2.667` → `b ≈ 1.81`
+- `a = 1.5 / 3.4^1.81 ≈ 0.163`
+- Vérification : `0.163 × 5.84^1.81 ≈ 4.00 ✓` et `0.163 × 3.4^1.81 ≈ 1.50 ✓`
+
+### Poids des issues (inchangés)
+
+| Type | Poids type | Sévérité high (8-10) | Sévérité med (6-7) | Sévérité low (≤5) |
+|------|-----------|---------------------|-------------------|-------------------|
+| Error | 1.0 | 0.45 | 0.15 | 0.05 |
+| Suggestion | 0.2 | 0.09 | 0.03 | 0.01 |
+
+### Table de validation (1 fichier, `setupBonus=2.0`)
+
+| Scenario | Issues brutes | W pondéré | Pénalité | Score | Grade |
+|----------|--------------|-----------|----------|-------|-------|
+| Parfait | 0 | 0 | 0.00 | 8.0 | Good |
+| ~12 issues (target) | ~12 | 3.4 | 1.50 | 6.50 | Good |
+| ~35 issues (target) | ~35 | 5.84 | 4.00 | 4.0 | Fair |
+| 20 erreurs critiques | 20 | 9.0 | 5.0 (cap) | 3.0 | Developing (floor) |
+| Aucun fichier | — | — | 2.5 (hardcodé) | 3.5 | Developing |
+
+### Changements de constantes
+
+| Constante | Avant | Après | Raison |
+|-----------|-------|-------|--------|
+| `agentsFilesBonus(1 fichier)` | 1.5 | **2.0** | Calibrage cible 8.0 |
+| Formule bonus | `1.5 + 0.4×log2(n)` | **`2.0 + 0.4×log2(n)`** | Décalage de l'intercept |
+| `PENALTY_COEFFICIENT` | n/a | **0.163** | Power law param `a` |
+| `PENALTY_EXPONENT` | n/a | **1.81** | Power law param `b` |
+| `MAX_ISSUE_PENALTY` | 3.0 | **5.0** | Floor à 3.0 avec 1 fichier |
+| Clamp floor dans `calculateScore` | 1.0 | **3.0** | Garanti architecturalement |
+| `LOC_TIERS` / `issueAllowance` | utilisé | **supprimé du calcul de pénalité** | Plus besoin de LOC |
+| `documentationMaturityFactor` | 0.7–1.0 | **1.0 (constante)** | Simplifié |
+
+---
+
+## Partie 2 — Bouton "Recalculer le score"
+
+### Comportement
+
+- Visible uniquement quand `?debug=true` est dans l'URL
+- Appelle un endpoint serveur qui re-calcule le score avec la **formule actuelle du code** sur les données déjà stockées en DB (issues + metadata)
+- Met à jour le score en DB et rafraîchit l'affichage
+- Idéal pour tester une nouvelle formule sans relancer l'IA : modifier `context-scorer.ts` → appuyer sur Recalculer → voir l'effet immédiatement
+
+### Architecture
+
+```
+[Bouton "Recalculer"] → POST /api/evaluations/:id/recalculate-score
+                     → Lit issues depuis DB + metadata JSON
+                     → Re-exécute computeFullContextScore()
+                     → Met à jour context_score + context_grade en DB
+                     → Retourne { score, grade, breakdown }
+→ Frontend met à jour le ContextScoreCard
+```
+
+---
+
+## Fichiers à modifier
+
+### Backend
+
+| Fichier | Changements |
+|---------|-------------|
+| `src/shared/evaluation/context-scorer.ts` | Nouvelles constantes, nouveau calcul pénalité (power law), ajustement bonus, clamp floor |
+| `src/shared/evaluation/context-scorer.test.ts` | Mise à jour des valeurs attendues (bonus=2.0, power law, suppression LOC) |
+| `src/api/routes/evaluation.ts` | Nouveau endpoint `POST /api/evaluations/:evaluationId/recalculate-score` |
+| `src/api/db/database.ts` | Vérifier que `updateEvaluationScore()` existe ou l'ajouter |
+
+### Frontend
+
+| Fichier | Changements |
+|---------|-------------|
+| `frontend/src/components/summary/ContextScoreCard.tsx` | Bouton "Recalculer" conditionnel sur `?debug=true` |
+| `frontend/src/hooks/useEvaluationApi.ts` | Nouvelle fonction `recalculateScore(evaluationId)` |
+
+### Types (commentaires uniquement)
+
+| Fichier | Changements |
+|---------|-------------|
+| `src/shared/types/evaluation.ts` | Commenter `issueAllowance`/`excessIssues` comme deprecated |
+| `frontend/src/types/evaluation.ts` | Idem |
+
+---
+
+## Implémentation détaillée
+
+### 1. `context-scorer.ts` — Nouvelles constantes
+
+```typescript
+// Supprimer LOC_TIERS block
+// Modifier agentsFilesBonus: 1.5 → 2.0 (intercept)
+const bonus = 2.0 + 0.4 * Math.log2(fileCount); // was 1.5 + ...
+
+// Ajouter constantes power law
+const PENALTY_COEFFICIENT = 0.163;
+const PENALTY_EXPONENT = 1.81;
+const MAX_ISSUE_PENALTY = 5.0; // was 3.0
+
+// Remplacer calcul de pénalité (supprimer excessIssues, LOC, maturityFactor)
+const issuePenalty = Math.min(
+  MAX_ISSUE_PENALTY,
+  PENALTY_COEFFICIENT * Math.pow(weightedIssueCount, PENALTY_EXPONENT)
+);
+
+// Mettre à jour clamp floor
+const score = Math.max(3.0, Math.min(10, rawScore)); // was Math.max(1, ...)
+```
+
+### 2. Nouveau endpoint API
+
+```typescript
+// POST /api/evaluations/:evaluationId/recalculate-score
+// 1. Charger evaluation depuis DB (metadata JSON)
+// 2. Charger issues depuis table issues
+// 3. Reconstruire IContextScorerInput:
+//    - issues: Issue[] (depuis DB)
+//    - filesFound: number (depuis metadata.agentsFilePaths.length)
+//    - projectContext: IProjectContext (depuis metadata)
+// 4. Appeler computeFullContextScore()
+// 5. UPDATE evaluations SET context_score=?, context_grade=? WHERE id=?
+// 6. Retourner { score, grade, breakdown }
+```
+
+### 3. Frontend — Détection debug mode
+
+```typescript
+// Dans ContextScoreCard.tsx ou hook dédié
+const isDebugMode = new URLSearchParams(window.location.search).has('debug');
+// Afficher bouton seulement si isDebugMode === true
+```
+
+---
+
+## Vérification
+
+1. **Tests unitaires** : `bun run test` — tous les tests `context-scorer.test.ts` doivent passer avec les nouvelles valeurs
+2. **Test de non-régression** :
+   - Recalculer les deux évaluations via le bouton
+   - `dd283666` (original, 35 issues) → score attendu ≈ 4.0
+   - `6e47bfce` (post-remédiation, 21 issues) → score attendu ≈ 6.5
+   - Vérifier que score(post-remédiation) > score(original) ✓
+3. **Test lint** : `bun run lint`
+4. **Test typecheck** : `bun run typecheck`
+5. **Test bouton** : ouvrir un rapport existant avec `?debug=true`, cliquer Recalculer, vérifier le nouveau score en DB
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
