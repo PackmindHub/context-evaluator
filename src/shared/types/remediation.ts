@@ -23,6 +23,7 @@ export type RemediationStep =
 	| "executing_error_fix"
 	| "executing_suggestion_enrich"
 	| "capturing_diff"
+	| "consolidating_files"
 	| "resetting";
 
 export interface IFileChange {

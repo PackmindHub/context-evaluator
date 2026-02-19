@@ -1,4 +1,8 @@
 import { buildEnhancedProjectContext } from "@shared/claude/prompt-builder";
+import {
+	filterConsolidatedPaths,
+	identifyColocatedPairs,
+} from "@shared/file-system/colocated-file-consolidator";
 import { summarizeContextFiles } from "@shared/file-system/context-files-summarizer";
 import { discoverLinkedDocs } from "@shared/file-system/docs-finder";
 import {
@@ -772,6 +776,30 @@ export class EvaluationEngine {
 				);
 			}
 
+			// Step 1.6b: Identify colocated pairs and filter CLAUDE.md from evaluator paths
+			// After deduplication (identical/cross-ref removed), remaining pairs have genuinely different content.
+			// AGENTS.md becomes the source of truth for evaluators; CLAUDE.md is excluded.
+			const colocatedPairs = identifyColocatedPairs(agentsFiles, workingDir);
+			const evaluatorFiles =
+				colocatedPairs.length > 0
+					? filterConsolidatedPaths(agentsFiles, colocatedPairs, workingDir)
+					: agentsFiles;
+
+			if (verbose && colocatedPairs.length > 0) {
+				engineLogger.log(
+					`Found ${colocatedPairs.length} colocated AGENTS.md/CLAUDE.md pair(s) — filtering CLAUDE.md from evaluators`,
+				);
+				for (const pair of colocatedPairs) {
+					engineLogger.log(
+						`  - ${pair.directory}: ${pair.agentsPath} (source of truth), ${pair.claudePath} (excluded)`,
+					);
+				}
+			}
+
+			const evaluatorFilePaths = evaluatorFiles.map((f) =>
+				getRelativePath(f, workingDir),
+			);
+
 			// Step 1.7: Find and summarize SKILL.md files
 			if (verbose) {
 				engineLogger.log(`Searching for SKILL.md files...`);
@@ -819,14 +847,14 @@ export class EvaluationEngine {
 			let contextFiles: Awaited<
 				ReturnType<typeof summarizeContextFiles>
 			>["contextFiles"] = [];
-			if (agentsFiles.length > 0) {
+			if (evaluatorFiles.length > 0) {
 				if (verbose) {
 					engineLogger.log(`Loading context files...`);
 				}
 
 				try {
 					const contextFilesSummaryResult = await summarizeContextFiles(
-						agentsFiles,
+						evaluatorFiles,
 						workingDir,
 						{ verbose },
 					);
@@ -862,7 +890,7 @@ export class EvaluationEngine {
 			const contextResult = await identifyProjectContext(workingDir, {
 				verbose,
 				agentsFilePaths:
-					agentsFilePaths.length > 0 ? agentsFilePaths : undefined,
+					evaluatorFilePaths.length > 0 ? evaluatorFilePaths : undefined,
 				provider: provider.name,
 				progressCallback,
 				timeout: options.timeout,
@@ -879,14 +907,14 @@ export class EvaluationEngine {
 			}
 
 			// Step 2.5: Discover and summarize linked documentation
-			if (agentsFiles.length > 0 && contextResult?.context) {
+			if (evaluatorFiles.length > 0 && contextResult?.context) {
 				if (verbose) {
 					engineLogger.log(`Discovering linked documentation files...`);
 				}
 
 				try {
 					const linkedDocsResult = await discoverLinkedDocs(
-						agentsFiles,
+						evaluatorFiles,
 						workingDir,
 						{
 							provider,
@@ -949,6 +977,11 @@ export class EvaluationEngine {
 						error instanceof Error ? error.message : error,
 					);
 				}
+			}
+
+			// Store colocated pairs in context for remediation
+			if (contextResult?.context && colocatedPairs.length > 0) {
+				contextResult.context.colocatedPairs = colocatedPairs;
 			}
 
 			if (progressCallback) {
@@ -1185,9 +1218,9 @@ export class EvaluationEngine {
 				progressCallback({
 					type: "job.started",
 					data: {
-						totalFiles: agentsFiles.length,
+						totalFiles: evaluatorFiles.length,
 						evaluationMode: this.determineEvaluationMode(
-							agentsFiles.length,
+							evaluatorFiles.length,
 							options,
 						),
 					},
@@ -1195,7 +1228,10 @@ export class EvaluationEngine {
 			}
 
 			// Step 4: Determine evaluation mode
-			const useUnified = this.shouldUseUnifiedMode(agentsFiles.length, options);
+			const useUnified = this.shouldUseUnifiedMode(
+				evaluatorFiles.length,
+				options,
+			);
 
 			if (verbose) {
 				engineLogger.log(
@@ -1208,7 +1244,7 @@ export class EvaluationEngine {
 
 			if (useUnified) {
 				result = await this.runUnifiedMode(
-					agentsFiles,
+					evaluatorFiles,
 					workingDir,
 					options,
 					progressCallback,
@@ -1219,7 +1255,7 @@ export class EvaluationEngine {
 				);
 			} else {
 				result = await this.runIndependentMode(
-					agentsFiles,
+					evaluatorFiles,
 					workingDir,
 					options,
 					progressCallback,

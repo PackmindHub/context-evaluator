@@ -35,6 +35,11 @@ export interface RemediationInput {
 		frameworks?: string;
 		architecture?: string;
 	};
+	colocatedPairs?: Array<{
+		directory: string;
+		agentsPath: string;
+		claudePath: string;
+	}>;
 }
 
 export interface RemediationPrompts {
@@ -209,7 +214,14 @@ function getAgentContextDescription(targetAgent: TargetAgent): string {
 }
 
 /** Returns the generic update file path for a given target agent. */
-function getGenericUpdateFile(targetAgent: TargetAgent): string {
+function getGenericUpdateFile(
+	targetAgent: TargetAgent,
+	colocatedPairs?: RemediationInput["colocatedPairs"],
+): string {
+	// When colocated pairs exist, AGENTS.md is always the source of truth
+	if (colocatedPairs && colocatedPairs.length > 0) {
+		return "AGENTS.md";
+	}
 	switch (targetAgent) {
 		case "agents-md":
 			return "AGENTS.md";
@@ -226,8 +238,9 @@ function getGenericUpdateFile(targetAgent: TargetAgent): string {
 function getOutputTypeInstructions(
 	targetAgent: TargetAgent,
 	context: "suggestion" | "error" = "suggestion",
+	colocatedPairs?: RemediationInput["colocatedPairs"],
 ): string {
-	const genericFile = getGenericUpdateFile(targetAgent);
+	const genericFile = getGenericUpdateFile(targetAgent, colocatedPairs);
 	const itemLabel = context === "error" ? "issue" : "suggestion";
 
 	const standardInstructions = getStandardInstructions(targetAgent);
@@ -440,6 +453,39 @@ description: <When the agent should activate this skill. Be specific. Use third-
 \`\`\``;
 }
 
+/** Build a consolidation notice when colocated pairs exist. */
+function buildConsolidationNotice(
+	colocatedPairs?: RemediationInput["colocatedPairs"],
+): string {
+	if (!colocatedPairs || colocatedPairs.length === 0) return "";
+
+	const pairList = colocatedPairs
+		.map(
+			(p) =>
+				`- \`${p.directory}/\`: AGENTS.md is source of truth, CLAUDE.md contains \`@AGENTS.md\``,
+		)
+		.join("\n");
+
+	return `
+## File Consolidation Notice
+AGENTS.md is the single source of truth. CLAUDE.md files in the following directories have been consolidated and now contain only \`@AGENTS.md\`:
+${pairList}
+
+**Never edit CLAUDE.md files that contain \`@AGENTS.md\`.** All changes must go to AGENTS.md.
+`;
+}
+
+/** Filter CLAUDE.md paths from context file list for consolidated pairs. */
+function filterColocatedClaudePaths(
+	contextFilePaths: string[],
+	colocatedPairs?: RemediationInput["colocatedPairs"],
+): string[] {
+	if (!colocatedPairs || colocatedPairs.length === 0) return contextFilePaths;
+
+	const claudePaths = new Set(colocatedPairs.map((p) => p.claudePath));
+	return contextFilePaths.filter((p) => !claudePaths.has(p));
+}
+
 function buildErrorFixPrompt(input: RemediationInput): string {
 	if (input.errors.length === 0) {
 		return "";
@@ -451,7 +497,11 @@ function buildErrorFixPrompt(input: RemediationInput): string {
 	);
 
 	const snippetIndex = buildSnippetIndex(sorted);
-	const contextFilesList = input.contextFilePaths
+	const effectiveContextFiles = filterColocatedClaudePaths(
+		input.contextFilePaths,
+		input.colocatedPairs,
+	);
+	const contextFilesList = effectiveContextFiles
 		.map((p) => `- ${p}`)
 		.join("\n");
 	const issueBlocks = sorted
@@ -464,7 +514,10 @@ function buildErrorFixPrompt(input: RemediationInput): string {
 	const outputTypeInstructions = getOutputTypeInstructions(
 		input.targetAgent,
 		"error",
+		input.colocatedPairs,
 	);
+
+	const consolidationNotice = buildConsolidationNotice(input.colocatedPairs);
 
 	return `# Fix Documentation Issues
 
@@ -472,7 +525,7 @@ function buildErrorFixPrompt(input: RemediationInput): string {
 You are fixing documentation quality issues for the target: **${agentDisplayName}**.
 ${agentDescription}
 These files guide AI coding agents. Fixes must be precise and concise.
-
+${consolidationNotice}
 ## Context Files
 ${contextFilesList}
 
@@ -522,7 +575,11 @@ function buildSuggestionEnrichPrompt(input: RemediationInput): string {
 	);
 
 	const snippetIndex = buildSnippetIndex(sorted);
-	const contextFilesList = input.contextFilePaths
+	const effectiveContextFiles = filterColocatedClaudePaths(
+		input.contextFilePaths,
+		input.colocatedPairs,
+	);
+	const contextFilesList = effectiveContextFiles
 		.map((p) => `- ${p}`)
 		.join("\n");
 	const issueBlocks = sorted
@@ -532,14 +589,20 @@ function buildSuggestionEnrichPrompt(input: RemediationInput): string {
 
 	const agentDisplayName = TARGET_AGENTS[input.targetAgent];
 	const agentDescription = getAgentContextDescription(input.targetAgent);
-	const outputTypeInstructions = getOutputTypeInstructions(input.targetAgent);
+	const outputTypeInstructions = getOutputTypeInstructions(
+		input.targetAgent,
+		"suggestion",
+		input.colocatedPairs,
+	);
+
+	const consolidationNotice = buildConsolidationNotice(input.colocatedPairs);
 
 	return `# Enrich Documentation
 
 ## Role
 You are enriching AI agent documentation for the target: **${agentDisplayName}**.
 ${agentDescription}
-
+${consolidationNotice}
 ## Context Files
 ${contextFilesList}
 

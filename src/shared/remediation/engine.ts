@@ -19,6 +19,7 @@ import {
 } from "@shared/types/remediation";
 import { evaluationRepository } from "../../api/db/evaluation-repository";
 import type { JobManager } from "../../api/jobs/job-manager";
+import { consolidateColocatedFiles } from "./file-consolidator";
 import {
 	captureGitDiff,
 	checkCleanWorkingTree,
@@ -171,6 +172,37 @@ export async function executeRemediation(
 			emitStep(onProgress, "checking_git", "completed");
 		}
 
+		// 2.5. Consolidate colocated AGENTS.md/CLAUDE.md pairs
+		const pc = evaluationData.result?.metadata?.projectContext;
+		const colocatedPairs: Array<{
+			directory: string;
+			agentsPath: string;
+			claudePath: string;
+		}> = pc?.colocatedPairs ?? [];
+
+		if (colocatedPairs.length > 0) {
+			emitStep(onProgress, "consolidating_files", "started");
+			console.log(
+				`[Remediation] Consolidating ${colocatedPairs.length} colocated AGENTS.md/CLAUDE.md pair(s)`,
+			);
+			const consolidationResults = await consolidateColocatedFiles(
+				workDir,
+				colocatedPairs,
+			);
+			for (const result of consolidationResults) {
+				if (result.skipped) {
+					console.log(
+						`[Remediation] Skipped ${result.claudePath}: ${result.reason}`,
+					);
+				} else {
+					console.log(
+						`[Remediation] Consolidated ${result.claudePath} → @AGENTS.md`,
+					);
+				}
+			}
+			emitStep(onProgress, "consolidating_files", "completed");
+		}
+
 		// 3. Generate prompts
 		const errors: RemediationIssue[] = [];
 		const suggestions: RemediationIssue[] = [];
@@ -184,6 +216,19 @@ export async function executeRemediation(
 			}
 		}
 
+		// Remap issue locations from CLAUDE.md → AGENTS.md for consolidated pairs
+		if (colocatedPairs.length > 0) {
+			const claudeToAgents = new Map<string, string>(
+				colocatedPairs.map((p) => [p.claudePath, p.agentsPath]),
+			);
+			for (const issue of [...errors, ...suggestions]) {
+				const file = issue.location?.file;
+				if (file && claudeToAgents.has(file)) {
+					issue.location.file = claudeToAgents.get(file)!;
+				}
+			}
+		}
+
 		console.log(
 			`[Remediation] Issues: ${errors.length} errors, ${suggestions.length} suggestions`,
 		);
@@ -192,13 +237,22 @@ export async function executeRemediation(
 			evaluationData.result?.metadata?.projectContext?.technicalInventory,
 		);
 
-		const pc = evaluationData.result?.metadata?.projectContext;
-		const contextFilePaths = pc?.agentsFilePaths ?? [];
+		let contextFilePaths = pc?.agentsFilePaths ?? [];
 		const projectSummary = {
 			languages: pc?.languages,
 			frameworks: pc?.frameworks,
 			architecture: pc?.architecture,
 		};
+
+		// Filter consolidated CLAUDE.md paths from context file list
+		if (colocatedPairs.length > 0) {
+			const claudePaths = new Set(
+				colocatedPairs.map((p: { claudePath: string }) => p.claudePath),
+			);
+			contextFilePaths = contextFilePaths.filter(
+				(p: string) => !claudePaths.has(p),
+			);
+		}
 
 		const input: RemediationInput = {
 			targetAgent: request.targetAgent,
@@ -207,6 +261,7 @@ export async function executeRemediation(
 			suggestions,
 			technicalInventorySection,
 			projectSummary,
+			colocatedPairs: colocatedPairs.length > 0 ? colocatedPairs : undefined,
 		};
 
 		const prompts = generateRemediationPrompts(input);

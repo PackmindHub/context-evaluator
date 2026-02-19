@@ -762,4 +762,89 @@ describe("prompt-generator", () => {
 			);
 		});
 	});
+
+	describe("colocatedPairs support", () => {
+		const colocatedPairs = [
+			{
+				directory: ".",
+				agentsPath: "AGENTS.md",
+				claudePath: "CLAUDE.md",
+			},
+		];
+
+		test("getGenericUpdateFile returns AGENTS.md when colocatedPairs exist (even for claude-code target)", () => {
+			const input: RemediationInput = {
+				...baseInput,
+				targetAgent: "claude-code",
+				contextFilePaths: ["AGENTS.md", "CLAUDE.md"],
+				errors: [makeError()],
+				colocatedPairs,
+			};
+
+			const result = generateRemediationPrompts(input);
+
+			// Generic update should reference AGENTS.md, not CLAUDE.md
+			expect(result.errorFixPrompt).toContain(
+				"Generic Update** — A direct addition or edit to `AGENTS.md`",
+			);
+		});
+
+		test("prompt includes consolidation notice when pairs exist", () => {
+			const input: RemediationInput = {
+				...baseInput,
+				errors: [makeError()],
+				colocatedPairs,
+			};
+
+			const result = generateRemediationPrompts(input);
+
+			expect(result.errorFixPrompt).toContain("File Consolidation Notice");
+			expect(result.errorFixPrompt).toContain(
+				"AGENTS.md is the single source of truth",
+			);
+			expect(result.errorFixPrompt).toContain(
+				"Never edit CLAUDE.md files that contain `@AGENTS.md`",
+			);
+		});
+
+		test("suggestion prompt includes consolidation notice", () => {
+			const input: RemediationInput = {
+				...baseInput,
+				suggestions: [makeSuggestion()],
+				colocatedPairs,
+			};
+
+			const result = generateRemediationPrompts(input);
+
+			expect(result.suggestionEnrichPrompt).toContain(
+				"File Consolidation Notice",
+			);
+		});
+
+		test("prompt excludes CLAUDE.md from context files list when pairs exist", () => {
+			const input: RemediationInput = {
+				...baseInput,
+				contextFilePaths: ["AGENTS.md", "CLAUDE.md"],
+				errors: [makeError()],
+				colocatedPairs,
+			};
+
+			const result = generateRemediationPrompts(input);
+
+			// Context Files section should list AGENTS.md but not CLAUDE.md
+			expect(result.errorFixPrompt).toContain("- AGENTS.md");
+			expect(result.errorFixPrompt).not.toContain("- CLAUDE.md");
+		});
+
+		test("prompt has no consolidation notice when no pairs", () => {
+			const input: RemediationInput = {
+				...baseInput,
+				errors: [makeError()],
+			};
+
+			const result = generateRemediationPrompts(input);
+
+			expect(result.errorFixPrompt).not.toContain("File Consolidation Notice");
+		});
+	});
 });

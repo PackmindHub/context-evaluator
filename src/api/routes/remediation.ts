@@ -148,8 +148,24 @@ export class RemediationRoutes {
 				architecture: pc?.architecture,
 			};
 
-			// Step 5: Get context file paths
-			const contextFilePaths = pc?.agentsFilePaths ?? [];
+			// Step 5: Get context file paths and handle colocated pairs
+			const colocatedPairs = pc?.colocatedPairs ?? [];
+			let contextFilePaths = pc?.agentsFilePaths ?? [];
+
+			// Remap issue locations from CLAUDE.md → AGENTS.md for consolidated pairs
+			if (colocatedPairs.length > 0) {
+				const claudeToAgents = new Map(
+					colocatedPairs.map((p) => [p.claudePath, p.agentsPath]),
+				);
+				for (const issue of [...errors, ...suggestions]) {
+					if (issue.location?.file && claudeToAgents.has(issue.location.file)) {
+						issue.location.file = claudeToAgents.get(issue.location.file)!;
+					}
+				}
+				// Filter consolidated CLAUDE.md paths from context file list
+				const claudePaths = new Set(colocatedPairs.map((p) => p.claudePath));
+				contextFilePaths = contextFilePaths.filter((p) => !claudePaths.has(p));
+			}
 
 			// Step 6: Generate prompts
 			const input: RemediationInput = {
@@ -159,6 +175,7 @@ export class RemediationRoutes {
 				suggestions,
 				technicalInventorySection,
 				projectSummary,
+				colocatedPairs: colocatedPairs.length > 0 ? colocatedPairs : undefined,
 			};
 
 			const result = generateRemediationPrompts(input);

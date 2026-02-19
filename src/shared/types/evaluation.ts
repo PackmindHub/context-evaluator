@@ -168,6 +168,11 @@ export interface IProjectContext {
 	skills?: ISkill[]; // Agent Skills cartography (from SKILL.md files)
 	linkedDocs?: ILinkedDocSummary[]; // AI-summarized documentation linked from AGENTS.md
 	technicalInventory?: ITechnicalInventory; // Pre-computed technical data from codebase
+	colocatedPairs?: Array<{
+		directory: string;
+		agentsPath: string;
+		claudePath: string;
+	}>; // Directories where both AGENTS.md and CLAUDE.md coexist with different content
 }
 
 export interface IContextIdentifierResult {

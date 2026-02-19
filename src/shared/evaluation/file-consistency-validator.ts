@@ -169,7 +169,7 @@ export async function validateFileConsistency(
 						isMultiFile: true,
 						impact:
 							"AI agents may receive inconsistent instructions depending on which file they reference, leading to unpredictable behavior.",
-						fix: "Choose one naming standard (AGENTS.md or CLAUDE.md). Merge any unique content before renaming or deleting the duplicate.",
+						fix: "Merge unique CLAUDE.md content into AGENTS.md, then replace CLAUDE.md content with `@AGENTS.md` to create a reference pointer. AGENTS.md should be the single source of truth.",
 						context: `Unified Diff:\n\n${diff}`,
 						issueType: "error",
 						evaluatorName: "file-consistency",
