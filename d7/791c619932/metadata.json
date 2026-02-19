@@ -1,0 +1,26 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "d7791c619932",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "frontend/src/components/AgentLogos.tsx"
+  ],
+  "sessions": [
+    {
+      "metadata": "/d7/791c619932/0/metadata.json",
+      "transcript": "/d7/791c619932/0/full.jsonl",
+      "context": "/d7/791c619932/0/context.md",
+      "content_hash": "/d7/791c619932/0/content_hash.txt",
+      "prompt": "/d7/791c619932/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 30,
+    "cache_creation_tokens": 37678,
+    "cache_read_tokens": 1009239,
+    "output_tokens": 1045,
+    "api_call_count": 24
+  }
+}

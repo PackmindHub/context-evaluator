@@ -1,0 +1,13 @@
+Looks like here, ai coding agents logo are not rendered correctly.
+
+---
+
+[Request interrupted by user for tool use]
+
+---
+
+Looks like here, ai coding agents logo are not rendered correctly. Cursor logo is @cursor-logo.svg
+
+---
+
+commi

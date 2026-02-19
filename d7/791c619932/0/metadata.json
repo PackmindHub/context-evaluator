@@ -1,0 +1,69 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "d7791c619932",
+  "session_id": "85ec650c-1911-4729-b965-12859c513c01",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-19T10:57:04.442693Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "frontend/src/components/AgentLogos.tsx"
+  ],
+  "agent": "Claude Code",
+  "transcript_identifier_at_start": "61b6ff96-bf6d-457b-b1d4-a566459a053e",
+  "token_usage": {
+    "input_tokens": 30,
+    "cache_creation_tokens": 37678,
+    "cache_read_tokens": 1009239,
+    "output_tokens": 1045,
+    "api_call_count": 24
+  },
+  "summary": {
+    "intent": "Fix incorrectly rendered AI coding agent logos in the frontend, starting with the Cursor logo which was visibly broken.",
+    "outcome": "Replaced the corrupted cursor-logo.svg (which contained a literal '404: Not Found' string) with the real Cursor SVG from Simple Icons, updated the CursorLogo component path in AgentLogos.tsx, and successfully committed after removing a leftover temp clone directory that was blocking the pre-commit hook.",
+    "learnings": {
+      "repo": [
+        "SVG logo assets live in frontend/assets/agents/ and are inlined into React components in AgentLogos.tsx via an agentLogoMap.",
+        "The project uses a husky pre-commit hook that runs the full bun test suite (1309 tests) before allowing commits.",
+        "tmp/clones/ is used for evaluation runs and can accumulate leftover directories (e.g., agents-eval-DtKspd) whose test files get picked up by bun, polluting the test run.",
+        "The project uses an 'rtk' command prefix as a task runner wrapper around standard tools (git, bun).",
+        "When an SVG asset fails to download/copy correctly, it silently stores the HTTP error body instead of failing loudly — here 'IN' letters were rendered as a fallback."
+      ],
+      "code": [
+        {
+          "path": "frontend/src/components/AgentLogos.tsx",
+          "line": 38,
+          "end_line": 38,
+          "finding": "CursorLogo component had a placeholder/wrong SVG path data that rendered as 'IN' letters because the asset file was corrupted."
+        },
+        {
+          "path": "frontend/assets/agents/cursor-logo.svg",
+          "finding": "File contained only 14 bytes: the literal string '404: Not Found', indicating it was downloaded from a URL that returned a 404 at some point during asset setup."
+        }
+      ],
+      "workflow": [
+        "simpleicons.org/icons/\u003cname\u003e.svg is a reliable source for standardized tech brand SVG logos.",
+        "When SVG rendering looks wrong (letters instead of icon), check the raw asset file bytes first — corrupted assets are easy to overlook.",
+        "Before retrying a blocked pre-commit hook, identify whether the failure is related to the current changes or environmental noise (leftover temp files, stale caches)."
+      ]
+    },
+    "friction": [
+      "cursor-logo.svg was silently corrupted with HTTP error text instead of valid SVG, requiring hex inspection (xxd) to diagnose.",
+      "Pre-commit hook failed due to bun picking up test files from an unrelated leftover tmp/clones/agents-eval-DtKspd/ directory, blocking the commit entirely.",
+      "Initial user request was interrupted mid-tool-use, requiring the user to restate the prompt with additional context (the logo filename)."
+    ],
+    "open_items": [
+      "OpenAI Codex and OpenCode agents were identified as missing from agentLogoMap in AgentLogos.tsx but were not addressed in this session.",
+      "The tmp/clones/ directory has no apparent cleanup mechanism — leftover evaluation clones will continue to pollute bun's test discovery on future pre-commit runs unless gitignored or auto-cleaned."
+    ]
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-19T10:56:36.723191Z",
+    "agent_lines": 9,
+    "human_added": 1211,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 1220,
+    "agent_percentage": 0.7377049180327869
+  }
+}
