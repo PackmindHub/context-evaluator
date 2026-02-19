@@ -36,6 +36,15 @@ export interface PromptStats {
 	outputTokens?: number;
 }
 
+export interface PlanData {
+	errorPlan?: string;
+	suggestionPlan?: string;
+	errorPlanPrompt?: string;
+	suggestionPlanPrompt?: string;
+	errorFixDiff?: string;
+	errorFixFileChanges?: FileChange[];
+}
+
 export interface RemediationResult {
 	fullPatch: string;
 	fileChanges: FileChange[];
@@ -49,6 +58,8 @@ export interface RemediationResult {
 	summary?: RemediationSummary;
 	errorFixStats?: PromptStats;
 	suggestionEnrichStats?: PromptStats;
+	errorPlanStats?: PromptStats;
+	suggestionPlanStats?: PromptStats;
 }
 
 export interface IRemediationProgressState {
@@ -99,7 +110,10 @@ export interface RemediationHistoryItem {
 	promptStats: {
 		errorFixStats?: PromptStats;
 		suggestionEnrichStats?: PromptStats;
+		errorPlanStats?: PromptStats;
+		suggestionPlanStats?: PromptStats;
 	} | null;
+	planData: PlanData | null;
 	resultEvaluationId: string | null;
 	errorMessage: string | null;
 	createdAt: string;

@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import {
+	buildErrorExecutionPrompt,
+	buildErrorPlanPrompt,
+	buildSuggestionExecutionPrompt,
+	buildSuggestionPlanPrompt,
+	generatePlanFirstPrompts,
 	generateRemediationPrompts,
 	type RemediationInput,
 	type RemediationIssue,
@@ -845,6 +850,262 @@ describe("prompt-generator", () => {
 			const result = generateRemediationPrompts(input);
 
 			expect(result.errorFixPrompt).not.toContain("File Consolidation Notice");
+		});
+	});
+});
+
+describe("plan-first prompts", () => {
+	describe("buildErrorPlanPrompt", () => {
+		test("returns empty string when no errors", () => {
+			expect(buildErrorPlanPrompt(baseInput)).toBe("");
+		});
+
+		test("generates plan prompt with correct structure", () => {
+			const input: RemediationInput = {
+				...baseInput,
+				errors: [
+					makeError({ severity: 9 }),
+					makeError({ severity: 7, category: "Security" }),
+				],
+			};
+
+			const result = buildErrorPlanPrompt(input);
+
+			expect(result).toContain("# Plan Error Fixes");
+			expect(result).toContain("Do NOT make any file changes");
+			expect(result).toContain("## Planning Instructions");
+			expect(result).toContain("## Output Format");
+			expect(result).toContain("## Task 1:");
+			expect(result).toContain("Issues to Fix (2)");
+		});
+
+		test("includes issue blocks sorted by severity", () => {
+			const input: RemediationInput = {
+				...baseInput,
+				errors: [
+					makeError({ severity: 5, category: "Low" }),
+					makeError({ severity: 10, category: "Critical" }),
+				],
+			};
+
+			const result = buildErrorPlanPrompt(input);
+			const criticalIdx = result.indexOf("Critical");
+			const lowIdx = result.indexOf("Low");
+
+			expect(criticalIdx).toBeLessThan(lowIdx);
+		});
+
+		test("includes output type instructions", () => {
+			const input: RemediationInput = {
+				...baseInput,
+				errors: [makeError()],
+			};
+
+			const result = buildErrorPlanPrompt(input);
+
+			expect(result).toContain("### Output Types");
+			expect(result).toContain("### Decision Criteria");
+		});
+
+		test("includes minimal context block", () => {
+			const input: RemediationInput = {
+				...baseInput,
+				errors: [makeError()],
+			};
+
+			const result = buildErrorPlanPrompt(input);
+
+			expect(result).toContain("## Target: **AGENTS.md**");
+			expect(result).toContain("- AGENTS.md");
+			expect(result).toContain("Languages: TypeScript");
+		});
+	});
+
+	describe("buildErrorExecutionPrompt", () => {
+		test("returns empty string when no errors", () => {
+			expect(buildErrorExecutionPrompt(baseInput, "some plan")).toBe("");
+		});
+
+		test("includes plan content and execution instructions", () => {
+			const input: RemediationInput = {
+				...baseInput,
+				errors: [makeError()],
+			};
+			const plan =
+				"## Task 1: Fix marketing language\n**Issues:** #1\n**Strategy:** Replace with technical content";
+
+			const result = buildErrorExecutionPrompt(input, plan);
+
+			expect(result).toContain("# Execute Error Fix Plan");
+			expect(result).toContain("## Plan to Execute");
+			expect(result).toContain("Fix marketing language");
+			expect(result).toContain("## Execution Instructions");
+			expect(result).toContain('"actions"');
+		});
+
+		test("does NOT include issue blocks (only plan)", () => {
+			const input: RemediationInput = {
+				...baseInput,
+				errors: [makeError()],
+			};
+			const plan = "## Task 1: Fix it\n**Strategy:** Just fix it";
+
+			const result = buildErrorExecutionPrompt(input, plan);
+
+			expect(result).not.toContain("Issues to Fix");
+			expect(result).not.toContain("**Severity**: 8/10");
+		});
+	});
+
+	describe("buildSuggestionPlanPrompt", () => {
+		test("returns empty string when no suggestions", () => {
+			expect(buildSuggestionPlanPrompt(baseInput)).toBe("");
+		});
+
+		test("generates plan prompt with correct structure", () => {
+			const input: RemediationInput = {
+				...baseInput,
+				suggestions: [makeSuggestion()],
+			};
+
+			const result = buildSuggestionPlanPrompt(input);
+
+			expect(result).toContain("# Plan Documentation Enrichment");
+			expect(result).toContain("Do NOT make any file changes");
+			expect(result).toContain("Documentation Gaps (1)");
+			expect(result).toContain("## Phantom File Remapping");
+		});
+
+		test("includes error fix summary when provided", () => {
+			const input: RemediationInput = {
+				...baseInput,
+				suggestions: [makeSuggestion()],
+			};
+			const summary =
+				"- Fixed marketing language in AGENTS.md\n- Created git-conventions standard";
+
+			const result = buildSuggestionPlanPrompt(input, summary);
+
+			expect(result).toContain("## Recent Error Fixes");
+			expect(result).toContain("Fixed marketing language");
+			expect(result).toContain("Do NOT duplicate this work");
+		});
+
+		test("omits error fix section when no summary provided", () => {
+			const input: RemediationInput = {
+				...baseInput,
+				suggestions: [makeSuggestion()],
+			};
+
+			const result = buildSuggestionPlanPrompt(input);
+
+			expect(result).not.toContain("## Recent Error Fixes");
+		});
+	});
+
+	describe("buildSuggestionExecutionPrompt", () => {
+		test("returns empty string when no suggestions", () => {
+			expect(buildSuggestionExecutionPrompt(baseInput, "some plan")).toBe("");
+		});
+
+		test("includes plan content and execution instructions", () => {
+			const input: RemediationInput = {
+				...baseInput,
+				suggestions: [makeSuggestion()],
+			};
+			const plan =
+				"## Task 1: Add testing docs\n**Gaps:** #1\n**Strategy:** Document Jest patterns";
+
+			const result = buildSuggestionExecutionPrompt(input, plan);
+
+			expect(result).toContain("# Execute Documentation Enrichment Plan");
+			expect(result).toContain("## Plan to Execute");
+			expect(result).toContain("Add testing docs");
+			expect(result).toContain("## Phantom File Remapping");
+			expect(result).toContain('"actions"');
+		});
+	});
+
+	describe("generatePlanFirstPrompts", () => {
+		test("returns all prompts when both errors and suggestions present", () => {
+			const input: RemediationInput = {
+				...baseInput,
+				errors: [makeError()],
+				suggestions: [makeSuggestion()],
+			};
+
+			const result = generatePlanFirstPrompts(input);
+
+			expect(result.errorPlanPrompt).toContain("# Plan Error Fixes");
+			expect(result.suggestionPlanPrompt).toContain(
+				"# Plan Documentation Enrichment",
+			);
+			expect(result.errorExecutionPrompt).toBe("");
+			expect(result.suggestionExecutionPrompt).toBe("");
+			expect(result.errorCount).toBe(1);
+			expect(result.suggestionCount).toBe(1);
+		});
+
+		test("returns execution prompts when plans provided", () => {
+			const input: RemediationInput = {
+				...baseInput,
+				errors: [makeError()],
+				suggestions: [makeSuggestion()],
+			};
+			const plans = {
+				errorPlan: "## Task 1: Fix errors",
+				suggestionPlan: "## Task 1: Add docs",
+			};
+
+			const result = generatePlanFirstPrompts(input, plans);
+
+			expect(result.errorExecutionPrompt).toContain("# Execute Error Fix Plan");
+			expect(result.errorExecutionPrompt).toContain("Fix errors");
+			expect(result.suggestionExecutionPrompt).toContain(
+				"# Execute Documentation Enrichment Plan",
+			);
+			expect(result.suggestionExecutionPrompt).toContain("Add docs");
+		});
+
+		test("passes error fix summary to suggestion plan", () => {
+			const input: RemediationInput = {
+				...baseInput,
+				suggestions: [makeSuggestion()],
+			};
+			const summary = "- Fixed issue in AGENTS.md";
+
+			const result = generatePlanFirstPrompts(input, undefined, summary);
+
+			expect(result.suggestionPlanPrompt).toContain("## Recent Error Fixes");
+			expect(result.suggestionPlanPrompt).toContain("Fixed issue in AGENTS.md");
+		});
+
+		test("handles errors-only case", () => {
+			const input: RemediationInput = {
+				...baseInput,
+				errors: [makeError()],
+			};
+
+			const result = generatePlanFirstPrompts(input);
+
+			expect(result.errorPlanPrompt).toContain("# Plan Error Fixes");
+			expect(result.suggestionPlanPrompt).toBe("");
+			expect(result.suggestionExecutionPrompt).toBe("");
+		});
+
+		test("handles suggestions-only case", () => {
+			const input: RemediationInput = {
+				...baseInput,
+				suggestions: [makeSuggestion()],
+			};
+
+			const result = generatePlanFirstPrompts(input);
+
+			expect(result.errorPlanPrompt).toBe("");
+			expect(result.errorExecutionPrompt).toBe("");
+			expect(result.suggestionPlanPrompt).toContain(
+				"# Plan Documentation Enrichment",
+			);
 		});
 	});
 });

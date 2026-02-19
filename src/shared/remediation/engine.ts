@@ -8,12 +8,12 @@ import { cloneRepository } from "@shared/file-system/git-cloner";
 import { getProvider } from "@shared/providers/registry";
 import type { ProviderName } from "@shared/providers/types";
 import {
+	type IFileChange,
 	type IPromptExecutionStats,
 	type IRemediationAction,
 	type IRemediationRequest,
 	type IRemediationResult,
 	type IRemediationSummary,
-	REMEDIATION_BATCH_SIZE,
 	type RemediationProgressEvent,
 	type RemediationStep,
 } from "@shared/types/remediation";
@@ -27,7 +27,10 @@ import {
 	resetWorkingDirectory,
 } from "./git-operations";
 import {
-	generateRemediationPrompts,
+	buildErrorExecutionPrompt,
+	buildErrorPlanPrompt,
+	buildSuggestionExecutionPrompt,
+	buildSuggestionPlanPrompt,
 	type RemediationInput,
 	type RemediationIssue,
 } from "./prompt-generator";
@@ -36,14 +39,6 @@ import { parseActionSummary } from "./summary-parser";
 const REMEDIATION_TIMEOUT_MS = 600_000; // 10 minutes per prompt
 
 type ProgressCallback = (event: RemediationProgressEvent) => void;
-
-function chunkArray<T>(arr: T[], size: number): T[][] {
-	const chunks: T[][] = [];
-	for (let i = 0; i < arr.length; i += size) {
-		chunks.push(arr.slice(i, i + size));
-	}
-	return chunks;
-}
 
 function emitStep(
 	onProgress: ProgressCallback | undefined,
@@ -108,13 +103,30 @@ function enrichActionsWithIssueTitles(
 	}
 }
 
-/** Build brief issue summaries for a batch (evaluatorName: category). */
-function buildBatchIssueSummaries(batch: RemediationIssue[]): string[] {
-	return batch.map((issue) => `${issue.evaluatorName}: ${issue.category}`);
+/**
+ * Build a human-readable summary of error-fix actions for cross-phase context.
+ */
+function buildErrorFixSummaryText(
+	actions: IRemediationAction[],
+	sortedErrors: RemediationIssue[],
+): string {
+	const lines: string[] = [];
+	for (const action of actions) {
+		if (action.status === "skipped") continue;
+		const issue = sortedErrors[action.issueIndex - 1];
+		const issueLabel = issue
+			? `${issue.evaluatorName}: ${issue.category}`
+			: `Issue #${action.issueIndex}`;
+		const filePart = action.file ? ` in \`${action.file}\`` : "";
+		lines.push(`- **${issueLabel}**${filePart}: ${action.summary}`);
+	}
+	return lines.length > 0 ? lines.join("\n") : "No error fixes were applied.";
 }
 
 /**
- * Execute remediation: run prompts via a CLI provider, capture diff, reset.
+ * Execute remediation: plan-first 4-phase pipeline.
+ * Phase 1: Plan error fixes → Phase 2: Execute error fixes →
+ * Phase 3: Plan suggestion enrichment → Phase 4: Execute suggestions
  */
 export async function executeRemediation(
 	request: IRemediationRequest,
@@ -264,26 +276,49 @@ export async function executeRemediation(
 			colocatedPairs: colocatedPairs.length > 0 ? colocatedPairs : undefined,
 		};
 
-		const prompts = generateRemediationPrompts(input);
-
-		// 4. Execute prompts via provider (batched, max REMEDIATION_BATCH_SIZE issues per prompt)
+		// 4. Plan-first 4-phase pipeline
 		const provider = getProvider(request.provider as ProviderName);
+		let errorPlanStats: IPromptExecutionStats | undefined;
 		let errorFixStats: IPromptExecutionStats | undefined;
+		let suggestionPlanStats: IPromptExecutionStats | undefined;
 		let suggestionEnrichStats: IPromptExecutionStats | undefined;
-		const errorFixResponseTexts: string[] = [];
-		const suggestionEnrichResponseTexts: string[] = [];
+		let errorPlan: string | undefined;
+		let suggestionPlan: string | undefined;
+		let errorPlanPrompt: string | undefined;
+		let suggestionPlanPrompt: string | undefined;
+		let errorFixDiff: string | undefined;
+		let errorFixFileChanges: IFileChange[] | undefined;
+		let errorFixResponseText: string | undefined;
+		let suggestionEnrichResponseText: string | undefined;
 
-		// Compute batch counts for the plan event
-		const errorBatches =
-			errors.length > 0 ? chunkArray(errors, REMEDIATION_BATCH_SIZE) : [];
-		const suggestionBatches =
-			suggestions.length > 0
-				? chunkArray(suggestions, REMEDIATION_BATCH_SIZE)
-				: [];
-		const totalGlobalBatches = errorBatches.length + suggestionBatches.length;
+		// Sort arrays the same way the prompt generator does to match issueIndex
+		const sortedErrors = [...errors].sort(
+			(a, b) => (b.severity ?? 0) - (a.severity ?? 0),
+		);
+		const impactOrder: Record<string, number> = {
+			High: 0,
+			Medium: 1,
+			Low: 2,
+		};
+		const sortedSuggestions = [...suggestions].sort(
+			(a, b) =>
+				(impactOrder[a.impactLevel ?? "Low"] ?? 2) -
+				(impactOrder[b.impactLevel ?? "Low"] ?? 2),
+		);
+
+		// Compute total phases for progress (2 per type: plan + execute)
+		const totalPhases =
+			(errors.length > 0 ? 2 : 0) + (suggestions.length > 0 ? 2 : 0);
+		let completedPhases = 0;
+
+		// Running totals across all phases
+		let runningTotalDurationMs = 0;
+		let runningTotalCostUsd = 0;
+		let runningTotalInputTokens = 0;
+		let runningTotalOutputTokens = 0;
 
 		console.log(
-			`[Remediation] Plan: ${errorBatches.length} error batch(es) + ${suggestionBatches.length} suggestion batch(es), provider: ${request.provider}`,
+			`[Remediation] Plan-first pipeline: ${errors.length} errors, ${suggestions.length} suggestions, ${totalPhases} AI invocations, provider: ${request.provider}`,
 		);
 
 		// Emit initial plan event
@@ -292,9 +327,7 @@ export async function executeRemediation(
 			data: {
 				errorCount: errors.length,
 				suggestionCount: suggestions.length,
-				errorBatchCount: errorBatches.length,
-				suggestionBatchCount: suggestionBatches.length,
-				totalBatches: totalGlobalBatches,
+				totalBatches: totalPhases,
 				completedBatches: 0,
 				provider: request.provider,
 				targetAgent: request.targetAgent,
@@ -306,230 +339,247 @@ export async function executeRemediation(
 			},
 		});
 
-		// Global running totals across all batches
-		let globalCompletedBatches = 0;
-		let globalTotalDurationMs = 0;
-		let globalTotalCostUsd = 0;
-		let globalTotalInputTokens = 0;
-		let globalTotalOutputTokens = 0;
-
-		// Execute error fix prompts in batches
+		// --- Phase 1: Plan error fixes ---
 		if (errors.length > 0) {
-			const totalBatches = errorBatches.length;
-			let totalDurationMs = 0;
-			let totalCostUsd = 0;
-			let totalInputTokens = 0;
-			let totalOutputTokens = 0;
+			errorPlanPrompt = buildErrorPlanPrompt(input);
 
-			for (let batchIdx = 0; batchIdx < errorBatches.length; batchIdx++) {
-				const batch = errorBatches[batchIdx];
-				if (!batch) continue;
-				const batchInfo =
-					totalBatches > 1
-						? { batchNumber: batchIdx + 1, totalBatches }
-						: undefined;
+			emitStep(onProgress, "planning_error_fix", "started");
+			console.log(
+				`[Remediation] Phase 1: Planning error fixes (${errors.length} issues)`,
+			);
 
-				const batchInput: RemediationInput = {
-					...input,
-					errors: batch,
-					suggestions: [],
-				};
-				const batchPrompts = generateRemediationPrompts(batchInput);
+			const planStart = Date.now();
+			const planResponse = await provider.invokeWithRetry(errorPlanPrompt, {
+				cwd: workDir,
+				writeMode: false,
+				timeout: REMEDIATION_TIMEOUT_MS,
+			});
+			const planDurationMs = Date.now() - planStart;
+			const planCost = planResponse.cost_usd ?? 0;
+			const planInputTokens = planResponse.usage?.input_tokens ?? 0;
+			const planOutputTokens = planResponse.usage?.output_tokens ?? 0;
 
-				if (batchPrompts.errorFixPrompt) {
-					const issueSummaries = buildBatchIssueSummaries(batch);
+			errorPlan = planResponse.result || "";
+			errorPlanStats = {
+				prompt: errorPlanPrompt,
+				durationMs: planDurationMs,
+				costUsd: planCost || undefined,
+				inputTokens: planInputTokens || undefined,
+				outputTokens: planOutputTokens || undefined,
+			};
 
-					console.log(
-						`[Remediation] Invoking ${request.provider} for error fix batch ${batchIdx + 1}/${totalBatches} (${batch.length} issues)`,
-					);
+			completedPhases++;
+			runningTotalDurationMs += planDurationMs;
+			runningTotalCostUsd += planCost;
+			runningTotalInputTokens += planInputTokens;
+			runningTotalOutputTokens += planOutputTokens;
 
-					emitStep(onProgress, "executing_error_fix", "started", batchInfo, {
-						issuesSummary: issueSummaries,
-						batchIssueCount: batch.length,
-					});
-					const fixStart = Date.now();
-					const response = await provider.invokeWithRetry(
-						batchPrompts.errorFixPrompt,
-						{
-							cwd: workDir,
-							writeMode: true,
-							timeout: REMEDIATION_TIMEOUT_MS,
-						},
-					);
-					const durationMs = Date.now() - fixStart;
-					const batchCostUsd = response.cost_usd ?? 0;
-					const batchInputTokens = response.usage?.input_tokens ?? 0;
-					const batchOutputTokens = response.usage?.output_tokens ?? 0;
+			console.log(
+				`[Remediation] Phase 1 completed: ${planDurationMs}ms, $${planCost.toFixed(4)}`,
+			);
+			emitStep(onProgress, "planning_error_fix", "completed");
 
-					totalDurationMs += durationMs;
-					totalCostUsd += batchCostUsd;
-					totalInputTokens += batchInputTokens;
-					totalOutputTokens += batchOutputTokens;
+			onProgress?.({
+				type: "remediation.progress",
+				data: {
+					completedBatches: completedPhases,
+					totalBatches: totalPhases,
+					phase: "errors",
+					runningTotalDurationMs,
+					runningTotalCostUsd,
+					runningTotalInputTokens,
+					runningTotalOutputTokens,
+				},
+			});
 
-					// Update global running totals
-					globalCompletedBatches++;
-					globalTotalDurationMs += durationMs;
-					globalTotalCostUsd += batchCostUsd;
-					globalTotalInputTokens += batchInputTokens;
-					globalTotalOutputTokens += batchOutputTokens;
+			// --- Phase 2: Execute error fixes ---
+			const execPrompt = buildErrorExecutionPrompt(input, errorPlan);
 
-					console.log(
-						`[Remediation] Batch ${batchIdx + 1}/${totalBatches} completed: ${durationMs}ms, $${batchCostUsd.toFixed(4)}, ${batchInputTokens} in / ${batchOutputTokens} out`,
-					);
+			emitStep(onProgress, "executing_error_fix", "started");
+			console.log("[Remediation] Phase 2: Executing error fixes");
 
-					if (response.result) {
-						errorFixResponseTexts.push(response.result);
-					}
-					emitStep(onProgress, "executing_error_fix", "completed", batchInfo, {
-						batchDurationMs: durationMs,
-						batchCostUsd,
-						batchInputTokens,
-						batchOutputTokens,
-					});
+			const execStart = Date.now();
+			const execResponse = await provider.invokeWithRetry(execPrompt, {
+				cwd: workDir,
+				writeMode: true,
+				timeout: REMEDIATION_TIMEOUT_MS,
+			});
+			const execDurationMs = Date.now() - execStart;
+			const execCost = execResponse.cost_usd ?? 0;
+			const execInputTokens = execResponse.usage?.input_tokens ?? 0;
+			const execOutputTokens = execResponse.usage?.output_tokens ?? 0;
 
-					// Emit running totals
-					onProgress?.({
-						type: "remediation.progress",
-						data: {
-							completedBatches: globalCompletedBatches,
-							totalBatches: totalGlobalBatches,
-							phase: "errors",
-							runningTotalDurationMs: globalTotalDurationMs,
-							runningTotalCostUsd: globalTotalCostUsd,
-							runningTotalInputTokens: globalTotalInputTokens,
-							runningTotalOutputTokens: globalTotalOutputTokens,
-						},
-					});
-				}
-			}
-
+			errorFixResponseText = execResponse.result || undefined;
 			errorFixStats = {
-				prompt:
-					totalBatches > 1
-						? `[${totalBatches} batches]`
-						: prompts.errorFixPrompt || "",
-				durationMs: totalDurationMs,
-				costUsd: totalCostUsd || undefined,
-				inputTokens: totalInputTokens || undefined,
-				outputTokens: totalOutputTokens || undefined,
+				prompt: execPrompt,
+				durationMs: execDurationMs,
+				costUsd: execCost || undefined,
+				inputTokens: execInputTokens || undefined,
+				outputTokens: execOutputTokens || undefined,
 			};
+
+			completedPhases++;
+			runningTotalDurationMs += execDurationMs;
+			runningTotalCostUsd += execCost;
+			runningTotalInputTokens += execInputTokens;
+			runningTotalOutputTokens += execOutputTokens;
+
+			console.log(
+				`[Remediation] Phase 2 completed: ${execDurationMs}ms, $${execCost.toFixed(4)}`,
+			);
+			emitStep(onProgress, "executing_error_fix", "completed");
+
+			onProgress?.({
+				type: "remediation.progress",
+				data: {
+					completedBatches: completedPhases,
+					totalBatches: totalPhases,
+					phase: "errors",
+					runningTotalDurationMs,
+					runningTotalCostUsd,
+					runningTotalInputTokens,
+					runningTotalOutputTokens,
+				},
+			});
+
+			// --- Phase 2.5: Capture intermediate error diff ---
+			emitStep(onProgress, "capturing_error_diff", "started");
+			errorFixDiff = await captureGitDiff(workDir);
+			errorFixFileChanges = parseUnifiedDiff(errorFixDiff);
+			console.log(
+				`[Remediation] Error fix diff: ${errorFixFileChanges.length} files changed`,
+			);
+			emitStep(onProgress, "capturing_error_diff", "completed");
+			// Do NOT reset — leave working directory dirty for suggestions to build on
 		}
 
-		// Execute suggestion enrich prompts in batches (cumulative on top of error fixes)
+		// --- Phase 3: Plan suggestion enrichment ---
 		if (suggestions.length > 0) {
-			const totalBatches = suggestionBatches.length;
-			let totalDurationMs = 0;
-			let totalCostUsd = 0;
-			let totalInputTokens = 0;
-			let totalOutputTokens = 0;
-
-			for (let batchIdx = 0; batchIdx < suggestionBatches.length; batchIdx++) {
-				const batch = suggestionBatches[batchIdx];
-				if (!batch) continue;
-				const batchInfo =
-					totalBatches > 1
-						? { batchNumber: batchIdx + 1, totalBatches }
-						: undefined;
-
-				const batchInput: RemediationInput = {
-					...input,
-					errors: [],
-					suggestions: batch,
-				};
-				const batchPrompts = generateRemediationPrompts(batchInput);
-
-				if (batchPrompts.suggestionEnrichPrompt) {
-					const issueSummaries = buildBatchIssueSummaries(batch);
-
-					console.log(
-						`[Remediation] Invoking ${request.provider} for suggestion enrich batch ${batchIdx + 1}/${totalBatches} (${batch.length} issues)`,
+			// Build error-fix summary for cross-phase context
+			let errorFixSummaryText: string | undefined;
+			if (errorFixResponseText) {
+				const errorFixParsed = parseActionSummary(
+					errorFixResponseText,
+					"error_fix",
+				);
+				if (errorFixParsed.parsed) {
+					enrichActionsWithIssueTitles(errorFixParsed.actions, sortedErrors);
+					errorFixSummaryText = buildErrorFixSummaryText(
+						errorFixParsed.actions,
+						sortedErrors,
 					);
-
-					emitStep(
-						onProgress,
-						"executing_suggestion_enrich",
-						"started",
-						batchInfo,
-						{
-							issuesSummary: issueSummaries,
-							batchIssueCount: batch.length,
-						},
-					);
-					const enrichStart = Date.now();
-					const response = await provider.invokeWithRetry(
-						batchPrompts.suggestionEnrichPrompt,
-						{
-							cwd: workDir,
-							writeMode: true,
-							timeout: REMEDIATION_TIMEOUT_MS,
-						},
-					);
-					const durationMs = Date.now() - enrichStart;
-					const batchCostUsd = response.cost_usd ?? 0;
-					const batchInputTokens = response.usage?.input_tokens ?? 0;
-					const batchOutputTokens = response.usage?.output_tokens ?? 0;
-
-					totalDurationMs += durationMs;
-					totalCostUsd += batchCostUsd;
-					totalInputTokens += batchInputTokens;
-					totalOutputTokens += batchOutputTokens;
-
-					// Update global running totals
-					globalCompletedBatches++;
-					globalTotalDurationMs += durationMs;
-					globalTotalCostUsd += batchCostUsd;
-					globalTotalInputTokens += batchInputTokens;
-					globalTotalOutputTokens += batchOutputTokens;
-
-					console.log(
-						`[Remediation] Batch ${batchIdx + 1}/${totalBatches} completed: ${durationMs}ms, $${batchCostUsd.toFixed(4)}, ${batchInputTokens} in / ${batchOutputTokens} out`,
-					);
-
-					if (response.result) {
-						suggestionEnrichResponseTexts.push(response.result);
-					}
-					emitStep(
-						onProgress,
-						"executing_suggestion_enrich",
-						"completed",
-						batchInfo,
-						{
-							batchDurationMs: durationMs,
-							batchCostUsd,
-							batchInputTokens,
-							batchOutputTokens,
-						},
-					);
-
-					// Emit running totals
-					onProgress?.({
-						type: "remediation.progress",
-						data: {
-							completedBatches: globalCompletedBatches,
-							totalBatches: totalGlobalBatches,
-							phase: "suggestions",
-							runningTotalDurationMs: globalTotalDurationMs,
-							runningTotalCostUsd: globalTotalCostUsd,
-							runningTotalInputTokens: globalTotalInputTokens,
-							runningTotalOutputTokens: globalTotalOutputTokens,
-						},
-					});
 				}
 			}
 
-			suggestionEnrichStats = {
-				prompt:
-					totalBatches > 1
-						? `[${totalBatches} batches]`
-						: prompts.suggestionEnrichPrompt || "",
-				durationMs: totalDurationMs,
-				costUsd: totalCostUsd || undefined,
-				inputTokens: totalInputTokens || undefined,
-				outputTokens: totalOutputTokens || undefined,
+			suggestionPlanPrompt = buildSuggestionPlanPrompt(
+				input,
+				errorFixSummaryText,
+			);
+
+			emitStep(onProgress, "planning_suggestion_enrich", "started");
+			console.log(
+				`[Remediation] Phase 3: Planning suggestion enrichment (${suggestions.length} gaps)`,
+			);
+
+			const planStart = Date.now();
+			const planResponse = await provider.invokeWithRetry(
+				suggestionPlanPrompt,
+				{
+					cwd: workDir,
+					writeMode: false,
+					timeout: REMEDIATION_TIMEOUT_MS,
+				},
+			);
+			const planDurationMs = Date.now() - planStart;
+			const planCost = planResponse.cost_usd ?? 0;
+			const planInputTokens = planResponse.usage?.input_tokens ?? 0;
+			const planOutputTokens = planResponse.usage?.output_tokens ?? 0;
+
+			suggestionPlan = planResponse.result || "";
+			suggestionPlanStats = {
+				prompt: suggestionPlanPrompt,
+				durationMs: planDurationMs,
+				costUsd: planCost || undefined,
+				inputTokens: planInputTokens || undefined,
+				outputTokens: planOutputTokens || undefined,
 			};
+
+			completedPhases++;
+			runningTotalDurationMs += planDurationMs;
+			runningTotalCostUsd += planCost;
+			runningTotalInputTokens += planInputTokens;
+			runningTotalOutputTokens += planOutputTokens;
+
+			console.log(
+				`[Remediation] Phase 3 completed: ${planDurationMs}ms, $${planCost.toFixed(4)}`,
+			);
+			emitStep(onProgress, "planning_suggestion_enrich", "completed");
+
+			onProgress?.({
+				type: "remediation.progress",
+				data: {
+					completedBatches: completedPhases,
+					totalBatches: totalPhases,
+					phase: "suggestions",
+					runningTotalDurationMs,
+					runningTotalCostUsd,
+					runningTotalInputTokens,
+					runningTotalOutputTokens,
+				},
+			});
+
+			// --- Phase 4: Execute suggestions ---
+			const execPrompt = buildSuggestionExecutionPrompt(input, suggestionPlan);
+
+			emitStep(onProgress, "executing_suggestion_enrich", "started");
+			console.log("[Remediation] Phase 4: Executing suggestion enrichment");
+
+			const execStart = Date.now();
+			const execResponse = await provider.invokeWithRetry(execPrompt, {
+				cwd: workDir,
+				writeMode: true,
+				timeout: REMEDIATION_TIMEOUT_MS,
+			});
+			const execDurationMs = Date.now() - execStart;
+			const execCost = execResponse.cost_usd ?? 0;
+			const execInputTokens = execResponse.usage?.input_tokens ?? 0;
+			const execOutputTokens = execResponse.usage?.output_tokens ?? 0;
+
+			suggestionEnrichResponseText = execResponse.result || undefined;
+			suggestionEnrichStats = {
+				prompt: execPrompt,
+				durationMs: execDurationMs,
+				costUsd: execCost || undefined,
+				inputTokens: execInputTokens || undefined,
+				outputTokens: execOutputTokens || undefined,
+			};
+
+			completedPhases++;
+			runningTotalDurationMs += execDurationMs;
+			runningTotalCostUsd += execCost;
+			runningTotalInputTokens += execInputTokens;
+			runningTotalOutputTokens += execOutputTokens;
+
+			console.log(
+				`[Remediation] Phase 4 completed: ${execDurationMs}ms, $${execCost.toFixed(4)}`,
+			);
+			emitStep(onProgress, "executing_suggestion_enrich", "completed");
+
+			onProgress?.({
+				type: "remediation.progress",
+				data: {
+					completedBatches: completedPhases,
+					totalBatches: totalPhases,
+					phase: "suggestions",
+					runningTotalDurationMs,
+					runningTotalCostUsd,
+					runningTotalInputTokens,
+					runningTotalOutputTokens,
+				},
+			});
 		}
 
-		// 5. Capture diff
+		// 5. Capture final combined diff (includes both error + suggestion changes)
 		emitStep(onProgress, "capturing_diff", "started");
 		const fullPatch = await captureGitDiff(workDir);
 		const fileChanges = parseUnifiedDiff(fullPatch);
@@ -549,64 +599,24 @@ export async function executeRemediation(
 
 		console.log("[Remediation] Working directory reset");
 
-		// 7. Parse action summaries from AI responses (per-batch) and remap indices
-		// Sort arrays the same way the prompt generator does to match issueIndex
-		const sortedErrors = [...errors].sort(
-			(a, b) => (b.severity ?? 0) - (a.severity ?? 0),
-		);
-		const impactOrder: Record<string, number> = {
-			High: 0,
-			Medium: 1,
-			Low: 2,
-		};
-		const sortedSuggestions = [...suggestions].sort(
-			(a, b) =>
-				(impactOrder[a.impactLevel ?? "Low"] ?? 2) -
-				(impactOrder[b.impactLevel ?? "Low"] ?? 2),
-		);
-
-		// Parse each error batch response and remap issueIndex to global index
+		// 7. Parse action summaries from AI responses
 		const allErrorActions: IRemediationAction[] = [];
 		let anyErrorParsed = false;
-		for (
-			let batchIdx = 0;
-			batchIdx < errorFixResponseTexts.length;
-			batchIdx++
-		) {
-			const parsed = parseActionSummary(
-				errorFixResponseTexts[batchIdx],
-				"error_fix",
-			);
+		if (errorFixResponseText) {
+			const parsed = parseActionSummary(errorFixResponseText, "error_fix");
 			if (parsed.parsed) anyErrorParsed = true;
-			const offset = batchIdx * REMEDIATION_BATCH_SIZE;
-			for (const action of parsed.actions) {
-				allErrorActions.push({
-					...action,
-					issueIndex: action.issueIndex + offset,
-				});
-			}
+			allErrorActions.push(...parsed.actions);
 		}
 
-		// Parse each suggestion batch response and remap issueIndex to global index
 		const allSuggestionActions: IRemediationAction[] = [];
 		let anySuggestionParsed = false;
-		for (
-			let batchIdx = 0;
-			batchIdx < suggestionEnrichResponseTexts.length;
-			batchIdx++
-		) {
+		if (suggestionEnrichResponseText) {
 			const parsed = parseActionSummary(
-				suggestionEnrichResponseTexts[batchIdx],
+				suggestionEnrichResponseText,
 				"suggestion_enrich",
 			);
 			if (parsed.parsed) anySuggestionParsed = true;
-			const offset = batchIdx * REMEDIATION_BATCH_SIZE;
-			for (const action of parsed.actions) {
-				allSuggestionActions.push({
-					...action,
-					issueIndex: action.issueIndex + offset,
-				});
-			}
+			allSuggestionActions.push(...parsed.actions);
 		}
 
 		enrichActionsWithIssueTitles(allErrorActions, sortedErrors);
@@ -627,12 +637,19 @@ export async function executeRemediation(
 
 		// 8. Build result
 		const totalCostUsd =
-			(errorFixStats?.costUsd ?? 0) + (suggestionEnrichStats?.costUsd ?? 0);
+			(errorPlanStats?.costUsd ?? 0) +
+			(errorFixStats?.costUsd ?? 0) +
+			(suggestionPlanStats?.costUsd ?? 0) +
+			(suggestionEnrichStats?.costUsd ?? 0);
 		const totalInputTokens =
+			(errorPlanStats?.inputTokens ?? 0) +
 			(errorFixStats?.inputTokens ?? 0) +
+			(suggestionPlanStats?.inputTokens ?? 0) +
 			(suggestionEnrichStats?.inputTokens ?? 0);
 		const totalOutputTokens =
+			(errorPlanStats?.outputTokens ?? 0) +
 			(errorFixStats?.outputTokens ?? 0) +
+			(suggestionPlanStats?.outputTokens ?? 0) +
 			(suggestionEnrichStats?.outputTokens ?? 0);
 		const totalDurationMs = Date.now() - startTime;
 
@@ -643,6 +660,8 @@ export async function executeRemediation(
 		return {
 			errorFixStats,
 			suggestionEnrichStats,
+			errorPlanStats,
+			suggestionPlanStats,
 			fullPatch,
 			fileChanges,
 			totalAdditions,
@@ -653,6 +672,12 @@ export async function executeRemediation(
 			totalInputTokens,
 			totalOutputTokens,
 			summary,
+			errorPlan,
+			suggestionPlan,
+			errorPlanPrompt,
+			suggestionPlanPrompt,
+			errorFixDiff,
+			errorFixFileChanges,
 		};
 	} finally {
 		// Always reset and cleanup

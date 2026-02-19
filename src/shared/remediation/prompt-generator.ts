@@ -650,3 +650,303 @@ export function generateRemediationPrompts(
 		suggestionCount: input.suggestions.length,
 	};
 }
+
+// ---------------------------------------------------------------------------
+// Plan-first pipeline prompts
+// ---------------------------------------------------------------------------
+
+export interface PlanFirstPrompts {
+	errorPlanPrompt: string;
+	errorExecutionPrompt: string;
+	suggestionPlanPrompt: string;
+	suggestionExecutionPrompt: string;
+	errorCount: number;
+	suggestionCount: number;
+}
+
+/** Build a minimal context block reused by all plan-first prompts. */
+function buildMinimalContext(input: RemediationInput): string {
+	const effectiveContextFiles = filterColocatedClaudePaths(
+		input.contextFilePaths,
+		input.colocatedPairs,
+	);
+	const contextFilesList = effectiveContextFiles
+		.map((p) => `- ${p}`)
+		.join("\n");
+	const agentDisplayName = TARGET_AGENTS[input.targetAgent];
+	const agentDescription = getAgentContextDescription(input.targetAgent);
+	const consolidationNotice = buildConsolidationNotice(input.colocatedPairs);
+
+	return `## Target: **${agentDisplayName}**
+${agentDescription}
+${consolidationNotice}
+## Context Files
+${contextFilesList}
+
+${input.technicalInventorySection ? `## Technical Context\n${input.technicalInventorySection}\n` : ""}## Project
+${formatProjectLine(input.projectSummary)}`;
+}
+
+/**
+ * Build a prompt that asks the AI to produce a **markdown plan** for fixing errors.
+ * The plan should group related issues, decide output types, and describe the fix strategy.
+ */
+export function buildErrorPlanPrompt(input: RemediationInput): string {
+	if (input.errors.length === 0) return "";
+
+	const sorted = [...input.errors].sort(
+		(a, b) => (b.severity ?? 0) - (a.severity ?? 0),
+	);
+
+	const snippetIndex = buildSnippetIndex(sorted);
+	const issueBlocks = sorted
+		.map((issue, i) => formatErrorIssueBlock(issue, i, snippetIndex))
+		.join("\n\n");
+	const refSection = buildReferencedContentSection(snippetIndex);
+	const outputTypeInstructions = getOutputTypeInstructions(
+		input.targetAgent,
+		"error",
+		input.colocatedPairs,
+	);
+
+	return `# Plan Error Fixes
+
+## Role
+You are an expert documentation planner. Analyze the issues below and produce a **markdown plan** describing how to fix them. Do NOT make any file changes — only output the plan.
+
+${buildMinimalContext(input)}
+
+${refSection ? `${refSection}\n\n` : ""}## Issues to Fix (${input.errors.length})
+
+${issueBlocks}
+
+${outputTypeInstructions}
+
+## Planning Instructions
+1. Read the target files from disk to understand the current content
+2. Assess each issue: flag any that appear to be false positives after reading the file
+3. Group related issues into consolidated tasks (issues targeting the same file and topic)
+4. For each task, decide the output type (standard, skill, or generic update)
+5. Describe the fix strategy: what will change, where, and why
+
+## Output Format
+Produce a markdown plan with this structure:
+
+\`\`\`
+## Task 1: <Short title>
+**Issues:** #1, #3 (grouped because ...)
+**Output type:** generic | standard | skill
+**Target file:** <path>
+**Strategy:** <What to change and why>
+
+## Task 2: ...
+
+## Skipped Issues
+- #4: <reason for skipping>
+\`\`\`
+
+Keep the plan concise. Focus on WHAT to do, not HOW to write the code.`;
+}
+
+/**
+ * Build an execution prompt that receives the error plan + minimal context.
+ * Instructs the AI to execute the plan and output a JSON action summary.
+ */
+export function buildErrorExecutionPrompt(
+	input: RemediationInput,
+	errorPlan: string,
+): string {
+	if (input.errors.length === 0) return "";
+
+	const outputTypeInstructions = getOutputTypeInstructions(
+		input.targetAgent,
+		"error",
+		input.colocatedPairs,
+	);
+
+	return `# Execute Error Fix Plan
+
+## Role
+You are executing a pre-approved plan to fix documentation issues.
+
+${buildMinimalContext(input)}
+
+${outputTypeInstructions}
+
+## Plan to Execute
+
+${errorPlan}
+
+## Execution Instructions
+1. Read the target files from disk before making changes
+2. Execute each task in the plan above, in order
+3. For tasks marked as skipped in the plan, skip them
+4. Preserve all correct existing content
+5. Keep changes minimal — only fix what the plan specifies
+6. Do not add commentary, headers, or sections beyond what's needed
+7. After making all changes, output a JSON summary:
+\`\`\`json
+{
+  "actions": [
+    { "issueIndex": 1, "status": "fixed", "file": "AGENTS.md", "summary": "Replaced vague setup instructions with exact commands", "outputType": "generic" },
+    { "issueIndex": 2, "status": "added", "file": ".claude/rules/git-conventions.md", "summary": "Created git conventions standard", "outputType": "standard" },
+    { "issueIndex": 3, "status": "skipped", "summary": "Not a real issue after reading the file" }
+  ]
+}
+\`\`\`
+Use original issue numbers from the plan. Status: "fixed", "added", or "skipped". Use "fixed" for inline edits and "added" for new files. Include \`outputType\` ("standard", "skill", or "generic") for non-skipped actions. Keep summaries under 15 words.`;
+}
+
+/**
+ * Build a prompt that asks the AI to produce a **markdown plan** for suggestion enrichment.
+ * Optionally includes a summary of recent error fixes so suggestions don't duplicate work.
+ */
+export function buildSuggestionPlanPrompt(
+	input: RemediationInput,
+	errorFixSummary?: string,
+): string {
+	if (input.suggestions.length === 0) return "";
+
+	const impactOrder: Record<string, number> = { High: 0, Medium: 1, Low: 2 };
+	const sorted = [...input.suggestions].sort(
+		(a, b) =>
+			(impactOrder[a.impactLevel ?? "Low"] ?? 2) -
+			(impactOrder[b.impactLevel ?? "Low"] ?? 2),
+	);
+
+	const snippetIndex = buildSnippetIndex(sorted);
+	const issueBlocks = sorted
+		.map((issue, i) => formatSuggestionIssueBlock(issue, i, snippetIndex))
+		.join("\n\n");
+	const refSection = buildReferencedContentSection(snippetIndex);
+	const outputTypeInstructions = getOutputTypeInstructions(
+		input.targetAgent,
+		"suggestion",
+		input.colocatedPairs,
+	);
+
+	const errorFixSection = errorFixSummary
+		? `## Recent Error Fixes
+The following error fixes have already been applied to the repository. Do NOT duplicate this work — your suggestions should complement, not repeat, these changes.
+
+${errorFixSummary}
+`
+		: "";
+
+	return `# Plan Documentation Enrichment
+
+## Role
+You are an expert documentation planner. Analyze the documentation gaps below and produce a **markdown plan** describing how to enrich the documentation. Do NOT make any file changes — only output the plan.
+
+${buildMinimalContext(input)}
+
+${errorFixSection}${refSection ? `${refSection}\n\n` : ""}## Documentation Gaps (${input.suggestions.length})
+
+${issueBlocks}
+
+${outputTypeInstructions}
+
+## Phantom File Remapping
+Evaluator-suggested file paths (e.g., \`packages/api/AGENTS.md\`) may not match the target agent's conventions. Ignore evaluator-suggested paths for new files and create files at the correct location per the output type instructions above.
+
+## Planning Instructions
+1. Read the target files and scan the codebase to understand the current state
+2. Assess each gap: flag any that appear to be false positives or already documented
+3. Group related gaps into consolidated tasks (gaps targeting the same topic or file)
+4. For each task, decide the output type (standard, skill, or generic update)
+5. Describe the enrichment strategy: what to add, where, and why
+6. Sort tasks by impact (highest first)
+
+## Output Format
+Produce a markdown plan with this structure:
+
+\`\`\`
+## Task 1: <Short title>
+**Gaps:** #1, #3 (grouped because ...)
+**Output type:** generic | standard | skill
+**Target file:** <path>
+**Strategy:** <What to add and why>
+
+## Task 2: ...
+
+## Skipped Gaps
+- #4: <reason for skipping>
+\`\`\`
+
+Keep the plan concise. Focus on WHAT to do, not HOW to write the code.`;
+}
+
+/**
+ * Build an execution prompt that receives the suggestion plan + minimal context.
+ * Instructs the AI to execute the plan and output a JSON action summary.
+ */
+export function buildSuggestionExecutionPrompt(
+	input: RemediationInput,
+	suggestionPlan: string,
+): string {
+	if (input.suggestions.length === 0) return "";
+
+	const outputTypeInstructions = getOutputTypeInstructions(
+		input.targetAgent,
+		"suggestion",
+		input.colocatedPairs,
+	);
+
+	return `# Execute Documentation Enrichment Plan
+
+## Role
+You are executing a pre-approved plan to enrich AI agent documentation.
+
+${buildMinimalContext(input)}
+
+${outputTypeInstructions}
+
+## Phantom File Remapping
+Evaluator-suggested file paths (e.g., \`packages/api/AGENTS.md\`) may not match the target agent's conventions. Ignore evaluator-suggested paths for new files and create files at the correct location per the output type instructions above.
+
+## Plan to Execute
+
+${suggestionPlan}
+
+## Execution Instructions
+1. Read the target files and scan the codebase before making changes
+2. Execute each task in the plan above, in order
+3. For tasks marked as skipped in the plan, skip them
+4. Add concise, accurate documentation based on actual codebase analysis
+5. Preserve all correct existing content
+6. Keep additions minimal — only add what the plan specifies
+7. After making all changes, output a JSON summary:
+\`\`\`json
+{
+  "actions": [
+    { "issueIndex": 1, "status": "added", "file": ".claude/rules/testing.md", "summary": "Created testing conventions standard", "outputType": "standard" },
+    { "issueIndex": 2, "status": "added", "file": "AGENTS.md", "summary": "Added architecture overview section", "outputType": "generic" },
+    { "issueIndex": 3, "status": "skipped", "summary": "Already documented in existing section" }
+  ]
+}
+\`\`\`
+Use original gap numbers from the plan. Status: "added" or "skipped". Keep summaries under 15 words. Include \`outputType\` ("standard", "skill", or "generic") for non-skipped actions.`;
+}
+
+/**
+ * Generate all 4 plan-first prompts incrementally.
+ * Call with no plans to get plan prompts, then call again with plans to get execution prompts.
+ */
+export function generatePlanFirstPrompts(
+	input: RemediationInput,
+	plans?: { errorPlan?: string; suggestionPlan?: string },
+	errorFixSummary?: string,
+): PlanFirstPrompts {
+	return {
+		errorPlanPrompt: buildErrorPlanPrompt(input),
+		errorExecutionPrompt: plans?.errorPlan
+			? buildErrorExecutionPrompt(input, plans.errorPlan)
+			: "",
+		suggestionPlanPrompt: buildSuggestionPlanPrompt(input, errorFixSummary),
+		suggestionExecutionPrompt: plans?.suggestionPlan
+			? buildSuggestionExecutionPrompt(input, plans.suggestionPlan)
+			: "",
+		errorCount: input.errors.length,
+		suggestionCount: input.suggestions.length,
+	};
+}

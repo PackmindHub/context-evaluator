@@ -11,6 +11,15 @@ import type {
 } from "@shared/types/remediation";
 import { getDatabase } from "./database";
 
+export interface IRemediationPlanData {
+	errorPlan?: string;
+	suggestionPlan?: string;
+	errorPlanPrompt?: string;
+	suggestionPlanPrompt?: string;
+	errorFixDiff?: string;
+	errorFixFileChanges?: IFileChange[];
+}
+
 export interface IRemediationRecord {
 	id: string;
 	evaluationId: string;
@@ -33,7 +42,10 @@ export interface IRemediationRecord {
 	promptStats: {
 		errorFixStats?: IStoredPromptStats;
 		suggestionEnrichStats?: IStoredPromptStats;
+		errorPlanStats?: IStoredPromptStats;
+		suggestionPlanStats?: IStoredPromptStats;
 	} | null;
+	planData: IRemediationPlanData | null;
 	resultEvaluationId: string | null;
 	errorMessage: string | null;
 	createdAt: string;
@@ -60,6 +72,7 @@ interface RemediationRow {
 	total_output_tokens: number;
 	summary_json: string | null;
 	prompt_stats_json: string | null;
+	plan_data_json: string | null;
 	result_evaluation_id: string | null;
 	error_message: string | null;
 	created_at: string;
@@ -87,6 +100,8 @@ export class RemediationRepository {
 		const promptStats: {
 			errorFixStats?: IStoredPromptStats;
 			suggestionEnrichStats?: IStoredPromptStats;
+			errorPlanStats?: IStoredPromptStats;
+			suggestionPlanStats?: IStoredPromptStats;
 		} = {};
 		if (result.errorFixStats) {
 			const { prompt: _, ...stats } = result.errorFixStats;
@@ -96,8 +111,32 @@ export class RemediationRepository {
 			const { prompt: _, ...stats } = result.suggestionEnrichStats;
 			promptStats.suggestionEnrichStats = stats;
 		}
+		if (result.errorPlanStats) {
+			const { prompt: _, ...stats } = result.errorPlanStats;
+			promptStats.errorPlanStats = stats;
+		}
+		if (result.suggestionPlanStats) {
+			const { prompt: _, ...stats } = result.suggestionPlanStats;
+			promptStats.suggestionPlanStats = stats;
+		}
 		const hasPromptStats =
-			promptStats.errorFixStats || promptStats.suggestionEnrichStats;
+			promptStats.errorFixStats ||
+			promptStats.suggestionEnrichStats ||
+			promptStats.errorPlanStats ||
+			promptStats.suggestionPlanStats;
+
+		// Build plan data for storage
+		const planData: IRemediationPlanData = {};
+		if (result.errorPlan) planData.errorPlan = result.errorPlan;
+		if (result.suggestionPlan) planData.suggestionPlan = result.suggestionPlan;
+		if (result.errorPlanPrompt)
+			planData.errorPlanPrompt = result.errorPlanPrompt;
+		if (result.suggestionPlanPrompt)
+			planData.suggestionPlanPrompt = result.suggestionPlanPrompt;
+		if (result.errorFixDiff) planData.errorFixDiff = result.errorFixDiff;
+		if (result.errorFixFileChanges)
+			planData.errorFixFileChanges = result.errorFixFileChanges;
+		const hasPlanData = Object.keys(planData).length > 0;
 
 		const stmt = db.prepare(`
       INSERT INTO remediations (
@@ -106,14 +145,14 @@ export class RemediationRepository {
         full_patch, file_changes_json,
         total_additions, total_deletions, files_changed,
         total_duration_ms, total_cost_usd, total_input_tokens, total_output_tokens,
-        summary_json, prompt_stats_json, error_message, created_at, completed_at
+        summary_json, prompt_stats_json, plan_data_json, error_message, created_at, completed_at
       ) VALUES (
         $id, $evaluationId, $status, $provider, $targetFileType,
         $selectedIssueCount, $errorCount, $suggestionCount,
         $fullPatch, $fileChangesJson,
         $totalAdditions, $totalDeletions, $filesChanged,
         $totalDurationMs, $totalCostUsd, $totalInputTokens, $totalOutputTokens,
-        $summaryJson, $promptStatsJson, $errorMessage, $createdAt, $completedAt
+        $summaryJson, $promptStatsJson, $planDataJson, $errorMessage, $createdAt, $completedAt
       )
     `);
 
@@ -137,6 +176,7 @@ export class RemediationRepository {
 			$totalOutputTokens: result.totalOutputTokens,
 			$summaryJson: result.summary ? JSON.stringify(result.summary) : null,
 			$promptStatsJson: hasPromptStats ? JSON.stringify(promptStats) : null,
+			$planDataJson: hasPlanData ? JSON.stringify(planData) : null,
 			$errorMessage: null,
 			$createdAt: createdAt.toISOString(),
 			$completedAt: now,
@@ -282,10 +322,21 @@ export class RemediationRepository {
 		let promptStats: {
 			errorFixStats?: IStoredPromptStats;
 			suggestionEnrichStats?: IStoredPromptStats;
+			errorPlanStats?: IStoredPromptStats;
+			suggestionPlanStats?: IStoredPromptStats;
 		} | null = null;
 		if (row.prompt_stats_json) {
 			try {
 				promptStats = JSON.parse(row.prompt_stats_json);
+			} catch {
+				// ignore parse errors
+			}
+		}
+
+		let planData: IRemediationPlanData | null = null;
+		if (row.plan_data_json) {
+			try {
+				planData = JSON.parse(row.plan_data_json);
 			} catch {
 				// ignore parse errors
 			}
@@ -311,6 +362,7 @@ export class RemediationRepository {
 			totalOutputTokens: row.total_output_tokens,
 			summary,
 			promptStats,
+			planData,
 			resultEvaluationId: row.result_evaluation_id,
 			errorMessage: row.error_message,
 			createdAt: row.created_at,

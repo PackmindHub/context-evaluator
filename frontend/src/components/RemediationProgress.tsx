@@ -8,7 +8,10 @@ import { useEffect, useRef, useState } from "react";
 const STEP_LABELS: Record<string, string> = {
 	cloning: "Cloning repository...",
 	checking_git: "Checking git status...",
+	planning_error_fix: "Planning error fixes...",
 	executing_error_fix: "Fixing errors...",
+	capturing_error_diff: "Capturing error changes...",
+	planning_suggestion_enrich: "Planning enrichment...",
 	executing_suggestion_enrich: "Enriching documentation...",
 	capturing_diff: "Capturing changes...",
 	resetting: "Resetting working directory...",
@@ -69,16 +72,9 @@ export function RemediationProgress({
 		return m > 0 ? `${m}m ${s}s` : `${s}s`;
 	};
 
-	const baseLabel = currentStep
+	const stepLabel = currentStep
 		? STEP_LABELS[currentStep] || currentStep
 		: "Initializing...";
-	const stepLabel =
-		batchInfo &&
-		batchInfo.totalBatches > 1 &&
-		(currentStep === "executing_error_fix" ||
-			currentStep === "executing_suggestion_enrich")
-			? `${baseLabel} (batch ${batchInfo.batchNumber}/${batchInfo.totalBatches})`
-			: baseLabel;
 
 	const hasPlan = totalBatches !== undefined && totalBatches > 0;
 	const hasProgress = completedBatches !== undefined && completedBatches > 0;
@@ -115,8 +111,8 @@ export function RemediationProgress({
 					)}
 					<span className="text-slate-500">
 						{" "}
-						({totalBatches} batch
-						{totalBatches !== 1 ? "es" : ""})
+						({totalBatches} AI invocation
+						{totalBatches !== 1 ? "s" : ""})
 					</span>
 				</div>
 			)}
@@ -153,7 +149,7 @@ export function RemediationProgress({
 				<div className="space-y-1">
 					<div className="flex items-center justify-between">
 						<span className="text-xs text-slate-400">
-							Batch {completedBatches ?? 0}/{totalBatches}
+							Phase {completedBatches ?? 0}/{totalBatches}
 							{currentPhase && (
 								<span className="text-slate-500 ml-1">
 									({currentPhase === "errors" ? "errors" : "suggestions"})

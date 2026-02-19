@@ -20,7 +20,10 @@ export type RemediationStatus = "queued" | "running" | "completed" | "failed";
 export type RemediationStep =
 	| "cloning"
 	| "checking_git"
+	| "planning_error_fix"
 	| "executing_error_fix"
+	| "capturing_error_diff"
+	| "planning_suggestion_enrich"
 	| "executing_suggestion_enrich"
 	| "capturing_diff"
 	| "consolidating_files"
@@ -69,6 +72,8 @@ export interface IRemediationSummary {
 export interface IRemediationResult {
 	errorFixStats?: IPromptExecutionStats;
 	suggestionEnrichStats?: IPromptExecutionStats;
+	errorPlanStats?: IPromptExecutionStats;
+	suggestionPlanStats?: IPromptExecutionStats;
 	fullPatch: string;
 	fileChanges: IFileChange[];
 	totalAdditions: number;
@@ -79,6 +84,12 @@ export interface IRemediationResult {
 	totalInputTokens: number;
 	totalOutputTokens: number;
 	summary?: IRemediationSummary;
+	errorPlan?: string;
+	suggestionPlan?: string;
+	errorPlanPrompt?: string;
+	suggestionPlanPrompt?: string;
+	errorFixDiff?: string;
+	errorFixFileChanges?: IFileChange[];
 }
 
 export interface IRemediationRequest {

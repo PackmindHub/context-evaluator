@@ -254,6 +254,13 @@ function initializeDatabase(): Database {
 		// Column already exists, ignore
 	}
 
+	// Add plan_data_json column for storing plan-first pipeline data
+	try {
+		database.run(`ALTER TABLE remediations ADD COLUMN plan_data_json TEXT;`);
+	} catch {
+		// Column already exists, ignore
+	}
+
 	console.log("[Database] Database initialized successfully");
 
 	return database;
