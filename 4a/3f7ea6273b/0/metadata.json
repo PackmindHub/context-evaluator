@@ -1,0 +1,74 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "4a3f7ea6273b",
+  "session_id": "f1681958-e329-492a-bece-56ac78ecaa08",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-19T09:19:26.195281Z",
+  "branch": "main",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "frontend/src/components/Summary.tsx",
+    "src/api/db/evaluation-repository.ts",
+    "src/api/routes/evaluation.ts"
+  ],
+  "agent": "Claude Code",
+  "transcript_identifier_at_start": "172705f8-90b5-4f63-b6c0-2caad147f252",
+  "checkpoint_transcript_start": 252,
+  "transcript_lines_at_start": 252,
+  "token_usage": {
+    "input_tokens": 25,
+    "cache_creation_tokens": 136760,
+    "cache_read_tokens": 2395238,
+    "output_tokens": 2019,
+    "api_call_count": 19
+  },
+  "summary": {
+    "intent": "Add a 'Recalculate Score' debug button to the evaluation summary UI and ensure the recalculated score persists to the database.",
+    "outcome": "Fixed the missing button by passing `evaluationId` prop to `ContextScoreCard`, and fixed DB persistence by patching both the `context_score`/`context_grade` columns and the `result_json` blob in `updateEvaluationScore`.",
+    "learnings": {
+      "repo": [
+        "The frontend reads context scores from `result_json → metadata.contextScore.score`, not from the dedicated `context_score` column, so both must be kept in sync on writes.",
+        "The `updateEvaluationScore` method in `evaluation-repository.ts` requires fetching the current `result_json`, deep-patching `metadata.contextScore`, and writing it back alongside column updates.",
+        "The `ContextScoreCard` component gates its debug button on `?debug=true` in the URL and requires an `evaluationId` prop to function.",
+        "The project uses `rtk git` (likely a wrapper) instead of plain `git` for version control operations.",
+        "Tests, lint, and typecheck are run via `bun run test`, `bun run lint:fix`, and `bun run typecheck`."
+      ],
+      "code": [
+        {
+          "path": "frontend/src/components/Summary.tsx",
+          "finding": "`ContextScoreCard` was rendered without the `evaluationId` prop that was already available in the parent component's props — a missing prop passthrough."
+        },
+        {
+          "path": "src/api/db/evaluation-repository.ts",
+          "finding": "`updateEvaluationScore` originally only updated DB columns; it must also fetch, patch, and re-save `result_json` to keep the frontend's data source consistent."
+        },
+        {
+          "path": "src/api/routes/evaluation.ts",
+          "finding": "The recalculate route needed to pass the `breakdown` field through to the repository so it gets persisted in `result_json`."
+        }
+      ],
+      "workflow": [
+        "Running `bun run test \u0026\u0026 bun run lint:fix \u0026\u0026 bun run typecheck` as a single chained command is the standard pre-commit verification step.",
+        "When a DB update appears to work but changes don't survive a page reload, suspect a dual-storage pattern where both columns and a JSON blob must be updated."
+      ]
+    },
+    "friction": [
+      "The dual-storage pattern (DB columns + `result_json` blob) caused a silent bug: column updates succeeded but the frontend read from the JSON blob, making the fix non-obvious.",
+      "The `ContextScoreCard` missing-prop issue was invisible at the component level — it required tracing the prop chain up to `Summary.tsx` to diagnose."
+    ],
+    "open_items": [
+      "The `Recalculate Score` button is only accessible via `?debug=true` — no production-facing way for users to trigger a score refresh without developer tooling.",
+      "The dual-storage pattern (`result_json` + dedicated columns) is architectural tech debt; a single source of truth would prevent this class of bug recurring.",
+      "No mention of cache invalidation — if the frontend caches evaluation data, a recalculate might not reflect immediately without a hard reload."
+    ]
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-19T09:19:07.96646Z",
+    "agent_lines": 0,
+    "human_added": 2529,
+    "human_modified": 57,
+    "human_removed": 0,
+    "total_committed": 2574,
+    "agent_percentage": 0
+  }
+}
