@@ -1,0 +1,82 @@
+Implement the following plan:
+
+# Bug Fix: "Evaluate Impact" Evaluates Original Files Instead of Patched Files
+
+## Context
+
+When clicking "Evaluate Impact" after a remediation, the user expects the evaluation to run on the **post-remediation state** (patched files). Instead, the new evaluation runs on the **original unpatched repository**, so issues that were fixed still appear as unfixed. This explains why evaluation `aca7b721` still flagged "Conflicting AGENTS.md and CLAUDE.md files" even though the remediation had correctly set `CLAUDE.md = @AGENTS.md`.
+
+## Root Cause
+
+**Two-part bug:**
+
+### Part 1 — `remediation.ts` passes both `repositoryUrl` AND `localPath`
+
+In `src/api/routes/remediation.ts` (the `evaluateImpact` method, ~line 611):
+```typescript
+const jobId = await this.jobManager.submitJob({
+  localPath: cloneResult.path,   // patched clone ← correct
+  repositoryUrl: repoUrl,        // original repo URL ← should NOT be here
+  ...
+});
+```
+
+### Part 2 — `engine.ts` prioritizes `repositoryUrl` over `localPath`
+
+In `src/shared/evaluation/engine.ts` (~line 680):
+```typescript
+if (request.repositoryUrl) {
+  // Clones fresh from original repo ← takes this branch
+  workingDir = cloneResult.path;
+} else if (request.localPath) {
+  workingDir = resolve(request.localPath); // ← never reached
+}
+```
+
+When both are provided, `repositoryUrl` wins and the engine clones fresh from the original repository, **discarding the patched clone entirely**.
+
+## Fix
+
+Single-file change in `src/api/routes/remediation.ts`: remove `repositoryUrl` from the `submitJob` call inside `evaluateImpact`.
+
+**File**: `src/api/routes/remediation.ts`
+**Change**: Remove `repositoryUrl: repoUrl` from the job submission in `evaluateImpact`.
+
+The `localPath` alone is sufficient — it points to the already-cloned, already-patched directory. The engine's `else if (request.localPath)` branch will then be taken, evaluating the correct patched state.
+
+```typescript
+// Before (buggy)
+const jobId = await this.jobManager.submitJob({
+  localPath: cloneResult.path,
+  repositoryUrl: repoUrl,   // ← REMOVE THIS LINE
+  options: { selectedEvaluators: parentEvaluatorIds },
+  _cleanupFn: cloneResult.cleanup,
+  _parentEvaluationId: remediation.evaluationId,
+  _sourceRemediationId: remediationId,
+});
+
+// After (fixed)
+const jobId = await this.jobManager.submitJob({
+  localPath: cloneResult.path,
+  options: { selectedEvaluators: parentEvaluatorIds },
+  _cleanupFn: cloneResult.cleanup,
+  _parentEvaluationId: remediation.evaluationId,
+  _sourceRemediationId: remediationId,
+});
+```
+
+## Critical Files
+
+- **`src/api/routes/remediation.ts`** — where the fix is applied (~line 611 in `evaluateImpact`)
+- `src/shared/evaluation/engine.ts` — shows the `if/else-if` priority logic (~line 680), no change needed here
+
+## Verification
+
+1. Run a remediation on any evaluation that has a "Conflicting AGENTS.md and CLAUDE.md files" issue
+2. After remediation completes, click "Evaluate Impact"
+3. The new evaluation should reflect the post-patch state (AGENTS.md = merged content, CLAUDE.md = `@AGENTS.md`)
+4. The "Conflicting files" issue should NOT appear in the new evaluation
+5. Run `bun run test` to ensure existing tests still pass
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
