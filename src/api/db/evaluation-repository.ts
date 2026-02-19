@@ -314,6 +314,7 @@ export class EvaluationRepository {
           total_files, total_issues, critical_count, high_count, medium_count,
           curated_count, total_cost_usd, total_duration_ms, total_input_tokens, total_output_tokens,
           context_score, context_grade, failed_evaluator_count, is_imported,
+          parent_evaluation_id, source_remediation_id,
           error_message, error_code, created_at, completed_at
         FROM evaluations
         ORDER BY completed_at DESC
@@ -329,6 +330,7 @@ export class EvaluationRepository {
         total_files, total_issues, critical_count, high_count, medium_count,
         curated_count, total_cost_usd, total_duration_ms, total_input_tokens, total_output_tokens,
         context_score, context_grade, failed_evaluator_count, is_imported,
+        parent_evaluation_id, source_remediation_id,
         error_message, error_code, created_at, completed_at
       FROM evaluations
       ORDER BY completed_at DESC

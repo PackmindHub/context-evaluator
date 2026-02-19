@@ -527,6 +527,8 @@ export interface IEvaluationHistoryItem {
 	contextGrade?: ContextScoreGrade;
 	failedEvaluatorCount: number;
 	isImported?: boolean;
+	parentEvaluationId?: string;
+	sourceRemediationId?: string;
 	errorMessage?: string;
 	errorCode?: string;
 	createdAt: string;

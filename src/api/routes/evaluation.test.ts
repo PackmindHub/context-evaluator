@@ -69,6 +69,8 @@ describe("EvaluationRoutes", () => {
 				context_grade TEXT,
 				failed_evaluator_count INTEGER DEFAULT 0,
 				is_imported INTEGER DEFAULT 0,
+				parent_evaluation_id TEXT,
+				source_remediation_id TEXT,
 				result_json TEXT,
 				final_prompts_json TEXT,
 				error_message TEXT,

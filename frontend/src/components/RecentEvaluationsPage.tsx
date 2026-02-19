@@ -483,6 +483,34 @@ export function RecentEvaluationsPage() {
 																			{item.contextGrade}
 																		</span>
 																	)}
+																{/* Re-evaluation Badge */}
+																{item.parentEvaluationId && (
+																	<button
+																		onClick={(e) => {
+																			e.stopPropagation();
+																			navigate(
+																				`/evaluation/${item.parentEvaluationId}?tab=summary`,
+																			);
+																		}}
+																		className="px-2 py-1 text-sm font-medium bg-indigo-900/50 text-indigo-300 border border-indigo-700/50 rounded-lg flex items-center gap-1.5 hover:bg-indigo-800/50 transition-colors"
+																		title="Click to view original evaluation"
+																	>
+																		<svg
+																			className="w-3.5 h-3.5"
+																			fill="none"
+																			stroke="currentColor"
+																			viewBox="0 0 24 24"
+																		>
+																			<path
+																				strokeLinecap="round"
+																				strokeLinejoin="round"
+																				strokeWidth={2}
+																				d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+																			/>
+																		</svg>
+																		Re-evaluation
+																	</button>
+																)}
 																{/* Imported Badge */}
 																{item.isImported && (
 																	<span className="px-2 py-1 text-sm font-medium bg-slate-700/50 text-slate-300 border border-slate-600/50 rounded-lg">

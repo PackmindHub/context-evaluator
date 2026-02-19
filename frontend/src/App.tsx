@@ -139,6 +139,11 @@ function AppContent() {
 		Array<{ timestamp: Date; type: string; message: string }>
 	>([]);
 
+	// Parent evaluation data (for re-evaluations from remediation)
+	const [parentEvalId, setParentEvalId] = useState<string | undefined>();
+	const [parentEvalScore, setParentEvalScore] = useState<number | undefined>();
+	const [parentEvalGrade, setParentEvalGrade] = useState<string | undefined>();
+
 	// Issue selection state
 	const [selectedIssueKeys, setSelectedIssueKeys] = useState<Set<string>>(
 		new Set(),
@@ -746,6 +751,27 @@ function AppContent() {
 		[api, navigate],
 	);
 
+	// Helper to fetch parent evaluation score for re-evaluations
+	const fetchParentScore = useCallback(
+		async (parentId: string | undefined) => {
+			if (!parentId) {
+				setParentEvalId(undefined);
+				setParentEvalScore(undefined);
+				setParentEvalGrade(undefined);
+				return;
+			}
+			setParentEvalId(parentId);
+			try {
+				const scoreData = await api.getEvaluationScore(parentId);
+				setParentEvalScore(scoreData.contextScore);
+				setParentEvalGrade(scoreData.contextGrade);
+			} catch (err) {
+				console.error("Failed to fetch parent evaluation score:", err);
+			}
+		},
+		[api],
+	);
+
 	// Load evaluation from URL on mount or when URL changes
 	// Handles both active jobs (reconnect SSE) and completed evaluations (load from database)
 	// biome-ignore lint/correctness/useExhaustiveDependencies: handleFileLoad is intentionally excluded - we want the latest version but don't want it to trigger re-runs
@@ -856,6 +882,8 @@ function AppContent() {
 					handleFileLoad(record.result);
 					setCurrentRepositoryUrl(record.repositoryUrl);
 					setEvaluationMode("completed");
+					// Fetch parent evaluation score if this is a re-evaluation
+					fetchParentScore(record.parentEvaluationId);
 					// Load feedback, bookmarks, and selections
 					try {
 						const feedback =
@@ -1407,6 +1435,9 @@ function AppContent() {
 		setApiError(null);
 		setCurrentRepositoryUrl(null);
 		setEvaluationLogs([]); // Clear logs when clearing
+		setParentEvalId(undefined);
+		setParentEvalScore(undefined);
+		setParentEvalGrade(undefined);
 		setFilters({
 			severities: new Set(),
 			categories: new Set(),
@@ -1937,6 +1968,9 @@ function AppContent() {
 								onReRun={handleReRun}
 								curation={evaluationData.curation}
 								evaluationLogs={evaluationLogs}
+								parentEvaluationId={parentEvalId}
+								parentScore={parentEvalScore}
+								parentGrade={parentEvalGrade}
 							/>
 						</TabPanel>
 

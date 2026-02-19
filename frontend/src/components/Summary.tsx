@@ -53,6 +53,9 @@ interface SummaryProps {
 		};
 	};
 	evaluationLogs?: LogEntry[];
+	parentEvaluationId?: string;
+	parentScore?: number;
+	parentGrade?: string;
 }
 
 export const Summary: React.FC<SummaryProps> = ({
@@ -73,6 +76,9 @@ export const Summary: React.FC<SummaryProps> = ({
 	onReRun,
 	curation,
 	evaluationLogs,
+	parentEvaluationId,
+	parentScore,
+	parentGrade,
 }) => {
 	const { cloudMode } = useFeatureFlags();
 	const [showRawContext, setShowRawContext] = useState(false);
@@ -312,6 +318,92 @@ export const Summary: React.FC<SummaryProps> = ({
 					</div>
 				</div>
 			</div>
+
+			{/* Re-evaluation Banner */}
+			{parentEvaluationId && (
+				<div className="glass-card p-4 border border-indigo-500/30">
+					<div className="flex items-center justify-between">
+						<div className="flex items-center gap-3">
+							<div className="w-8 h-8 bg-indigo-600/30 rounded-lg flex items-center justify-center shrink-0">
+								<svg
+									className="w-4 h-4 text-indigo-400"
+									fill="none"
+									stroke="currentColor"
+									viewBox="0 0 24 24"
+								>
+									<path
+										strokeLinecap="round"
+										strokeLinejoin="round"
+										strokeWidth={2}
+										d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+									/>
+								</svg>
+							</div>
+							<div>
+								<p className="text-sm font-medium text-slate-200">
+									Re-evaluation from remediation
+								</p>
+								<div className="flex items-center gap-3 mt-1">
+									{parentScore !== undefined &&
+										metadata.contextScore?.score !== undefined && (
+											<span className="flex items-center gap-2 text-xs">
+												<span className="text-slate-400">Original score:</span>
+												<span className="text-slate-300">
+													{parentScore.toFixed(1)}
+													{parentGrade && (
+														<span className="text-slate-500 ml-1">
+															{parentGrade}
+														</span>
+													)}
+												</span>
+												<span className="text-slate-500">&rarr;</span>
+												<span className="text-slate-200 font-medium">
+													{metadata.contextScore.score.toFixed(1)}
+												</span>
+												{(() => {
+													const delta =
+														metadata.contextScore.score - parentScore;
+													const sign = delta > 0 ? "+" : "";
+													const color =
+														delta > 0
+															? "text-green-400"
+															: delta < 0
+																? "text-red-400"
+																: "text-slate-400";
+													return (
+														<span className={`font-medium ${color}`}>
+															({sign}
+															{delta.toFixed(1)})
+														</span>
+													);
+												})()}
+											</span>
+										)}
+								</div>
+							</div>
+						</div>
+						<a
+							href={`/evaluation/${parentEvaluationId}?tab=summary`}
+							className="flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+						>
+							View original report
+							<svg
+								className="w-3.5 h-3.5"
+								fill="none"
+								stroke="currentColor"
+								viewBox="0 0 24 24"
+							>
+								<path
+									strokeLinecap="round"
+									strokeLinejoin="round"
+									strokeWidth={2}
+									d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+								/>
+							</svg>
+						</a>
+					</div>
+				</div>
+			)}
 
 			{/* Share Report Card - Prominent Display */}
 			{shareUrl && (
