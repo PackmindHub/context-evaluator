@@ -1,0 +1,161 @@
+Implement the following plan:
+
+# Plan: Consolidate AGENTS.md/CLAUDE.md Coexistence
+
+## Context
+
+When a repository contains both AGENTS.md and CLAUDE.md in the same directory with different content, the current system keeps both files and lets the AI agent decide which to modify during remediation. This leads to divergence — remediation may fix some issues in AGENTS.md and others in CLAUDE.md, making them drift further apart.
+
+**Goal**: When both files coexist, AGENTS.md becomes the source of truth. CLAUDE.md is reduced to `@AGENTS.md` (a reference pointer). This applies at all directory levels and regardless of `targetAgent` selection.
+
+## Changes
+
+### 1. Add `colocatedPairs` to `IProjectContext` type
+
+**File**: `src/shared/types/evaluation.ts` (~line 166)
+
+Add optional field to `IProjectContext`:
+```typescript
+colocatedPairs?: Array<{ directory: string; agentsPath: string; claudePath: string }>;
+```
+
+Stores relative paths of directories where both files coexist with different content. Persisted in evaluation metadata so remediation can use it.
+
+### 2. Create colocated pair identification utility
+
+**New file**: `src/shared/file-system/colocated-file-consolidator.ts`
+
+Two functions:
+- **`identifyColocatedPairs(files: string[], baseDir: string)`** — Groups already-discovered files by directory, finds pairs where both AGENTS.md and CLAUDE.md exist (after deduplication already handled identical/cross-ref cases). Returns `Array<{ directory, agentsPath, claudePath }>` with relative paths.
+- **`filterConsolidatedPaths(files: string[], pairs)`** — Removes CLAUDE.md entries from the file list for directories that have a colocated pair. Returns filtered list.
+
+Reuse `basename`/`dirname` pattern from existing `deduplicateContextFiles()` in `file-finder.ts:435`.
+
+### 3. Modify evaluation engine to filter CLAUDE.md from evaluator paths
+
+**File**: `src/shared/evaluation/engine.ts`
+
+After `findAgentsFiles()` at line ~728 and the deduplication it performs, add:
+
+```typescript
+// Identify colocated pairs where both files still exist with different content
+const colocatedPairs = identifyColocatedPairs(agentsFiles, workingDir);
+
+// Filter CLAUDE.md from evaluator file list — AGENTS.md is source of truth
+const evaluatorFiles = filterConsolidatedPaths(agentsFiles, colocatedPairs);
+```
+
+- Use `evaluatorFiles` (instead of `agentsFiles`) for: `summarizeContextFiles()` (line ~828), `identifyProjectContext()` (line ~862), `runUnifiedMode()`, `runIndependentMode()`
+- Keep original `agentsFiles` for: `validateFileConsistency()` (line ~762, still needs both files)
+- Store `colocatedPairs` in `contextResult.context` so it flows to metadata via `projectContext: contextResult?.context` (line ~1635)
+
+### 4. Update file-consistency-validator recommendation
+
+**File**: `src/shared/evaluation/file-consistency-validator.ts` (line ~172)
+
+Change the `fix` field from:
+> "Choose one naming standard (AGENTS.md or CLAUDE.md). Merge any unique content before renaming or deleting the duplicate."
+
+To:
+> "Merge unique CLAUDE.md content into AGENTS.md, then replace CLAUDE.md content with `@AGENTS.md` to create a reference pointer. AGENTS.md should be the single source of truth."
+
+### 5. Add `"consolidating_files"` to RemediationStep type
+
+**File**: `src/shared/types/remediation.ts` (line ~20)
+
+Add `| "consolidating_files"` to the union type.
+
+### 6. Create file consolidation module for remediation pre-processing
+
+**New file**: `src/shared/remediation/file-consolidator.ts`
+
+```typescript
+export async function consolidateColocatedFiles(
+  workDir: string,
+  pairs: Array<{ directory: string; agentsPath: string; claudePath: string }>
+): Promise<ConsolidationResult[]>
+```
+
+For each pair:
+1. Read both files (using resolved absolute paths from `workDir` + relative paths)
+2. Skip if CLAUDE.md is already `@AGENTS.md` (use existing `isFileReference()` from `file-reference-detector.ts`)
+3. Append CLAUDE.md content to AGENTS.md with separator: `\n\n<!-- Merged from CLAUDE.md -->\n\n{content}`
+4. Rewrite CLAUDE.md to `@AGENTS.md`
+
+### 7. Add `colocatedPairs` to `RemediationInput` and override `getGenericUpdateFile`
+
+**File**: `src/shared/remediation/prompt-generator.ts`
+
+- Add `colocatedPairs?` field to `RemediationInput` interface (line ~27)
+- Modify `getGenericUpdateFile()` (line ~212): when `colocatedPairs` has entries, always return `"AGENTS.md"` regardless of `targetAgent`
+- In both `buildErrorFixPrompt()` and `buildSuggestionEnrichPrompt()`:
+  - When `colocatedPairs` is non-empty, insert a "File Consolidation Notice" section explaining AGENTS.md is source of truth and CLAUDE.md is `@AGENTS.md`
+  - Add instruction: "Never edit CLAUDE.md files that contain `@AGENTS.md`"
+  - Filter CLAUDE.md entries out of the `contextFilesList`
+
+### 8. Wire up consolidation in remediation engine
+
+**File**: `src/shared/remediation/engine.ts`
+
+After git status check (line ~172) and before prompt generation:
+1. Read `colocatedPairs` from `pc?.colocatedPairs`
+2. If non-empty, call `consolidateColocatedFiles(workDir, colocatedPairs)` with progress events
+3. Filter `contextFilePaths` to remove consolidated CLAUDE.md paths
+4. Remap issue `location.file` from CLAUDE.md → AGENTS.md for consolidated pairs
+5. Pass `colocatedPairs` in the `RemediationInput`
+
+**File**: `src/api/routes/remediation.ts` (line ~155)
+
+Same for the `generatePrompts` route:
+1. Read `colocatedPairs` from `pc?.colocatedPairs`
+2. Filter `contextFilePaths`
+3. Remap issue locations
+4. Pass `colocatedPairs` in input
+
+### 9. Tests
+
+**New file**: `src/shared/file-system/colocated-file-consolidator.test.ts`
+- `identifyColocatedPairs`: empty for single file, detects pairs, works across directories
+- `filterConsolidatedPaths`: removes CLAUDE.md for paired dirs, preserves standalone CLAUDE.md
+
+**New file**: `src/shared/remediation/file-consolidator.test.ts`
+- Appends content with separator, rewrites CLAUDE.md to reference
+- Skips if already `@AGENTS.md`
+- Handles multiple pairs
+
+**Existing file**: `src/shared/remediation/prompt-generator.test.ts`
+- `getGenericUpdateFile` returns AGENTS.md when colocatedPairs exist (even for claude-code target)
+- Prompt includes consolidation notice when pairs exist
+- Prompt excludes it when no pairs
+
+**Existing file**: `src/shared/evaluation/file-consistency-validator.test.ts`
+- Update expected `fix` text to match new recommendation
+
+## Implementation Order
+
+1. Types: `IProjectContext` + `RemediationStep` (steps 1, 5)
+2. Utilities: colocated pair identification (step 2)
+3. Evaluation engine: filter + store pairs (step 3)
+4. Validator fix text update (step 4)
+5. Remediation file-consolidator (step 6)
+6. Prompt generator changes (step 7)
+7. Remediation engine + API route wiring (step 8)
+8. Tests (step 9)
+9. Run `bun run test` and `bun run lint`
+
+## Verification
+
+1. **Unit tests**: Run `bun run test` — all new and existing tests pass
+2. **Lint**: Run `bun run lint` — no issues
+3. **Manual test**: Run evaluation against a repo with both AGENTS.md and CLAUDE.md with different content:
+   - Verify evaluators report issues only against AGENTS.md
+   - Verify file-consistency issue still appears
+   - Run remediation and verify CLAUDE.md becomes `@AGENTS.md`
+   - Verify all fixes land in AGENTS.md
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+commit

@@ -3,15 +3,27 @@
   "checkpoint_id": "5f3390ed3fa8",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 1,
+  "checkpoints_count": 2,
   "files_touched": [
     "frontend/src/components/summary/ContextScoreCard.tsx",
     "frontend/src/hooks/useEvaluationApi.ts",
     "src/api/db/evaluation-repository.ts",
     "src/api/index.ts",
     "src/api/routes/evaluation.ts",
+    "src/api/routes/remediation.ts",
     "src/shared/evaluation/context-scorer.test.ts",
-    "src/shared/evaluation/context-scorer.ts"
+    "src/shared/evaluation/context-scorer.ts",
+    "src/shared/evaluation/engine.ts",
+    "src/shared/evaluation/file-consistency-validator.ts",
+    "src/shared/file-system/colocated-file-consolidator.test.ts",
+    "src/shared/file-system/colocated-file-consolidator.ts",
+    "src/shared/remediation/engine.ts",
+    "src/shared/remediation/file-consolidator.test.ts",
+    "src/shared/remediation/file-consolidator.ts",
+    "src/shared/remediation/prompt-generator.test.ts",
+    "src/shared/remediation/prompt-generator.ts",
+    "src/shared/types/evaluation.ts",
+    "src/shared/types/remediation.ts"
   ],
   "sessions": [
     {
@@ -20,13 +32,20 @@
       "context": "/5f/3390ed3fa8/0/context.md",
       "content_hash": "/5f/3390ed3fa8/0/content_hash.txt",
       "prompt": "/5f/3390ed3fa8/0/prompt.txt"
+    },
+    {
+      "metadata": "/5f/3390ed3fa8/1/metadata.json",
+      "transcript": "/5f/3390ed3fa8/1/full.jsonl",
+      "context": "/5f/3390ed3fa8/1/context.md",
+      "content_hash": "/5f/3390ed3fa8/1/content_hash.txt",
+      "prompt": "/5f/3390ed3fa8/1/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 2051,
-    "cache_creation_tokens": 107988,
-    "cache_read_tokens": 6740737,
-    "output_tokens": 11680,
-    "api_call_count": 67
+    "input_tokens": 2158,
+    "cache_creation_tokens": 213030,
+    "cache_read_tokens": 15202972,
+    "output_tokens": 22492,
+    "api_call_count": 170
   }
 }
