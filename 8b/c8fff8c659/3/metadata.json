@@ -1,0 +1,30 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "8bc8fff8c659",
+  "session_id": "e016b713-bf96-4a39-b72d-e431d4d576f8",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-19T15:37:28.202943Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "frontend/src/components/PatchDownload.tsx",
+    "frontend/src/components/RemediationHistoryCard.tsx"
+  ],
+  "agent": "Claude Code",
+  "token_usage": {
+    "input_tokens": 13,
+    "cache_creation_tokens": 49343,
+    "cache_read_tokens": 553033,
+    "output_tokens": 73,
+    "api_call_count": 11
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-19T15:37:28.127547Z",
+    "agent_lines": 0,
+    "human_added": 147,
+    "human_modified": 119,
+    "human_removed": 0,
+    "total_committed": 266,
+    "agent_percentage": 0
+  }
+}

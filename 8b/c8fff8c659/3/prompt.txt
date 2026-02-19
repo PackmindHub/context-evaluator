@@ -1,0 +1,104 @@
+Implement the following plan:
+
+# Plan: Remediation Card Button Layout Cleanup
+
+## Context
+The remediation history card currently has two visually separate rows: a header row (with metadata + "Download Patch" + delete icon on the right), and a second row below it (with the "Evaluate Impact" button). This creates visual inconsistency — the card height varies and buttons are not aligned on the same axis. The request is to:
+1. Move "Evaluate Impact" next to "Download Patch" in the right-side quick actions area
+2. Give "Evaluate Impact" a distinct color (indigo, matching `btn-primary`) and add an icon
+3. Reduce button sizes to be more compact (smaller padding/text)
+4. Ensure buttons are vertically centered in the card (removing the second row achieves this)
+
+## Files to Modify
+
+- `frontend/src/components/RemediationHistoryCard.tsx` — main card layout
+- `frontend/src/components/PatchDownload.tsx` — update button size
+
+---
+
+## Implementation Plan
+
+### Step 1: Update `PatchDownload.tsx` — Compact Size
+
+Change `btn-secondary flex items-center gap-2` to use compact inline Tailwind instead of the global `btn-secondary` class (which applies `px-5 py-2.5`, too large for a card context):
+
+```tsx
+className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-slate-700/80 text-slate-200 border border-slate-600 hover:bg-indigo-700 hover:border-indigo-600 hover:text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+```
+
+This matches the visual style of `btn-secondary` hover behavior but at a compact size.
+
+### Step 2: Update `RemediationHistoryCard.tsx` — Consolidate Layout
+
+**A. Remove the "Impact evaluation row"** (lines 186–250): Delete the entire `{!isFailed && (<div className="px-3 pb-2 flex items-center gap-3">...</div>)}` block.
+
+**B. Move impact evaluation content into the quick actions div** (currently lines 154–183), inserting BEFORE the `<PatchDownload />` and delete button:
+
+```tsx
+{/* Quick actions */}
+<div
+  className="flex items-center gap-2 flex-shrink-0"
+  onClick={(e) => e.stopPropagation()}
+  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") e.stopPropagation(); }}
+>
+  {/* Impact evaluation — all states */}
+  {!isFailed && (
+    <>
+      {impactEvalStatus === "idle" && !item.resultEvaluationId && hasRepoUrl && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onEvaluateImpact?.(); }}
+          className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-indigo-600 text-white hover:bg-indigo-500 transition-all duration-200"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+          Evaluate Impact
+        </button>
+      )}
+      {impactEvalStatus === "running" && (
+        <span className="flex items-center gap-1.5 text-xs text-slate-400">
+          {/* existing spinner SVG */}
+          Evaluating...
+          {impactJobId && (
+            <a href={`/evaluation/${impactJobId}`} className="text-blue-400 hover:text-blue-300 underline" onClick={(e) => e.stopPropagation()}>
+              Track →
+            </a>
+          )}
+        </span>
+      )}
+      {impactEvalStatus === "failed" && (
+        <span className="text-xs text-red-400">Impact failed</span>
+      )}
+      {/* Score displayed in the right-side quick actions area once available */}
+      {(impactEvalStatus === "completed" || item.resultEvaluationId) && impactScore !== undefined && parentScore !== undefined && (
+        <ScoreComparison before={parentScore} after={impactScore} afterGrade={impactGrade} />
+      )}
+    </>
+  )}
+
+  {/* Existing: Download Patch + Delete */}
+  {!isFailed && <PatchDownload remediationId={item.id} />}
+  {!cloudMode && (/* delete button, unchanged */)}
+</div>
+```
+
+The icon chosen is a **bar chart** (analytics icon) — semantically appropriate for "Evaluate Impact" and distinct from the download arrow on "Download Patch".
+
+**C. Card structure after change**: The card becomes a single-row layout. The header `<button>` already has `items-center` for vertical centering and `p-3` for equal top/bottom padding — this looks clean once the second row is removed.
+
+---
+
+## Verification
+
+1. Start dev server: `bun run dev`
+2. Open a remediation with an existing patch in the UI
+3. Confirm "Evaluate Impact" button appears to the LEFT of "Download Patch" in the same row
+4. Confirm "Evaluate Impact" is indigo/blue colored with a bar chart icon
+5. Confirm both buttons are compact (smaller than before)
+6. Confirm card has equal top/bottom visual spacing (single row)
+7. Confirm "running" / "failed" / "completed" states display correctly inline
+8. Run tests: `bun run test`
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
