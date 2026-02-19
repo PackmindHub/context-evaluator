@@ -1,0 +1,37 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "16b343528434",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "src/api/routes/remediation.ts",
+    "src/shared/evaluation/engine.ts",
+    "src/shared/evaluation/file-consistency-validator.ts",
+    "src/shared/file-system/colocated-file-consolidator.test.ts",
+    "src/shared/file-system/colocated-file-consolidator.ts",
+    "src/shared/remediation/engine.ts",
+    "src/shared/remediation/file-consolidator.test.ts",
+    "src/shared/remediation/file-consolidator.ts",
+    "src/shared/remediation/prompt-generator.test.ts",
+    "src/shared/remediation/prompt-generator.ts",
+    "src/shared/types/evaluation.ts",
+    "src/shared/types/remediation.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/16/b343528434/0/metadata.json",
+      "transcript": "/16/b343528434/0/full.jsonl",
+      "context": "/16/b343528434/0/context.md",
+      "content_hash": "/16/b343528434/0/content_hash.txt",
+      "prompt": "/16/b343528434/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 15,
+    "cache_creation_tokens": 33259,
+    "cache_read_tokens": 1214857,
+    "output_tokens": 4847,
+    "api_call_count": 9
+  }
+}
