@@ -559,8 +559,9 @@ ${outputTypeInstructions}
 6. Fix each remaining issue, highest severity first
 7. Preserve all correct existing content
 8. Keep changes minimal — only fix what's genuinely flagged
-9. Do not add commentary, headers, or sections beyond what's needed
-10. After making all changes, output a JSON summary:
+9. Format all added or edited content with concise bullet point lists — avoid dense prose paragraphs; each distinct fact, rule, step, or constraint should be its own bullet
+10. Do not add commentary, headers, or sections beyond what's needed
+11. After making all changes, output a JSON summary:
 \`\`\`json
 {
   "actions": [
@@ -639,7 +640,8 @@ Evaluator-suggested file paths (e.g., \`packages/api/AGENTS.md\`) may not match 
 6. Add concise, accurate documentation based on actual codebase analysis
 7. Preserve all correct existing content
 8. Keep additions minimal — only add what's needed to close the gap
-9. After making all changes, output a JSON summary:
+9. Format all added content with concise bullet point lists — avoid dense prose paragraphs; each distinct fact, rule, step, or constraint should be its own bullet
+10. After making all changes, output a JSON summary:
 \`\`\`json
 {
   "actions": [
@@ -799,8 +801,9 @@ ${errorPlan}
 3. For tasks marked as skipped in the plan, skip them
 4. Preserve all correct existing content
 5. Keep changes minimal — only fix what the plan specifies
-6. Do not add commentary, headers, or sections beyond what's needed
-7. After making all changes, output a JSON summary:
+6. Format all added or edited content with concise bullet point lists — avoid dense prose paragraphs; each distinct fact, rule, step, or constraint should be its own bullet
+7. Do not add commentary, headers, or sections beyond what's needed
+8. After making all changes, output a JSON summary:
 \`\`\`json
 {
   "actions": [
@@ -935,7 +938,8 @@ ${suggestionPlan}
 4. Add concise, accurate documentation based on actual codebase analysis
 5. Preserve all correct existing content
 6. Keep additions minimal — only add what the plan specifies
-7. After making all changes, output a JSON summary:
+7. Format all added content with concise bullet point lists — avoid dense prose paragraphs; each distinct fact, rule, step, or constraint should be its own bullet
+8. After making all changes, output a JSON summary:
 \`\`\`json
 {
   "actions": [
