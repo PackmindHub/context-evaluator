@@ -1,0 +1,169 @@
+Implement the following plan:
+
+# Plan: Plan-First Remediation Pipeline
+
+## Context
+
+The current remediation pipeline sends all issues (errors + suggestions) to the AI agent in a single prompt that combines planning and execution. This leads to suboptimal decisions — the agent jumps into writing code without strategizing, and may make conflicting changes (e.g., editing both AGENTS.md and CLAUDE.md despite our consolidation rules). Additionally, errors and suggestions run in the same git state, so suggestion fixes can't account for error fixes already applied.
+
+**Goal**: Introduce a 4-phase sequential pipeline: **plan errors → execute error fixes → plan suggestions (on updated repo) → execute suggestions**. Each phase is a separate AI invocation. Plans are free-form markdown stored for debug review.
+
+## Design Decisions (from user)
+
+- **Plan format**: Free-form markdown (not structured JSON)
+- **Auto-execute**: No manual approval; plan generated then immediately executed
+- **Plan decides grouping**: Plan groups related issues into consolidated tasks
+- **Output-type instructions**: In BOTH plan and execution prompts
+- **Execution input**: Plan + minimal context (project summary, files, tech inventory) — NOT full issue details
+- **Diff strategy**: Capture intermediate error diff + final combined diff (both stored)
+- **Git strategy**: After error fixes, capture diff but leave working directory dirty; suggestions build on top
+- **Cross-phase context**: Suggestion plan receives error-fix action summary
+- **No batching**: All issues go to one plan prompt and one execution prompt
+- **Plan storage**: In `IRemediationResult` fields (accessible via API + DB)
+- **Progress UI**: Linear step sequence with new step labels
+
+## Changes
+
+### 1. Type changes — `src/shared/types/remediation.ts`
+
+**Expand `RemediationStep`** with 3 new values:
+```
+"planning_error_fix" | "capturing_error_diff" | "planning_suggestion_enrich"
+```
+
+**Add fields to `IRemediationResult`**:
+- `errorPlan?: string` — error planning prompt output (markdown)
+- `suggestionPlan?: string` — suggestion planning prompt output
+- `errorPlanPrompt?: string` — the prompt sent for error planning (debug)
+- `suggestionPlanPrompt?: string` — the prompt sent for suggestion planning (debug)
+- `errorFixDiff?: string` — intermediate diff after error fixes only
+- `errorFixFileChanges?: IFileChange[]` — per-file changes from error fixes only
+- `errorPlanStats?: IPromptExecutionStats` — timing/cost for error plan
+- `suggestionPlanStats?: IPromptExecutionStats` — timing/cost for suggestion plan
+
+### 2. Prompt generator — `src/shared/remediation/prompt-generator.ts`
+
+**Add 4 new builder functions** (keep existing `buildErrorFixPrompt`/`buildSuggestionEnrichPrompt` for the copy-paste endpoint):
+
+- `buildErrorPlanPrompt(input)` — Same issue blocks as current error prompt, but instructions ask for a **markdown plan** (grouping, outputType decisions, fix strategy per task) instead of code changes
+- `buildErrorExecutionPrompt(input, errorPlan)` — Receives the plan markdown + minimal context (no issue blocks). Instructions: execute the plan, output JSON action summary
+- `buildSuggestionPlanPrompt(input, errorFixSummary?)` — Like error plan but for suggestions, sorted by impact. Includes `## Recent Error Fixes` section with the error-fix action summary so suggestions don't duplicate work
+- `buildSuggestionExecutionPrompt(input, suggestionPlan)` — Receives suggestion plan + minimal context
+
+**New public export**: `generatePlanFirstPrompts(input, plans?)` returning all 4 prompts. Called incrementally by the engine as plans become available.
+
+**Reuse existing helpers**: `buildSnippetIndex`, `buildReferencedContentSection`, `formatErrorIssueBlock`, `formatSuggestionIssueBlock`, `getOutputTypeInstructions`, `buildConsolidationNotice`, `filterColocatedClaudePaths`, `formatProjectLine`, `getAgentContextDescription` — all reused directly.
+
+### 3. Engine rewrite — `src/shared/remediation/engine.ts`
+
+**Keep unchanged**: Steps 1-2.5 (clone/local detection, git check, file consolidation, issue sorting, input construction).
+
+**Replace** the batch loop (current step 4 onward) with a 4-phase sequential pipeline:
+
+```
+Phase 1: Plan error fixes
+  - Generate error plan prompt
+  - Invoke provider with writeMode: false (read-only)
+  - Store plan output as errorPlan
+  - Emit "planning_error_fix" step
+
+Phase 2: Execute error fixes
+  - Generate execution prompt with errorPlan
+  - Invoke provider with writeMode: true
+  - Parse action summary immediately (needed for Phase 3)
+  - Emit "executing_error_fix" step
+
+Phase 2.5: Capture intermediate diff
+  - captureGitDiff() → store as errorFixDiff
+  - parseUnifiedDiff() → store as errorFixFileChanges
+  - Do NOT reset — leave working directory dirty
+  - Emit "capturing_error_diff" step
+
+Phase 3: Plan suggestion enrichment
+  - Build error-fix summary text from Phase 2 actions
+  - Generate suggestion plan prompt (includes error-fix summary)
+  - Invoke provider with writeMode: false (reads updated files)
+  - Store plan output as suggestionPlan
+  - Emit "planning_suggestion_enrich" step
+
+Phase 4: Execute suggestions
+  - Generate execution prompt with suggestionPlan
+  - Invoke provider with writeMode: true (builds on error fixes)
+  - Emit "executing_suggestion_enrich" step
+
+Phase 5: Capture final combined diff
+  - captureGitDiff() → fullPatch (includes both error + suggestion changes)
+  - Emit "capturing_diff" step
+
+Phase 6: Reset
+  - resetWorkingDirectory()
+  - Emit "resetting" step
+```
+
+**Remove**: `chunkArray` helper, batch offset remapping code, batch loop variables. Keep `REMEDIATION_BATCH_SIZE` (used by copy-paste endpoint).
+
+**Add helper**: `buildErrorFixSummaryText(actions, sortedErrors)` — formats error-fix actions into a human-readable summary for the suggestion plan's cross-phase context.
+
+### 4. Database — `src/api/db/database.ts` + `remediation-repository.ts`
+
+**Migration**: Add `plan_data_json TEXT` column to `remediations` table (try/catch ALTER TABLE pattern).
+
+**Repository**:
+- `saveRemediation()`: serialize `{ errorPlan, suggestionPlan, errorPlanPrompt, suggestionPlanPrompt, errorFixDiff, errorFixFileChanges }` into `plan_data_json`; add `errorPlanStats`/`suggestionPlanStats` to existing `prompt_stats_json`
+- `rowToRecord()`: deserialize `plan_data_json` back into the record
+
+### 5. Frontend types — `frontend/src/types/remediation.ts`
+
+Mirror new `IRemediationResult` fields. Add `planData` to `RemediationHistoryItem`. Add `errorPlanStats`/`suggestionPlanStats` to `promptStats`.
+
+### 6. Frontend progress — `frontend/src/components/RemediationProgress.tsx`
+
+**Update `STEP_LABELS`** with 3 new entries:
+- `planning_error_fix`: "Planning error fixes..."
+- `capturing_error_diff`: "Capturing error changes..."
+- `planning_suggestion_enrich`: "Planning enrichment..."
+
+**Update summary header**: Replace batch terminology ("N batches") with phase-aware description ("Planning and fixing N errors, then enriching M suggestions (K AI invocations)").
+
+**Update progress bar label**: "Phase" instead of "Batch".
+
+### 7. Frontend history — `frontend/src/components/RemediationHistoryCard.tsx`
+
+Add collapsible plan display sections in expanded details (above action summary):
+- "Error Fix Plan" toggle → shows `planData.errorPlan` as monospace text
+- "Suggestion Enrichment Plan" toggle → shows `planData.suggestionPlan`
+
+### 8. No API route changes needed
+
+Existing `GET /api/remediation/:id` returns the full record including new `planData`. The copy-paste endpoint (`POST /api/remediation/prompts`) uses the unchanged `generateRemediationPrompts()`.
+
+## Implementation Order
+
+1. Types (`remediation.ts`) — all other files depend on this
+2. Prompt generator (add 4 new functions + export, keep existing)
+3. Tests for new prompt generator functions
+4. Engine rewrite (4-phase pipeline)
+5. Database migration + repository
+6. Frontend types
+7. Frontend components (RemediationProgress + RemediationHistoryCard)
+8. Run `bun run test` and `bun run lint`
+
+## Verification
+
+1. `bun run test` — all existing + new tests pass
+2. `bun run lint` — no issues
+3. `bun run typecheck` — no TypeScript errors
+4. Manual test: run remediation against a repo with both errors and suggestions
+   - Verify 4 AI invocations in sequence (plan→execute→plan→execute)
+   - Verify error fixes land before suggestion planning starts
+   - Verify suggestion plan includes "Recent Error Fixes" section
+   - Verify intermediate error diff is stored
+   - Verify plans appear in remediation history card (expandable)
+   - Verify progress UI shows linear step sequence
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+Review your changes to find potential issues
