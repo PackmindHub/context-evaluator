@@ -1,0 +1,122 @@
+Implement the following plan:
+
+# Plan: Merge Action Summary + Diff Sections into Unified File List
+
+## Context
+
+The remediation report currently has two separate sections:
+1. **Action Summary** — groups action bullets by file name (green checkmarks)
+2. **File Changes** — a separate set of expandable `FileChangeCard` rows with diffs below
+
+This is redundant: the same files appear in both places. The user wants a **single unified section** where each file row can toggle its diff inline, replacing the action bullets, with the status badge and +/- stats visible in the header at all times.
+
+**User decisions:**
+- Diff **replaces** action bullets when expanded (toggling between two views)
+- Chevron icon triggers expand/collapse
+- Status badge (`added`/`modified`) + `+n -n` stats always visible in the file row header
+- All rows **collapsed by default**
+- Combined entries like "AGENTS.md + CLAUDE.md" stay grouped, showing both diffs stacked when expanded
+
+---
+
+## Implementation Plan
+
+### File to modify: `frontend/src/components/RemediationHistoryCard.tsx`
+
+#### Step 1 — Add `DiffViewer` import
+
+```ts
+import { DiffViewer } from "./DiffViewer";
+```
+
+#### Step 2 — Replace usage in expanded section
+
+In the `result && (...)` block, replace:
+- The `<CompactActionSummary />` call
+- The entire "File changes" `result.fileChanges.map(...)` block
+
+With a single call:
+```tsx
+<UnifiedFilesSection result={result} />
+```
+
+The Packmind banner and plan sections (`CollapsiblePlanSection`) remain unchanged.
+
+#### Step 3 — Implement `UnifiedFilesSection` component
+
+New local component (replaces `CompactActionSummary` function in same file):
+
+```typescript
+interface UnifiedFileEntry {
+  key: string;                   // Display key: "AGENTS.md" or "AGENTS.md + CLAUDE.md"
+  actions: RemediationAction[];  // Addressed actions for this group
+  fileChanges: FileChange[];     // Matched FileChange(s) from result.fileChanges
+  totalAdditions: number;        // Sum across matched files
+  totalDeletions: number;
+  displayStatus: "added" | "modified" | "deleted" | null;
+}
+```
+
+**Build logic (in `buildUnifiedEntries(result)`):**
+
+1. Gather all non-skipped actions, group by `action.file ?? "General changes"` → same logic as current `CompactActionSummary` `groupMap`
+2. For each group key:
+   - Split key by `" + "` → individual filenames (e.g. `["AGENTS.md", "CLAUDE.md"]`)
+   - For each filename, find `result.fileChanges` where `fc.path.endsWith(filename)`
+   - Sum additions/deletions, compute `displayStatus` (prefer "modified" > "deleted" > "added")
+3. Also add any `fileChanges` not yet matched by any action group → entry with empty `actions[]`
+4. Sort: "General changes" last, otherwise alphabetical
+
+**Collapsed state (chevron pointing right):**
+- Header: `[>] filename | [status badge] | +n -n`
+- Body: action bullet list (same green checkmarks as today)
+- If no actions: body is empty (file row still expandable if it has a diff)
+
+**Expanded state (chevron pointing down):**
+- Header: same (badge + stats always visible)
+- Body: `DiffViewer` for each matched `FileChange`, stacked (for combined entries)
+- If no matching `FileChange` found: keep showing action bullets (no diff to show) and hide chevron
+
+**Footer (inside the section, after all file rows):**
+- Skipped actions section — same as today (separate collapsible "Skipped (n)" block below all file rows)
+- Count header: `Action Summary | n addressed, n skipped` (same as today)
+
+#### Step 4 — Remove `FileChangeCard` import and `getFileSummaries` helper
+
+Both are no longer needed in `RemediationHistoryCard.tsx`. The `FileChangeCard.tsx` file itself is left untouched (it may be used elsewhere or can be cleaned up later).
+
+---
+
+## Critical Files
+
+| File | Change |
+|------|--------|
+| `frontend/src/components/RemediationHistoryCard.tsx` | Main change: new `UnifiedFilesSection` component, remove `CompactActionSummary` + `FileChangeCard` rendering |
+| `frontend/src/components/FileChangeCard.tsx` | No change (just remove import from above file) |
+| `frontend/src/components/DiffViewer.tsx` | No change (imported directly into new component) |
+
+---
+
+## Verification
+
+1. Run `bun run dev` and open the remediation history page
+2. Expand a remediation with multiple files — confirm:
+   - Single unified section with file rows (no separate diff section below)
+   - Each row shows status badge + `+n -n` in the header
+   - Collapsed state shows action bullet points
+   - Clicking the chevron replaces bullets with the diff view
+   - Clicking again collapses back to bullet points
+3. Check "combined" entry (e.g., "AGENTS.md + CLAUDE.md"):
+   - Both diffs appear stacked when expanded
+   - Stats reflect the sum of both files
+4. Check a remediation with `result.summary = null` (no parsed summary):
+   - File rows still appear with diffs only (no bullet points)
+5. Run `bun run test` — all tests must pass
+6. Run `bun run lint` — no lint errors
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+commit

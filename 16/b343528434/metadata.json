@@ -3,7 +3,7 @@
   "checkpoint_id": "16b343528434",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 2,
+  "checkpoints_count": 3,
   "files_touched": [
     "frontend/src/components/RemediationHistoryCard.tsx",
     "frontend/src/components/RemediationProgress.tsx",
@@ -37,13 +37,20 @@
       "context": "/16/b343528434/1/context.md",
       "content_hash": "/16/b343528434/1/content_hash.txt",
       "prompt": "/16/b343528434/1/prompt.txt"
+    },
+    {
+      "metadata": "/16/b343528434/2/metadata.json",
+      "transcript": "/16/b343528434/2/full.jsonl",
+      "context": "/16/b343528434/2/context.md",
+      "content_hash": "/16/b343528434/2/content_hash.txt",
+      "prompt": "/16/b343528434/2/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 102,
-    "cache_creation_tokens": 183237,
-    "cache_read_tokens": 10906549,
-    "output_tokens": 7859,
-    "api_call_count": 92
+    "input_tokens": 128,
+    "cache_creation_tokens": 219463,
+    "cache_read_tokens": 11993559,
+    "output_tokens": 8333,
+    "api_call_count": 114
   }
 }
