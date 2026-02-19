@@ -1,0 +1,69 @@
+Implement the following plan:
+
+# Fix: Impact Evaluation Shows Local Path Instead of Original Repo URL
+
+## Context
+
+When a user runs "Evaluate Impact" from a remediation report, the resulting evaluation report displays a local temporary directory path (e.g., `/tmp/clone-abc123/`) as the repository URL instead of the original repository URL.
+
+This happens because the remediation route correctly clones the original repo and applies the git patch, but when submitting the evaluation job, it omits `repositoryUrl` from the job request. The database layer then falls back to `localPath` (the temp dir) when no `repositoryUrl` is provided.
+
+## Root Cause
+
+**File**: `src/api/routes/remediation.ts`, lines 611–619
+
+```typescript
+const jobId = await this.jobManager.submitJob({
+    localPath: cloneResult.path,   // ← temp dir path, e.g. /tmp/clone-abc123/
+    options: {
+        selectedEvaluators: parentEvaluatorIds,
+    },
+    _cleanupFn: cloneResult.cleanup,
+    _parentEvaluationId: remediation.evaluationId,
+    _sourceRemediationId: remediationId,
+    // ← repositoryUrl is missing!
+});
+```
+
+**File**: `src/api/db/evaluation-repository.ts`, line 134
+
+```typescript
+$repositoryUrl: request.repositoryUrl || request.localPath || "unknown",
+// When repositoryUrl is undefined → falls back to localPath (temp dir)
+```
+
+The variable `repoUrl` (the original repo URL used for cloning) is already in scope at line 547 but is not forwarded to `submitJob`.
+
+## Fix
+
+**Single change in `src/api/routes/remediation.ts`**: Add `repositoryUrl: repoUrl` to the `submitJob` call.
+
+```typescript
+const jobId = await this.jobManager.submitJob({
+    localPath: cloneResult.path,
+    repositoryUrl: repoUrl,          // ← ADD THIS LINE
+    options: {
+        selectedEvaluators: parentEvaluatorIds,
+    },
+    _cleanupFn: cloneResult.cleanup,
+    _parentEvaluationId: remediation.evaluationId,
+    _sourceRemediationId: remediationId,
+});
+```
+
+`repoUrl` is the original repo URL already used to clone the repo at line 547. The `IEvaluateRequest` type already has `repositoryUrl?: string` field (`src/shared/types/api.ts:9`), so no type changes are needed.
+
+## Files to Modify
+
+- `src/api/routes/remediation.ts` — Add `repositoryUrl: repoUrl` to `submitJob` call (~line 612)
+
+## Verification
+
+1. Run an evaluation on a GitHub repo (e.g. `https://github.com/owner/repo`)
+2. Run remediation on the evaluation result
+3. Click "Evaluate Impact" on the remediation report
+4. Verify the new impact evaluation report shows the original GitHub URL (not a local temp path)
+5. Run `bun run test` to confirm no regressions
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
