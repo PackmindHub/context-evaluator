@@ -1,0 +1,87 @@
+Implement the following plan:
+
+# Plan: Mark Remediation Impact Evaluations in UI
+
+## Context
+
+When users click "Evaluate Impact" on a remediation, a new evaluation is created with `parentEvaluationId` and `sourceRemediationId` fields set. However, these evaluations appear identically to regular evaluations in the list. Users need to:
+1. Distinguish impact evaluations from regular ones in the list
+2. Navigate to the original (parent) evaluation
+3. See the original score alongside the new score in the Summary tab
+
+The data model already supports this (`parent_evaluation_id` and `source_remediation_id` columns exist in DB, returned by API). The frontend types just don't expose these fields.
+
+## Changes
+
+### 1. Frontend Types - Add parent fields
+**File**: `frontend/src/types/evaluation.ts`
+
+Add to `IEvaluationHistoryItem` interface (after `isImported`):
+```typescript
+parentEvaluationId?: string;
+sourceRemediationId?: string;
+```
+
+### 2. Evaluation List - Show "Re-evaluation" badge + link to parent
+**File**: `frontend/src/components/RecentEvaluationsPage.tsx`
+
+In the badges area (after the "Imported" badge around line 487-491), add a badge for items with `parentEvaluationId`:
+- Purple/indigo "Re-evaluation" badge with a small link icon
+- Clicking it navigates to the parent evaluation (`/evaluation/{parentEvaluationId}`)
+- Use `e.stopPropagation()` to prevent navigating to the current evaluation
+
+### 3. Summary Tab - Show parent score comparison
+**File**: `frontend/src/components/Summary.tsx`
+
+Add new props:
+```typescript
+parentEvaluationId?: string;
+parentScore?: number;
+parentGrade?: string;
+```
+
+In the header area (after the metadata badges), show a banner when this is a re-evaluation:
+- "Re-evaluation from remediation" label
+- Link to parent evaluation: "View original report"
+- Score comparison: "Original score: 7.2 → Current: 8.4 (+1.2)" using the existing `ScoreComparison` pattern from `RemediationHistoryCard.tsx`
+
+### 4. App.tsx - Fetch parent evaluation score and pass to Summary
+**File**: `frontend/src/App.tsx`
+
+When loading an evaluation from DB (~line 854):
+- Check if `record.parentEvaluationId` exists
+- If so, fetch the parent evaluation's score via `getEvaluationScore(record.parentEvaluationId)`
+- Store in state: `parentEvalScore`, `parentEvalGrade`, `parentEvalId`
+- Pass these to `<Summary>` component
+
+### 5. useEvaluationApi - Reuse existing `getEvaluationScore`
+**File**: `frontend/src/hooks/useEvaluationApi.ts`
+
+No changes needed - `getEvaluationScore` already exists and returns `{ contextScore, contextGrade }`.
+
+## Files to Modify
+
+1. `frontend/src/types/evaluation.ts` - Add 2 fields to interface
+2. `frontend/src/components/RecentEvaluationsPage.tsx` - Add "Re-evaluation" badge
+3. `frontend/src/components/Summary.tsx` - Add parent score banner + props
+4. `frontend/src/App.tsx` - Fetch parent score, pass to Summary
+
+## Verification
+
+1. Run `bun run test` - ensure no regressions
+2. Run `bun run lint` - ensure code passes linting
+3. Manual: create an evaluation, run remediation, click "Evaluate Impact", verify:
+   - The new evaluation shows "Re-evaluation" badge in the list
+   - Clicking the badge navigates to the original evaluation
+   - The Summary tab shows the original score comparison
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+Something should also appear in the "Latest page"
+
+---
+
+commit and update @CHANGELOG.md

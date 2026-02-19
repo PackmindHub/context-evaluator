@@ -3,10 +3,17 @@
   "checkpoint_id": "8bc8fff8c659",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 4,
+  "checkpoints_count": 7,
   "files_touched": [
+    "CHANGELOG.md",
+    "frontend/src/App.tsx",
     "frontend/src/components/PatchDownload.tsx",
+    "frontend/src/components/RecentEvaluationsPage.tsx",
     "frontend/src/components/RemediationHistoryCard.tsx",
+    "frontend/src/components/Summary.tsx",
+    "frontend/src/types/evaluation.ts",
+    "src/api/db/evaluation-repository.ts",
+    "src/api/routes/evaluation.test.ts",
     "src/api/routes/remediation.ts"
   ],
   "sessions": [
@@ -37,13 +44,20 @@
       "context": "/8b/c8fff8c659/3/context.md",
       "content_hash": "/8b/c8fff8c659/3/content_hash.txt",
       "prompt": "/8b/c8fff8c659/3/prompt.txt"
+    },
+    {
+      "metadata": "/8b/c8fff8c659/4/metadata.json",
+      "transcript": "/8b/c8fff8c659/4/full.jsonl",
+      "context": "/8b/c8fff8c659/4/context.md",
+      "content_hash": "/8b/c8fff8c659/4/content_hash.txt",
+      "prompt": "/8b/c8fff8c659/4/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 51,
-    "cache_creation_tokens": 116517,
-    "cache_read_tokens": 1661506,
-    "output_tokens": 3716,
-    "api_call_count": 43
+    "input_tokens": 115,
+    "cache_creation_tokens": 354059,
+    "cache_read_tokens": 8513083,
+    "output_tokens": 6070,
+    "api_call_count": 101
   }
 }
