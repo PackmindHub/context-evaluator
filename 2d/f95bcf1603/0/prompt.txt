@@ -1,0 +1,102 @@
+Implement the following plan:
+
+# Plan: Redesign Action Summary — Group by Target File
+
+## Context
+
+The current Action Summary in `RemediationHistoryCard` renders all actions as a flat list, mixing different target files and strategies together. This makes it hard to understand what changed where. The redesign groups actions by their target file (like a directory tree), removes the strategy badge, and adds a clear "Skipped" section at the bottom.
+
+## User Requirements (confirmed via Q&A)
+
+- **Group by target file** (alphabetical order, like directory tree)
+- **Group header**: file path only — no strategy (outputType) displayed anywhere
+- **No file** → "General changes" group
+- **Multi-file actions** ("AGENTS.md + CLAUDE.md") → single combined group header, sorted as-is
+- **Skipped**: flat "Skipped (N)" section at the bottom, just action text with dash
+- **Strategy badge removed** from individual action rows entirely
+
+## File to Modify
+
+**Only one file changes:**
+- `frontend/src/components/RemediationHistoryCard.tsx` — the `CompactActionSummary` function (lines 344–392)
+
+## Implementation Design
+
+### Grouping Logic
+
+```ts
+// 1. Separate addressed vs skipped
+const addressedActions = allActions.filter(a => a.status !== "skipped");
+const skippedActions = allActions.filter(a => a.status === "skipped");
+
+// 2. Group addressed by file
+const groups = Map<string, RemediationAction[]>
+  // key = action.file ?? "General changes"
+  // sorted alphabetically by key
+
+// 3. Sort group keys alphabetically
+const sortedKeys = [...groups.keys()].sort((a, b) => {
+  // "General changes" always last
+  if (a === "General changes") return 1;
+  if (b === "General changes") return -1;
+  return a.localeCompare(b);
+});
+```
+
+### Visual Structure
+
+```
+Action Summary                     30 addressed, 5 skipped
+
+ AGENTS.md
+  ✓ Replaced collectors/ with connectors/...
+  ✓ Added CI/CD Pipeline section with ci.yml...
+  ✓ Added merge strategy section...
+
+ AGENTS.md + CLAUDE.md
+  ✓ Replaced ESLint references with Biome throughout both files
+  ✓ Replaced providers/ with llm/ and updated descriptions
+
+ CLAUDE.md
+  ✓ Added Documentation Directories section...
+
+ .claude/rules/security.md
+  ✓ Created always-apply security standard...
+
+ General changes
+  ✓ ...
+
+Skipped (5)
+  — Both files serve valid purposes; merging requires human decision
+  — AGENTS.md already uses GIT_TOKEN, not GITHUB_TOKEN
+  — CLAUDE.md already references daily-update.yml correctly
+```
+
+### Key Changes to `CompactActionSummary`
+
+1. **Remove** the `{action.outputType && ...}` badge block from each row
+2. **Add** grouping logic at the top of the component
+3. **Replace** the flat `allActions.map(...)` with:
+   - Iterate `sortedKeys`, render a group header (file path, monospace, subtle style)
+   - Under each header, render addressed actions for that group
+   - After all groups, render "Skipped" section if `skippedActions.length > 0`
+4. **Group header style**: small monospace label, slightly brighter than action text, with a thin left border or dot separator — consistent with existing slate color system
+
+### No backend changes needed
+
+All necessary data (`action.file`, `action.status`, `action.summary`) already exists in the frontend data model.
+
+## Verification
+
+1. `bun run test` — confirm no regressions
+2. `bun run lint` — confirm Biome passes
+3. Visual check in browser: open a remediation with mixed file targets and verify groups appear correctly sorted
+4. Visual check: skipped items appear only in the bottom flat section
+5. Verify strategy badge is gone from all rows
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+commit
