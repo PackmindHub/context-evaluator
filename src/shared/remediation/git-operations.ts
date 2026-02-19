@@ -59,7 +59,13 @@ export async function captureGitDiff(cwd: string): Promise<string> {
  */
 export async function resetWorkingDirectory(cwd: string): Promise<void> {
 	await runGit(["reset", "HEAD", "--quiet"], cwd);
-	await runGit(["checkout", "."], cwd);
+	// git checkout . fails when there are no tracked modifications to restore
+	// (e.g., only new untracked files were created). This is safe to ignore.
+	try {
+		await runGit(["checkout", "."], cwd);
+	} catch {
+		// No tracked modifications to restore — git clean will handle untracked files
+	}
 	await runGit(["clean", "-fd"], cwd);
 }
 
