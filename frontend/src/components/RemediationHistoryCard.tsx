@@ -351,6 +351,22 @@ function CompactActionSummary({
 		...summary.suggestionEnrichActions,
 	];
 
+	const addressedActions = allActions.filter((a) => a.status !== "skipped");
+	const skippedActions = allActions.filter((a) => a.status === "skipped");
+
+	const groupMap = new Map<string, typeof addressedActions>();
+	for (const action of addressedActions) {
+		const key = action.file ?? "General changes";
+		if (!groupMap.has(key)) groupMap.set(key, []);
+		groupMap.get(key)?.push(action);
+	}
+
+	const sortedKeys = [...groupMap.keys()].sort((a, b) => {
+		if (a === "General changes") return 1;
+		if (b === "General changes") return -1;
+		return a.localeCompare(b);
+	});
+
 	return (
 		<div className="bg-slate-900/30 rounded-lg p-3">
 			<div className="flex items-center justify-between mb-2">
@@ -362,31 +378,47 @@ function CompactActionSummary({
 					{summary.skippedCount > 0 && `, ${summary.skippedCount} skipped`}
 				</span>
 			</div>
-			<div className="space-y-1">
-				{allActions.map((action) => (
-					<div
-						key={`${action.issueIndex}-${action.status}`}
-						className="flex items-start gap-2 text-xs"
-					>
-						{action.status === "skipped" ? (
-							<span className="text-slate-500 mt-0.5">—</span>
-						) : (
-							<span className="text-green-400 mt-0.5">✓</span>
-						)}
-						<span className="text-slate-400 flex-1">{action.summary}</span>
-						{action.outputType && (
-							<span
-								className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium flex-shrink-0 output-type-${action.outputType}`}
-							>
-								{action.outputType.charAt(0).toUpperCase() +
-									action.outputType.slice(1)}
-							</span>
-						)}
-						{action.file && (
-							<span className="text-slate-600 font-mono">{action.file}</span>
-						)}
+			<div className="space-y-2">
+				{sortedKeys.map((key) => (
+					<div key={key}>
+						<div className="text-xs font-mono text-slate-400 mb-1 pl-1 border-l border-slate-600">
+							{key}
+						</div>
+						<div className="space-y-1 pl-3">
+							{groupMap.get(key)?.map((action) => (
+								<div
+									key={`${action.issueIndex}-${action.status}`}
+									className="flex items-start gap-2 text-xs"
+								>
+									<span className="text-green-400 mt-0.5">✓</span>
+									<span className="text-slate-400 flex-1">
+										{action.summary}
+									</span>
+								</div>
+							))}
+						</div>
 					</div>
 				))}
+				{skippedActions.length > 0 && (
+					<div>
+						<div className="text-xs font-semibold text-slate-500 mb-1 mt-1">
+							Skipped ({skippedActions.length})
+						</div>
+						<div className="space-y-1 pl-3">
+							{skippedActions.map((action) => (
+								<div
+									key={`${action.issueIndex}-${action.status}`}
+									className="flex items-start gap-2 text-xs"
+								>
+									<span className="text-slate-500 mt-0.5">—</span>
+									<span className="text-slate-500 flex-1">
+										{action.summary}
+									</span>
+								</div>
+							))}
+						</div>
+					</div>
+				)}
 			</div>
 		</div>
 	);
