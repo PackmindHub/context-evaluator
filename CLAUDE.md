@@ -358,6 +358,13 @@ The 17 evaluators are specialized to avoid overlap. Cross-references between eva
 - **09-security** (ERROR): Exposed credentials, security risks
   - **Excludes:** Missing env var documentation → see 03-command-completeness (section 3.5)
 
+**Completeness & Balance:**
+- **10-completeness** (ERROR): Content balance — too short, too verbose, misplaced, or bloated
+  - Sections: Skeletal content (10.1), over-detailed/tutorial content (10.2), inappropriate placement (10.3), LLM-generated verbal bloat (10.4)
+  - 10.4 detects phrase-level padding: boilerplate preambles, verbose wrappers, unnecessary justifications, obvious-for-AI definitions, intra-file repetition
+  - **Boundary with 10.2**: 10.2 = structural over-documentation (500-line tutorials); 10.4 = phrase-level noise in otherwise well-structured content
+  - **Boundary with 01.2**: 01.2 = vague/non-actionable; 10.4 = verbose-but-clear instructions that could be 80% shorter
+
 **Codebase-Scanning Evaluators (Coordinated):**
 - **12-context-gaps**: Framework patterns, architecture, tools, domain conventions
   - **Excludes:** Testing (→14) and Database (→15)
