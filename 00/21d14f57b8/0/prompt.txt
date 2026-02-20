@@ -1,0 +1,70 @@
+Implement the following plan:
+
+# Plan: Redesign Action Summary as Grouped Table Layout
+
+## Context
+
+The current Action Summary in the remediation history card displays files as a flat alphabetical list, with descriptions tucked below each file name. This makes it hard to see what types of artifacts were created (rules vs skills vs context file updates). The redesign converts this into a 3-column table layout grouped by artifact type, with prominent section headers.
+
+## Changes
+
+### 1. Add CSS classes in `frontend/src/styles.css`
+
+Add near the existing `change-badge-*` classes (~line 1493):
+
+- `.action-summary-section-header` — full-width prominent row with `bg-slate-700/50`, border, rounded
+- `.action-summary-section-title` — bold uppercase text-xs tracking-wider
+- `.action-summary-section-count` — muted count, right-aligned
+- `.action-summary-row` — CSS grid with `grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) auto`
+- `.action-summary-cell-file` / `.action-summary-cell-description` / `.action-summary-cell-badge` — cell padding and optional left borders
+
+### 2. Add categorization logic in `RemediationHistoryCard.tsx`
+
+Add above the component functions (~line 470):
+
+- `SectionType = "rules" | "skills" | "context" | "other"`
+- `categorizeEntry(entry)` — primary: `outputType` on first action ("standard"→rules, "skill"→skills, "generic"→context); fallback: path-based heuristics for unmatched entries
+- `groupEntriesBySections(entries)` — buckets entries into ordered sections (Rules → Skills → Context → Other), omits empty sections
+- `SectionIcon` — small inline SVG per section type
+
+### 3. Rewrite `UnifiedFilesSection` (lines 481-559)
+
+- Keep the "Action Summary" header + addressed/skipped counts
+- Replace flat `entries.map()` with `sections.map()` rendering section headers + entry rows
+- Each section: prominent full-width header row (icon + label + file count) followed by table rows
+- Skipped actions section stays at bottom, unchanged
+
+### 4. Rewrite `UnifiedFileRow` (lines 562-654)
+
+Convert from vertical layout to 3-column grid row:
+- **Column 1 (File Path)**: chevron + monospace file path (with `break-all` for long paths)
+- **Column 2 (Issues Fixed)**: action summaries with ✓ prefix, stacked vertically if multiple; `—` placeholder for unmatched entries
+- **Column 3 (Action)**: status badge (added/modified/deleted) + line counts (+N / -N)
+- Expanded diff panel remains full-width below the row
+
+### What stays unchanged
+
+- `buildUnifiedEntries()` and `computeDisplayStatus()` — data contract unchanged
+- `DiffViewer` usage — still expanded inline below the row
+- `change-badge-*` CSS classes — reused as-is
+- Parent components — no changes needed
+- Skipped actions collapsible — identical behavior
+
+## Files to modify
+
+- `frontend/src/components/RemediationHistoryCard.tsx` — lines 396-654 target zone
+- `frontend/src/styles.css` — add ~20 lines of CSS near line 1493
+
+## Verification
+
+1. `bun run test` — ensure no regressions
+2. `cd frontend && bun run css:build` — rebuild Tailwind CSS
+3. `bun run dev` — visually verify the Action Summary in a remediation history card with mixed artifact types (rules + skills + context)
+4. `bun run lint` — pass linting
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+commit
