@@ -1,0 +1,5 @@
+We should not display "AGENTS.md" for GitHub Copilot instructions, but instead "Copilot instructions"
+
+---
+
+commit all your recent changes
