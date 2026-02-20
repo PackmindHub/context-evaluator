@@ -584,7 +584,7 @@ export function RemediateTab({
 							</a>
 							<button
 								onClick={() => setShowTourModal(true)}
-								className="btn-primary"
+								className="btn-secondary"
 							>
 								Get product tour
 							</button>

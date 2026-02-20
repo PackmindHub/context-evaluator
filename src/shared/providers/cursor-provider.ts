@@ -92,13 +92,18 @@ export class CursorProvider extends BaseProvider {
 		}
 
 		const startTime = Date.now();
+		const effectiveCwd = cwd || process.cwd();
+
+		console.log(
+			`[${this.displayName}] Spawning: agent ${args.join(" ")} (prompt via stdin, ${prompt.length} chars, cwd: ${effectiveCwd})`,
+		);
 
 		const proc = Bun.spawn(["agent", ...args], {
 			stdin: "pipe",
 			stdout: "pipe",
 			stderr: "pipe",
 			env: process.env,
-			cwd: cwd || process.cwd(),
+			cwd: effectiveCwd,
 		});
 
 		if (verbose) {
@@ -187,7 +192,41 @@ export class CursorProvider extends BaseProvider {
 			}
 
 			if (exitCode !== 0) {
+				const elapsed = Date.now() - startTime;
 				const exitCodeExplanation = this.getExitCodeExplanation(exitCode);
+
+				// Always log diagnostics on failure (not just in verbose mode)
+				console.error(
+					`[${this.displayName}] Process failed with code ${exitCode}${exitCodeExplanation} after ${(elapsed / 1000).toFixed(1)}s`,
+				);
+				console.error(
+					`[${this.displayName}] stdout: ${stdout.length} bytes, stderr: ${stderr.length} bytes`,
+				);
+				if (stderr) {
+					console.error(
+						`[${this.displayName}] stderr content: ${stderr.substring(0, 1000)}`,
+					);
+				}
+				if (stdout) {
+					console.error(
+						`[${this.displayName}] stdout content: ${stdout.substring(0, 1000)}`,
+					);
+				}
+				if (!stdout && !stderr) {
+					console.error(
+						`[${this.displayName}] Both stdout and stderr are empty. Possible causes:`,
+					);
+					console.error(
+						`[${this.displayName}]   - 'agent' CLI may not support --output-format json`,
+					);
+					console.error(
+						`[${this.displayName}]   - 'agent' CLI may not support reading prompt from stdin`,
+					);
+					console.error(
+						`[${this.displayName}]   - Check 'agent --version' and 'agent --help' for supported flags`,
+					);
+				}
+
 				const errorDetails = [
 					`${this.displayName} CLI exited with code ${exitCode}${exitCodeExplanation}`,
 					stderr ? `stderr: ${stderr.trim()}` : null,

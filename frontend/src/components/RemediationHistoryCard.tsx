@@ -359,7 +359,7 @@ export function RemediationHistoryCard({
 															</a>
 															<button
 																onClick={() => setShowTourModal(true)}
-																className="btn-primary text-xs py-1 px-2"
+																className="btn-secondary text-xs py-1 px-2"
 															>
 																Get product tour
 															</button>
