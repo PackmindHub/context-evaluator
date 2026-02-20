@@ -1,0 +1,64 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "c699e3d642de",
+  "session_id": "27940602-ca7b-46d4-b3b3-d020dc3f5c10",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-20T12:34:54.823638Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "prompts/context-remediation/packmind-remediation-skill-creation.md",
+    "src/shared/remediation/prompt-generator.ts"
+  ],
+  "agent": "Claude Code",
+  "token_usage": {
+    "input_tokens": 16,
+    "cache_creation_tokens": 18960,
+    "cache_read_tokens": 415152,
+    "output_tokens": 332,
+    "api_call_count": 12
+  },
+  "summary": {
+    "intent": "Add nesting guidance to the skill Instructions template placeholder so AI-generated SKILL.md files use indented sub-bullets for steps with sub-steps, improving readability.",
+    "outcome": "Updated the placeholder text in both template locations, verified with 1319 passing tests and clean lint, and committed only the two relevant files.",
+    "learnings": {
+      "repo": [
+        "The skill Instructions template placeholder is duplicated in two places that must stay in sync: the markdown prompt file and the inline TypeScript template string in prompt-generator.ts",
+        "Commands are run via an `rtk` prefix wrapper (e.g., `rtk bun run test`, `rtk git commit`), likely a remote toolkit or environment proxy"
+      ],
+      "code": [
+        {
+          "path": "prompts/context-remediation/packmind-remediation-skill-creation.md",
+          "line": 38,
+          "end_line": 38,
+          "finding": "Skill Instructions template placeholder — controls guidance given to AI when generating SKILL.md instruction sections"
+        },
+        {
+          "path": "src/shared/remediation/prompt-generator.ts",
+          "line": 458,
+          "end_line": 458,
+          "finding": "Inline TypeScript template string inside getSkillInstructions() — mirrors the markdown prompt file and must be kept in sync with it"
+        }
+      ],
+      "workflow": [
+        "Before committing, diff the full working tree to check for unrelated unstaged changes and scope the git add to only the task-relevant files",
+        "Test suite runs 1319 tests via `bun run test`"
+      ]
+    },
+    "friction": [
+      "Other unstaged changes existed in the repo at commit time, requiring explicit file-scoped `git add` to avoid accidentally bundling unrelated work"
+    ],
+    "open_items": [
+      "Other unstaged changes in the repo remain uncommitted and unaddressed"
+    ]
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-20T12:34:40.159113Z",
+    "agent_lines": 2,
+    "human_added": 7,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 9,
+    "agent_percentage": 22.22222222222222
+  }
+}

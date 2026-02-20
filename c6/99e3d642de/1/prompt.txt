@@ -1,0 +1,38 @@
+Implement the following plan:
+
+# Plan: Add nesting guidance to skill Instructions template
+
+## Context
+
+Generated SKILL.md files have flat bullet lists in the `## Instructions` section, even when steps logically contain sub-steps (e.g., "Expect script X to:" followed by its behaviors). The AI has no guidance to use indented sub-bullets, so it defaults to flat lists. This hurts readability.
+
+## Changes
+
+### 1. Update skill creation prompt template
+**File**: `prompts/context-remediation/packmind-remediation-skill-creation.md` (line 38)
+
+Replace the placeholder:
+```
+<Step-by-step procedural instructions written in imperative/infinitive form (verb-first, not second person). Keep concise, under 5k words.>
+```
+With something like:
+```
+<Step-by-step procedural instructions written in imperative/infinitive form (verb-first, not second person). Use indented sub-bullets when a step has sub-steps, expected behaviors, or details. Keep concise, under 5k words.>
+```
+
+### 2. Update prompt-generator.ts template
+**File**: `src/shared/remediation/prompt-generator.ts` (line 458, inside `getSkillInstructions()`)
+
+Apply the same change to the inline template string.
+
+## Verification
+
+- Run `bun run test` to ensure no regressions
+- Run `bun run lint` to ensure formatting is clean
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+commit
