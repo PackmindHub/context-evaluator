@@ -28,10 +28,10 @@ export function PatchDownload({ remediationId }: PatchDownloadProps) {
 		<button
 			onClick={handleDownload}
 			disabled={downloading}
-			className="btn-secondary flex items-center gap-2"
+			className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-slate-700/80 text-slate-200 border border-slate-600 hover:bg-indigo-700 hover:border-indigo-600 hover:text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
 		>
 			<svg
-				className="w-4 h-4"
+				className="w-3.5 h-3.5"
 				fill="none"
 				viewBox="0 0 24 24"
 				stroke="currentColor"

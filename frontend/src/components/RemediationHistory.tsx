@@ -29,6 +29,7 @@ interface RemediationHistoryProps {
 	parentScore?: number;
 	parentGrade?: string;
 	hasRepoUrl?: boolean;
+	defaultOpen?: boolean;
 }
 
 export function RemediationHistory({
@@ -40,9 +41,10 @@ export function RemediationHistory({
 	onAutoExpandHandled,
 	parentScore,
 	hasRepoUrl = true,
+	defaultOpen = false,
 }: RemediationHistoryProps) {
 	const api = useEvaluationApi();
-	const [collapsed, setCollapsed] = useState(true);
+	const [collapsed, setCollapsed] = useState(!defaultOpen);
 	const [expandedId, setExpandedId] = useState<string | null>(null);
 	const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 	const [isDeleting, setIsDeleting] = useState(false);

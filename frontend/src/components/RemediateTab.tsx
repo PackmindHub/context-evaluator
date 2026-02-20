@@ -540,6 +540,7 @@ export function RemediateTab({
 				onAutoExpandHandled={() => setAutoExpandRemediationId(null)}
 				parentScore={evaluationData?.metadata?.contextScore?.score}
 				parentGrade={evaluationData?.metadata?.contextScore?.grade}
+				defaultOpen={selectedIssueKeys.size === 0}
 				hasRepoUrl={
 					!!repositoryUrl &&
 					repositoryUrl !== "unknown" &&

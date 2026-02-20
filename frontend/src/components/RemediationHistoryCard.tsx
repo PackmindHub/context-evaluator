@@ -118,13 +118,15 @@ export function RemediationHistoryCard({
 
 				<div className="flex-1 min-w-0">
 					<div className="flex items-center gap-2">
-						<span className="text-sm font-medium text-slate-200">{label}</span>
+						<span className="text-base font-semibold text-slate-200">
+							{label}
+						</span>
 						<span
 							className={`w-2 h-2 rounded-full flex-shrink-0 ${isFailed ? "bg-red-400" : "bg-green-400"}`}
 						/>
-						<span className="text-xs text-slate-500">{statLabel}</span>
+						<span className="text-sm text-slate-500">{statLabel}</span>
 					</div>
-					<div className="flex items-center gap-3 text-xs text-slate-500 mt-0.5">
+					<div className="flex items-center gap-3 text-sm text-slate-500 mt-0.5">
 						<span>{formatTimestamp(item.createdAt)}</span>
 						{!isFailed && (
 							<>
@@ -158,7 +160,88 @@ export function RemediationHistoryCard({
 						if (e.key === "Enter" || e.key === " ") e.stopPropagation();
 					}}
 				>
-					{!isFailed && <PatchDownload remediationId={item.id} />}
+					{!isFailed && (
+						<>
+							{impactEvalStatus === "idle" &&
+								!item.resultEvaluationId &&
+								hasRepoUrl && (
+									<button
+										onClick={(e) => {
+											e.stopPropagation();
+											onEvaluateImpact?.();
+										}}
+										className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-indigo-600 text-white hover:bg-indigo-500 transition-all duration-200"
+									>
+										<svg
+											className="w-3.5 h-3.5"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+										>
+											<path
+												strokeLinecap="round"
+												strokeLinejoin="round"
+												strokeWidth={2}
+												d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+											/>
+										</svg>
+										Evaluate Impact
+									</button>
+								)}
+							{impactEvalStatus === "running" && (
+								<span className="flex items-center gap-1.5 text-xs text-slate-400">
+									<svg
+										className="animate-spin h-3 w-3"
+										fill="none"
+										viewBox="0 0 24 24"
+									>
+										<circle
+											className="opacity-25"
+											cx="12"
+											cy="12"
+											r="10"
+											stroke="currentColor"
+											strokeWidth="4"
+										/>
+										<path
+											className="opacity-75"
+											fill="currentColor"
+											d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+										/>
+									</svg>
+									Evaluating...
+									{impactJobId && (
+										<a
+											href={`/evaluation/${impactJobId}`}
+											className="text-blue-400 hover:text-blue-300 underline"
+											onClick={(e) => e.stopPropagation()}
+										>
+											Track →
+										</a>
+									)}
+								</span>
+							)}
+							{impactEvalStatus === "failed" && (
+								<span className="text-xs text-red-400">Impact failed</span>
+							)}
+							{(impactEvalStatus === "completed" || item.resultEvaluationId) &&
+								impactScore !== undefined &&
+								parentScore !== undefined && (
+									<a
+										href={`/evaluation/${item.resultEvaluationId || impactJobId}`}
+										className="hover:underline"
+										onClick={(e) => e.stopPropagation()}
+									>
+										<ScoreComparison
+											before={parentScore}
+											after={impactScore}
+											afterGrade={impactGrade}
+										/>
+									</a>
+								)}
+							<PatchDownload remediationId={item.id} />
+						</>
+					)}
 					{!cloudMode && (
 						<button
 							onClick={onDelete}
@@ -183,72 +266,6 @@ export function RemediationHistoryCard({
 				</div>
 			</button>
 
-			{/* Impact evaluation row */}
-			{!isFailed && (
-				<div className="px-3 pb-2 flex items-center gap-3">
-					{impactEvalStatus === "idle" &&
-						!item.resultEvaluationId &&
-						hasRepoUrl && (
-							<button
-								onClick={(e) => {
-									e.stopPropagation();
-									onEvaluateImpact?.();
-								}}
-								className="text-xs px-2.5 py-1 rounded bg-slate-700 text-slate-300 hover:bg-slate-600 hover:text-slate-100 transition-colors"
-							>
-								Evaluate Impact
-							</button>
-						)}
-					{impactEvalStatus === "running" && (
-						<span className="flex items-center gap-1.5 text-xs text-slate-400">
-							<svg
-								className="animate-spin h-3 w-3"
-								fill="none"
-								viewBox="0 0 24 24"
-							>
-								<circle
-									className="opacity-25"
-									cx="12"
-									cy="12"
-									r="10"
-									stroke="currentColor"
-									strokeWidth="4"
-								/>
-								<path
-									className="opacity-75"
-									fill="currentColor"
-									d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-								/>
-							</svg>
-							Evaluation started
-							{impactJobId && (
-								<a
-									href={`/evaluation/${impactJobId}`}
-									className="text-blue-400 hover:text-blue-300 underline ml-1"
-									onClick={(e) => e.stopPropagation()}
-								>
-									Track progress →
-								</a>
-							)}
-						</span>
-					)}
-					{impactEvalStatus === "failed" && (
-						<span className="text-xs text-red-400">
-							Impact evaluation failed
-						</span>
-					)}
-					{(impactEvalStatus === "completed" || item.resultEvaluationId) &&
-						impactScore !== undefined &&
-						parentScore !== undefined && (
-							<ScoreComparison
-								before={parentScore}
-								after={impactScore}
-								afterGrade={impactGrade}
-							/>
-						)}
-				</div>
-			)}
-
 			{/* Expanded details */}
 			{expanded && (
 				<div className="border-t border-slate-700/50 p-3 space-y-4">
@@ -259,42 +276,47 @@ export function RemediationHistoryCard({
 					) : (
 						result && (
 							<>
-								{/* Plan sections (collapsible) */}
-								{item.planData?.errorPlanPrompt && (
-									<CollapsiblePlanSection
-										title="Error Fix Plan Prompt"
-										content={item.planData.errorPlanPrompt}
-									/>
-								)}
-								{item.planData?.errorPlan && (
-									<CollapsiblePlanSection
-										title="Error Fix Plan"
-										content={item.planData.errorPlan}
-									/>
-								)}
-								{item.planData?.errorFixPrompt && (
-									<CollapsiblePlanSection
-										title="Error Fix Execution Prompt"
-										content={item.planData.errorFixPrompt}
-									/>
-								)}
-								{item.planData?.suggestionPlanPrompt && (
-									<CollapsiblePlanSection
-										title="Suggestion Plan Prompt"
-										content={item.planData.suggestionPlanPrompt}
-									/>
-								)}
-								{item.planData?.suggestionPlan && (
-									<CollapsiblePlanSection
-										title="Suggestion Enrichment Plan"
-										content={item.planData.suggestionPlan}
-									/>
-								)}
-								{item.planData?.suggestionEnrichPrompt && (
-									<CollapsiblePlanSection
-										title="Suggestion Execution Prompt"
-										content={item.planData.suggestionEnrichPrompt}
-									/>
+								{/* Plan sections (collapsible, debug mode only) */}
+								{new URLSearchParams(window.location.search).get("debug") ===
+									"true" && (
+									<>
+										{item.planData?.errorPlanPrompt && (
+											<CollapsiblePlanSection
+												title="Error Fix Plan Prompt"
+												content={item.planData.errorPlanPrompt}
+											/>
+										)}
+										{item.planData?.errorPlan && (
+											<CollapsiblePlanSection
+												title="Error Fix Plan"
+												content={item.planData.errorPlan}
+											/>
+										)}
+										{item.planData?.errorFixPrompt && (
+											<CollapsiblePlanSection
+												title="Error Fix Execution Prompt"
+												content={item.planData.errorFixPrompt}
+											/>
+										)}
+										{item.planData?.suggestionPlanPrompt && (
+											<CollapsiblePlanSection
+												title="Suggestion Plan Prompt"
+												content={item.planData.suggestionPlanPrompt}
+											/>
+										)}
+										{item.planData?.suggestionPlan && (
+											<CollapsiblePlanSection
+												title="Suggestion Enrichment Plan"
+												content={item.planData.suggestionPlan}
+											/>
+										)}
+										{item.planData?.suggestionEnrichPrompt && (
+											<CollapsiblePlanSection
+												title="Suggestion Execution Prompt"
+												content={item.planData.suggestionEnrichPrompt}
+											/>
+										)}
+									</>
 								)}
 
 								{/* Unified file list (replaces CompactActionSummary + FileChangeCard rows) */}
@@ -653,7 +675,7 @@ function ScoreComparison({
 				: "text-slate-400";
 
 	return (
-		<div className="flex items-center gap-2 text-xs">
+		<div className="flex items-center gap-2 text-sm">
 			<span className="text-slate-400">Score:</span>
 			<span className="text-slate-300">{before.toFixed(1)}</span>
 			<span className="text-slate-500">&rarr;</span>
