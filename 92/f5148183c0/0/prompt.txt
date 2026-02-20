@@ -1,0 +1,34 @@
+Can you investiage these runtime errors when running Cursor Agent CLI ? can you maybe logs more output of the command? [Proxy] GET /api/remediation/9e063482-f731-4e87-a95d-2e07081bead2/progress -> http://localhost:3001/api/remediation/9e063482-f731-4e87-a95d-2e07081bead2/progress
+[13:35:30.101] [API] GET /api/remediation/9e063482-f731-4e87-a95d-2e07081bead2/progress
+[RemediationSSE] Connected for job 9e063482-f731-4e87-a95d-2e07081bead2 (1 connections)
+[Remediation] Working directory: /Users/cedricteyton/Code/agents-md-evaluator/tmp/clones/agents-eval-55bZpg (clone)
+[Remediation] Issues: 5 errors, 6 suggestions
+[Remediation] Plan-first pipeline: 5 errors, 6 suggestions, 4 AI invocations, provider: cursor
+[Remediation] Phase 1: Planning error fixes (5 issues)
+[Bun.serve]: request timed out after 10 seconds. Pass `idleTimeout` to configure.
+[Proxy] GET /api/remediation/9e063482-f731-4e87-a95d-2e07081bead2/progress -> http://localhost:3001/api/remediation/9e063482-f731-4e87-a95d-2e07081bead2/progress
+[13:35:51.782] [API] GET /api/remediation/9e063482-f731-4e87-a95d-2e07081bead2/progress
+[RemediationSSE] Connected for job 9e063482-f731-4e87-a95d-2e07081bead2 (2 connections)
+[Proxy] GET /api/remediation/9e063482-f731-4e87-a95d-2e07081bead2/progress -> http://localhost:3001/api/remediation/9e063482-f731-4e87-a95d-2e07081bead2/progress
+[13:36:12.778] [API] GET /api/remediation/9e063482-f731-4e87-a95d-2e07081bead2/progress
+[RemediationSSE] Connected for job 9e063482-f731-4e87-a95d-2e07081bead2 (3 connections)
+[Proxy] GET /api/remediation/9e063482-f731-4e87-a95d-2e07081bead2/progress -> http://localhost:3001/api/remediation/9e063482-f731-4e87-a95d-2e07081bead2/progress
+[13:36:32.778] [API] GET /api/remediation/9e063482-f731-4e87-a95d-2e07081bead2/progress
+[RemediationSSE] Connected for job 9e063482-f731-4e87-a95d-2e07081bead2 (4 connections)
+[Remediation] Phase 1 completed: 67586ms, $0.0000
+[Remediation] Phase 2: Executing error fixes
+[Cursor Agent] Attempt 1/3 failed: Cursor Agent CLI exited with code 1 (general error)
+(no stdout)
+[Cursor Agent] Retrying in 1000ms... (2 retries remaining)
+[Cursor Agent] Attempt 2/3 failed: Cursor Agent CLI exited with code 1 (general error)
+(no stdout)
+[Cursor Agent] Retrying in 2000ms... (1 retries remaining)
+[RemediationRepository] Saved failed remediation 9e063482-f731-4e87-a95d-2e07081bead2
+[RemediationJobManager] Job 9e063482-f731-4e87-a95d-2e07081bead2 failed: Cursor Agent CLI exited with code 1 (general error)
+(no stdout)
+[Proxy] GET /api/remediation/list-for-evaluation/44cfdd32-f125-42e4-80e6-6d43121fafc2 -> http://localhost:3001/api/remediation/list-for-evaluation/44cfdd32-f125-42e4-80e6-6d43121fafc2
+[13:36:43.201] [API] GET /api/remediation/list-for-evaluation/44cfdd32-f125-42e4-80e6-6d43121fafc2
+
+---
+
+commit
