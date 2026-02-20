@@ -1,0 +1,69 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "92f5148183c0",
+  "session_id": "b1ae4c38-01bd-422b-8079-5123446ad827",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-20T12:42:53.091674Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "frontend/src/components/RemediateTab.tsx",
+    "frontend/src/components/RemediationHistoryCard.tsx"
+  ],
+  "agent": "Claude Code",
+  "token_usage": {
+    "input_tokens": 17,
+    "cache_creation_tokens": 22586,
+    "cache_read_tokens": 468043,
+    "output_tokens": 191,
+    "api_call_count": 13
+  },
+  "summary": {
+    "intent": "Change the 'Get product tour' Packmind button styling from btn-primary (indigo) to btn-secondary (slate) in two components, then commit the changes.",
+    "outcome": "Both button class changes were made successfully and all tests/lint passed. The changes were committed but got squashed into an unrelated existing commit ('Cursor Agent CLI') by a post-commit hook.",
+    "learnings": {
+      "repo": [
+        "The project uses bun for running tests and lint (bun run test, bun run lint)",
+        "A pre-commit hook runs tests, lint, and typecheck automatically on commit",
+        "A post-commit hook appears to auto-amend or squash commits, which can merge unrelated staged changes into the same commit",
+        "Test suite has 1319 tests"
+      ],
+      "code": [
+        {
+          "path": "frontend/src/components/RemediateTab.tsx",
+          "line": 587,
+          "end_line": 587,
+          "finding": "Packmind 'Get product tour' button uses btn-secondary (changed from btn-primary)"
+        },
+        {
+          "path": "frontend/src/components/RemediationHistoryCard.tsx",
+          "line": 362,
+          "end_line": 362,
+          "finding": "Packmind 'Get product tour' button uses btn-secondary text-xs py-1 px-2 (changed from btn-primary)"
+        }
+      ],
+      "workflow": [
+        "Staging only specific files (not git add -A) is important when unrelated changes exist in the working tree",
+        "The post-commit hook behavior can silently squash targeted commits with unrelated content, making commit hygiene harder to control"
+      ]
+    },
+    "friction": [
+      "Post-commit hook auto-amended/squashed the intentional targeted commit, bundling the button changes into a pre-existing unrelated 'Cursor Agent CLI' commit",
+      "The commit message does not reflect the actual button color change work due to hook interference",
+      "Unrelated dirty files (codex-provider.ts, cursor-provider.ts) were present in the working tree, requiring selective staging"
+    ],
+    "open_items": [
+      "The button changes are committed under the wrong commit message ('Cursor Agent CLI') — may want to rebase or create a proper dedicated commit",
+      "Investigate and potentially reconfigure the post-commit hook to prevent unintended commit squashing behavior"
+    ]
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-20T12:42:40.735451Z",
+    "agent_lines": 2,
+    "human_added": 40,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 42,
+    "agent_percentage": 4.761904761904762
+  }
+}

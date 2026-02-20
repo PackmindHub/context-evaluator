@@ -1,0 +1,26 @@
+Implement the following plan:
+
+# Update Packmind "Get product tour" button color
+
+## Context
+The "Get product tour" button for Packmind currently uses `btn-primary` (indigo), making it as prominent as core app actions. It should use `btn-secondary` (slate) since it's a third-party CTA, not a primary app action.
+
+## Changes
+
+### 1. `frontend/src/components/RemediateTab.tsx` (line 587)
+- Change `className="btn-primary"` → `className="btn-secondary"` on the "Get product tour" button
+
+### 2. `frontend/src/components/RemediationHistoryCard.tsx` (line 362)
+- Change `className="btn-primary text-xs py-1 px-2"` → `className="btn-secondary text-xs py-1 px-2"` on the "Get product tour" button
+
+## Verification
+- `bun run test` — ensure no regressions
+- `bun run lint` — ensure lint passes
+- Visual: both Packmind buttons should render in slate gray instead of indigo
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.claude/projects/-Users-cedricteyton-Code-agents-md-evaluator/3bdf4f93-edb4-448a-93fa-bedc4ceb35c2.jsonl
+
+---
+
+commit
