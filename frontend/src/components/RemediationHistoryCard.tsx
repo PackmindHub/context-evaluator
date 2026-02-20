@@ -478,6 +478,121 @@ function computeDisplayStatus(
 	return "added";
 }
 
+type SectionType = "rules" | "skills" | "context" | "other";
+
+interface GroupedSection {
+	type: SectionType;
+	label: string;
+	entries: UnifiedFileEntry[];
+}
+
+function categorizeEntry(entry: UnifiedFileEntry): SectionType {
+	// Primary: use outputType from first action
+	if (entry.actions.length > 0) {
+		const outputType = entry.actions[0].outputType;
+		if (outputType === "standard") return "rules";
+		if (outputType === "skill") return "skills";
+		if (outputType === "generic") return "context";
+	}
+	// Fallback: path-based heuristics for unmatched entries
+	const key = entry.key.toLowerCase();
+	if (key.includes("agents.md") || key.includes("claude.md")) return "context";
+	if (key.includes("/rules/") || key.includes("/standards/")) return "rules";
+	if (key.includes("/skills/")) return "skills";
+	return "other";
+}
+
+function groupEntriesBySections(entries: UnifiedFileEntry[]): GroupedSection[] {
+	const buckets: Record<SectionType, UnifiedFileEntry[]> = {
+		rules: [],
+		skills: [],
+		context: [],
+		other: [],
+	};
+	for (const entry of entries) {
+		buckets[categorizeEntry(entry)].push(entry);
+	}
+	const sectionDefs: { type: SectionType; label: string }[] = [
+		{ type: "rules", label: "Rules" },
+		{ type: "skills", label: "Skills" },
+		{ type: "context", label: "Context Files" },
+		{ type: "other", label: "Other" },
+	];
+	return sectionDefs
+		.filter((s) => buckets[s.type].length > 0)
+		.map((s) => ({ ...s, entries: buckets[s.type] }));
+}
+
+function SectionIcon({ type }: { type: SectionType }) {
+	const cls = "w-3.5 h-3.5 flex-shrink-0";
+	switch (type) {
+		case "rules":
+			return (
+				<svg
+					className={cls}
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+				>
+					<path
+						strokeLinecap="round"
+						strokeLinejoin="round"
+						strokeWidth={2}
+						d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+					/>
+				</svg>
+			);
+		case "skills":
+			return (
+				<svg
+					className={cls}
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+				>
+					<path
+						strokeLinecap="round"
+						strokeLinejoin="round"
+						strokeWidth={2}
+						d="M13 10V3L4 14h7v7l9-11h-7z"
+					/>
+				</svg>
+			);
+		case "context":
+			return (
+				<svg
+					className={cls}
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+				>
+					<path
+						strokeLinecap="round"
+						strokeLinejoin="round"
+						strokeWidth={2}
+						d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+					/>
+				</svg>
+			);
+		default:
+			return (
+				<svg
+					className={cls}
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+				>
+					<path
+						strokeLinecap="round"
+						strokeLinejoin="round"
+						strokeWidth={2}
+						d="M5 12h.01M12 12h.01M19 12h.01"
+					/>
+				</svg>
+			);
+	}
+}
+
 function UnifiedFilesSection({ result }: { result: RemediationResult }) {
 	const { entries, skippedActions } = useMemo(
 		() => buildUnifiedEntries(result),
@@ -487,6 +602,8 @@ function UnifiedFilesSection({ result }: { result: RemediationResult }) {
 
 	const addressedCount = result.summary?.addressedCount ?? 0;
 	const skippedCount = result.summary?.skippedCount ?? 0;
+
+	const sections = useMemo(() => groupEntriesBySections(entries), [entries]);
 
 	if (entries.length === 0 && skippedActions.length === 0) {
 		return <p className="text-sm text-slate-500">No file changes were made.</p>;
@@ -507,11 +624,27 @@ function UnifiedFilesSection({ result }: { result: RemediationResult }) {
 				)}
 			</div>
 
-			{/* File rows */}
-			{entries.length > 0 && (
-				<div className="space-y-1">
-					{entries.map((entry) => (
-						<UnifiedFileRow key={entry.key} entry={entry} />
+			{/* Grouped sections */}
+			{sections.length > 0 && (
+				<div className="space-y-3">
+					{sections.map((section) => (
+						<div key={section.type} className="space-y-1">
+							{/* Section header row */}
+							<div className="action-summary-section-header">
+								<span className="action-summary-section-title">
+									<SectionIcon type={section.type} />
+									{section.label}
+								</span>
+								<span className="action-summary-section-count">
+									{section.entries.length} file
+									{section.entries.length !== 1 ? "s" : ""}
+								</span>
+							</div>
+							{/* Entry rows */}
+							{section.entries.map((entry) => (
+								<UnifiedFileRow key={entry.key} entry={entry} />
+							))}
+						</div>
 					))}
 				</div>
 			)}
@@ -573,77 +706,82 @@ function UnifiedFileRow({ entry }: { entry: UnifiedFileEntry }) {
 					: "";
 
 	return (
-		<div className="rounded border border-slate-700/40 bg-slate-800/30">
-			{/* Row header */}
-			<div className="flex items-center gap-2 px-2 py-1.5">
-				{/* Chevron — only shown when there's a diff to expand */}
-				{hasDiff ? (
-					<button
-						onClick={() => setExpanded(!expanded)}
-						className="flex-shrink-0 text-slate-400 hover:text-slate-300 transition-colors"
-						aria-label={expanded ? "Collapse diff" : "Expand diff"}
-					>
-						<svg
-							className={`w-3.5 h-3.5 transition-transform ${expanded ? "rotate-90" : ""}`}
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
+		<div>
+			<div className="action-summary-row">
+				{/* Column 1: File path */}
+				<div className="action-summary-cell-file flex items-start gap-1.5">
+					{hasDiff ? (
+						<button
+							onClick={() => setExpanded(!expanded)}
+							className="flex-shrink-0 text-slate-400 hover:text-slate-300 transition-colors mt-0.5"
+							aria-label={expanded ? "Collapse diff" : "Expand diff"}
 						>
-							<path
-								strokeLinecap="round"
-								strokeLinejoin="round"
-								strokeWidth={2}
-								d="M9 5l7 7-7 7"
-							/>
-						</svg>
-					</button>
-				) : (
-					<span className="w-3.5 h-3.5 flex-shrink-0" />
-				)}
-
-				{/* File key */}
-				<span className="font-mono text-xs text-slate-200 flex-1 min-w-0 truncate">
-					{entry.key}
-				</span>
-
-				{/* Status badge */}
-				{entry.displayStatus && (
-					<span
-						className={`text-xs px-1.5 py-0.5 rounded font-medium flex-shrink-0 ${badgeClass}`}
-					>
-						{entry.displayStatus}
+							<svg
+								className={`w-3.5 h-3.5 transition-transform ${expanded ? "rotate-90" : ""}`}
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+							>
+								<path
+									strokeLinecap="round"
+									strokeLinejoin="round"
+									strokeWidth={2}
+									d="M9 5l7 7-7 7"
+								/>
+							</svg>
+						</button>
+					) : (
+						<span className="w-3.5 h-3.5 flex-shrink-0" />
+					)}
+					<span className="font-mono text-xs text-slate-200 break-all">
+						{entry.key}
 					</span>
-				)}
+				</div>
 
-				{/* +/- stats */}
-				{(entry.totalAdditions > 0 || entry.totalDeletions > 0) && (
-					<span className="flex items-center gap-1.5 text-xs flex-shrink-0">
-						{entry.totalAdditions > 0 && (
-							<span className="text-green-400">+{entry.totalAdditions}</span>
-						)}
-						{entry.totalDeletions > 0 && (
-							<span className="text-red-400">-{entry.totalDeletions}</span>
-						)}
-					</span>
-				)}
+				{/* Column 2: Issues fixed */}
+				<div className="action-summary-cell-description">
+					{entry.actions.length > 0 ? (
+						<div className="space-y-0.5">
+							{entry.actions.map((action) => (
+								<div
+									key={`${action.issueIndex}-${action.status}`}
+									className="flex items-start gap-1.5 text-xs"
+								>
+									<span className="text-green-400 flex-shrink-0">✓</span>
+									<span className="text-slate-400">{action.summary}</span>
+								</div>
+							))}
+						</div>
+					) : (
+						<span className="text-xs text-slate-600">&mdash;</span>
+					)}
+				</div>
+
+				{/* Column 3: Badge + line counts */}
+				<div className="action-summary-cell-badge">
+					{entry.displayStatus && (
+						<span
+							className={`text-xs px-1.5 py-0.5 rounded font-medium flex-shrink-0 ${badgeClass}`}
+						>
+							{entry.displayStatus}
+						</span>
+					)}
+					{(entry.totalAdditions > 0 || entry.totalDeletions > 0) && (
+						<span className="flex items-center gap-1 text-xs flex-shrink-0">
+							{entry.totalAdditions > 0 && (
+								<span className="text-green-400">+{entry.totalAdditions}</span>
+							)}
+							{entry.totalDeletions > 0 && (
+								<span className="text-red-400">-{entry.totalDeletions}</span>
+							)}
+						</span>
+					)}
+				</div>
 			</div>
 
-			{/* Row body */}
-			{entry.actions.length > 0 && (
-				<div className="border-t border-slate-700/30 px-6 py-1.5 space-y-1">
-					{entry.actions.map((action) => (
-						<div
-							key={`${action.issueIndex}-${action.status}`}
-							className="flex items-start gap-2 text-xs"
-						>
-							<span className="text-green-400 mt-0.5">✓</span>
-							<span className="text-slate-400 flex-1">{action.summary}</span>
-						</div>
-					))}
-				</div>
-			)}
+			{/* Expanded diff — full width below the grid */}
 			{expanded && (
-				<div className="border-t border-slate-700/40 pt-2 pb-2 space-y-2">
+				<div className="border border-t-0 border-slate-700/40 rounded-b pt-2 pb-2 space-y-2 bg-slate-800/30">
 					{entry.fileChanges.map((fc) => (
 						<DiffViewer key={fc.path} diff={fc.diff} />
 					))}

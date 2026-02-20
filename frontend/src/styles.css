@@ -1502,6 +1502,37 @@
 		@apply bg-red-500/10 text-red-400 border border-red-500/20;
 	}
 
+	/* Action summary grouped table layout */
+	.action-summary-section-header {
+		@apply flex items-center justify-between w-full bg-slate-700/50 border border-slate-600/30 rounded px-3 py-1.5;
+	}
+
+	.action-summary-section-title {
+		@apply flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-300;
+	}
+
+	.action-summary-section-count {
+		@apply text-xs text-slate-500;
+	}
+
+	.action-summary-row {
+		display: grid;
+		grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) auto;
+		@apply items-start gap-0 border border-slate-700/40 bg-slate-800/30 rounded;
+	}
+
+	.action-summary-cell-file {
+		@apply px-2 py-1.5 min-w-0;
+	}
+
+	.action-summary-cell-description {
+		@apply px-2 py-1.5 border-l border-slate-700/30 min-w-0;
+	}
+
+	.action-summary-cell-badge {
+		@apply px-2 py-1.5 border-l border-slate-700/30 flex items-center gap-1.5 flex-shrink-0;
+	}
+
 	/* Output type badges for remediation strategy */
 	.output-type-standard {
 		@apply bg-indigo-500/10 text-indigo-400 border border-indigo-500/20;
