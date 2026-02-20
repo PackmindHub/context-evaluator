@@ -1,0 +1,41 @@
+Implement the following plan:
+
+# Plan: Increase Visibility of Standards/Skills Counts in Remediation Plan
+
+## Context
+The bottom sections of the remediation plan (both the persistent "What's next" section and per-remediation banners) show standards and skills counts in small text that blends in. The user wants these numbers to be more prominent and visible.
+
+## Changes
+
+### 1. RemediateTab.tsx (persistent bottom section, ~line 559-568)
+
+**Current**: The count text uses `text-body text-slate-300` with a `font-semibold text-slate-100` span — same size as surrounding body text.
+
+**Change**: Make the artifact count line larger and more prominent:
+- Increase text size from `text-body` (0.875rem) to `text-base` (1rem) for the count line
+- Style the numbers with `text-sm font-bold text-blue-400` badge-like appearance using an inline highlight background (`bg-blue-500/15 px-1.5 py-0.5 rounded`)
+- This makes the "3 standards & 2 skills" pop visually against the muted surrounding text
+
+### 2. RemediationHistoryCard.tsx (per-remediation banner, ~line 343-348)
+
+**Current**: Uses `text-xs text-slate-400` for the entire sentence including the counts — very small and muted.
+
+**Change**:
+- Increase the count sentence from `text-xs` to `text-sm`
+- Wrap the `formatArtifactCount()` output in a highlighted span with `font-bold text-blue-400`
+
+### Files to modify
+- `frontend/src/components/RemediateTab.tsx` (~line 560-567)
+- `frontend/src/components/RemediationHistoryCard.tsx` (~line 343-345)
+
+## Verification
+- `bun run test`
+- `bun run lint`
+- Visual check: `bun run dev` → navigate to Remediate tab → verify counts are larger and highlighted
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+commit
