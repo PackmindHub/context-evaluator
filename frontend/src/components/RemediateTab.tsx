@@ -36,6 +36,42 @@ import { Modal } from "./shared/Modal";
 import { PackmindLogo } from "./shared/PackmindLogo";
 import { PackmindProductTourModal } from "./shared/PackmindProductTourModal";
 
+const PROVIDER_EXECUTION_INFO: Record<
+	ProviderName,
+	{ writeCommand: string; securityNote: string }
+> = {
+	claude: {
+		writeCommand:
+			"claude -p --output-format json --no-session-persistence --disable-slash-commands --dangerously-skip-permissions",
+		securityNote:
+			"--dangerously-skip-permissions bypasses all file-write prompts",
+	},
+	cursor: {
+		writeCommand: "agent -p --output-format json --force",
+		securityNote: "--force allows writes without confirmation",
+	},
+	codex: {
+		writeCommand:
+			"codex exec --json --full-auto --sandbox workspace-write --skip-git-repo-check",
+		securityNote:
+			"--full-auto autonomous execution, writes restricted to workspace",
+	},
+	opencode: {
+		writeCommand:
+			"opencode run --format json --model openai/gpt-5.3-codex --variant medium",
+		securityNote: "No sandbox restrictions documented",
+	},
+	"github-copilot": {
+		writeCommand:
+			"copilot -p <prompt> -s --no-ask-user --no-custom-instructions --allow-all-tools",
+		securityNote: "--allow-all-tools + --no-ask-user = fully autonomous",
+	},
+	random: {
+		writeCommand: "(depends on selected provider)",
+		securityNote: "Depends on selected provider",
+	},
+};
+
 type Phase = "idle" | "progress";
 
 interface RemediateTabProps {
@@ -788,7 +824,7 @@ export function RemediateTab({
 				isOpen={showConfirmModal}
 				onClose={() => setShowConfirmModal(false)}
 				title="Confirm Remediation"
-				maxWidth="max-w-md"
+				maxWidth="max-w-lg"
 			>
 				<div className="space-y-4">
 					<p className="text-sm text-slate-300">
@@ -817,14 +853,20 @@ export function RemediateTab({
 									? "AGENTS.md"
 									: targetAgent === "claude-code"
 										? "Claude Code"
-										: "GitHub Copilot"}
+										: targetAgent === "github-copilot"
+											? "GitHub Copilot"
+											: "Cursor"}
 							</span>
 						</div>
 						<div className="flex justify-between text-slate-300">
 							<span>Provider</span>
-							<span className="font-semibold">{selectedProvider}</span>
+							<span className="font-semibold">
+								{availableProviders.find((p) => p.name === selectedProvider)
+									?.displayName ?? selectedProvider}
+							</span>
 						</div>
 					</div>
+					{!cloudMode && <LocalExecutionWarning provider={selectedProvider} />}
 					<div className="flex justify-end gap-3 pt-2">
 						<button
 							onClick={() => setShowConfirmModal(false)}
@@ -942,6 +984,39 @@ function IssueSection({
 					);
 				})}
 			</div>
+		</div>
+	);
+}
+
+function LocalExecutionWarning({ provider }: { provider: ProviderName }) {
+	const info = PROVIDER_EXECUTION_INFO[provider];
+	return (
+		<div className="rounded-lg border border-amber-700/40 bg-amber-900/20 p-3 space-y-2">
+			<div className="flex items-start gap-2">
+				<svg
+					className="h-4 w-4 text-amber-400 flex-shrink-0 mt-0.5"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+				>
+					<path
+						strokeLinecap="round"
+						strokeLinejoin="round"
+						strokeWidth={2}
+						d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
+					/>
+				</svg>
+				<span className="text-sm font-semibold text-amber-400">
+					Local Execution
+				</span>
+			</div>
+			<p className="text-xs text-slate-400">
+				The following command will run on your machine:
+			</p>
+			<code className="block text-xs font-mono text-amber-300/90 bg-slate-900/60 rounded px-2 py-1.5 break-all">
+				{info.writeCommand}
+			</code>
+			<p className="text-xs text-slate-400">{info.securityNote}</p>
 		</div>
 	);
 }

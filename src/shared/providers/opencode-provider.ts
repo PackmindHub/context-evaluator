@@ -92,7 +92,7 @@ export class OpenCodeProvider extends BaseProvider {
 			"--format",
 			"json",
 			"--model",
-			"openai/gpt-5.2-codex",
+			"openai/gpt-5.3-codex",
 			"--variant",
 			"medium",
 		];

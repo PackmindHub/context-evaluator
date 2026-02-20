@@ -267,7 +267,7 @@ This tool supports multiple AI providers for evaluation:
 ### OpenCode
 - **CLI**: `opencode`
 - **Usage**: `--agent opencode`
-- **Model**: openai/gpt-5.2-codex
+- **Model**: openai/gpt-5.3-codex
 
 ### Cursor Agent
 - **CLI**: `agent`
