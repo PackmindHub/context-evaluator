@@ -557,9 +557,9 @@ export function RemediateTab({
 							What's next with your playbook?
 						</h3>
 						{packmindTotals.standards + packmindTotals.skills > 0 && (
-							<p className="text-body text-slate-300 mb-1">
+							<p className="text-base text-slate-300 mb-1">
 								Your remediations have created{" "}
-								<span className="font-semibold text-slate-100">
+								<span className="font-bold text-blue-400 bg-blue-500/15 px-1.5 py-0.5 rounded">
 									{formatArtifactCount(
 										packmindTotals.standards,
 										packmindTotals.skills,

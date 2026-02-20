@@ -340,10 +340,12 @@ export function RemediationHistoryCard({
 														<p className="text-xs font-semibold text-slate-200 mb-1">
 															Take It Further with Packmind
 														</p>
-														<p className="text-xs text-slate-400">
+														<p className="text-sm text-slate-400">
 															You've created{" "}
-															{formatArtifactCount(standards, skills)}.
-															Centralize, govern and distribute your AI agent
+															<span className="font-bold text-blue-400">
+																{formatArtifactCount(standards, skills)}
+															</span>
+															. Centralize, govern and distribute your AI agent
 															playbook at scale with Packmind.
 														</p>
 														<div className="flex gap-2 mt-2">
