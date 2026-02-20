@@ -1,0 +1,59 @@
+Implement the following plan:
+
+# Plan: Expand README Remediation Section
+
+## Context
+
+The current README remediation section (lines 99-122) is minimal — 4 numbered steps, a short output list, and a one-liner about prompt generation. It doesn't explain the 4-phase AI pipeline, target agent options, output types (rules vs skills vs context updates), live progress tracking, remediation history, or impact evaluation. Users reading the README have no idea what actually happens when they click "Execute".
+
+## Changes
+
+**File:** `README.md` (lines 99-122, the `## Remediation` section)
+
+Replace the current section with an expanded version that covers:
+
+### 1. Intro (keep concise)
+- One-liner: AI-powered automated fix for evaluation issues (web UI only)
+
+### 2. How it works (expand the 4 steps slightly)
+- **Select issues** — add from Errors/Suggestions tabs via + button
+- **Configure** — pick target agent format (AGENTS.md, Claude Code, GitHub Copilot, Cursor) + AI provider (auto-detected from installed tools)
+- **Execute** — runs a 4-phase pipeline: plan error fixes → execute error fixes → plan suggestions → execute suggestions. Live progress with step labels, cost, and token tracking.
+- **Review** — per-file diffs, action summary (fixed/added/skipped), downloadable `.patch` file
+
+### 3. Target agents (new subsection)
+Short table explaining the 4 target formats and what files they produce:
+| Target | Main file | Rules/Instructions | Skills |
+|--------|-----------|-------------------|--------|
+| AGENTS.md | `AGENTS.md` | `.agents/rules/` | `.agents/skills/` |
+| Claude Code | `CLAUDE.md` | `.claude/rules/` | `.claude/skills/` |
+| GitHub Copilot | `.github/copilot-instructions.md` | `.github/instructions/` | `.github/skills/` |
+| Cursor | `.cursor/rules/*.mdc` | (integrated) | `.cursor/skills/` |
+
+### 4. Output types (new brief explanation)
+The AI decides per-issue which output type to use:
+- **Rule** — short declarative constraint, always loaded
+- **Skill** — procedural workflow loaded on demand
+- **Context update** — direct edit to the main file (structure, setup, env vars)
+
+### 5. Remediation history & impact evaluation (new subsection, 2-3 lines)
+- Past remediations are saved and visible in the Remediate tab
+- "Evaluate Impact" re-runs the full evaluation on the patched repo and shows a before→after score comparison
+
+### 6. Generate Prompts alternative (keep, slightly reword)
+
+## Approach
+- Keep the tone concise and scannable (tables, bullet points, bold keywords)
+- Stay high-level — no implementation details, no mention of SSE/SQLite/batching internals
+- Total section should be roughly 40-60 lines of markdown (up from ~25)
+
+## Verification
+- Read the updated README and verify markdown renders correctly
+- Run `bun run test` and `bun run lint` (README changes shouldn't affect either, but per project rules)
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+commit your changes

@@ -1,0 +1,56 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "d223828eb8ee",
+  "session_id": "b8985a85-0eb6-42eb-bd56-f2c213aed2fd",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-20T12:51:56.91158Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "README.md"
+  ],
+  "agent": "Claude Code",
+  "token_usage": {
+    "input_tokens": 13,
+    "cache_creation_tokens": 22386,
+    "cache_read_tokens": 335117,
+    "output_tokens": 282,
+    "api_call_count": 9
+  },
+  "summary": {
+    "intent": "Expand the README Remediation section from a minimal ~25-line stub to a comprehensive ~45-line section covering the 4-phase AI pipeline, target agent formats, output types, remediation history, and impact evaluation.",
+    "outcome": "The README Remediation section was successfully expanded and committed to main (73bb7a0). All 1319 tests passed and lint was clean.",
+    "learnings": {
+      "repo": [
+        "Project uses bun as the runtime/package manager (bun run test, bun run lint)",
+        "Test suite has 1319 tests — changes to README do not affect test count",
+        "The 4 supported target agent formats are: AGENTS.md, Claude Code (CLAUDE.md), GitHub Copilot (.github/copilot-instructions.md), and Cursor (.cursor/rules/*.mdc)",
+        "Remediation pipeline is 4-phase: plan error fixes → execute error fixes → plan suggestions → execute suggestions",
+        "Output types are: Rule (declarative constraint, always loaded), Skill (procedural workflow, on-demand), Context update (direct edit to main file)"
+      ],
+      "code": [
+        {
+          "path": "README.md",
+          "line": 99,
+          "end_line": 122,
+          "finding": "Original Remediation section — 4 numbered steps, short output list, one-liner about prompt generation; expanded to ~45 lines covering pipeline, target agents table, output types, and history/impact evaluation"
+        }
+      ],
+      "workflow": [
+        "Per project rules, bun run test and bun run lint must be run even for documentation-only changes",
+        "Plan was authored in plan mode and stored in a .jsonl transcript file before implementation began"
+      ]
+    },
+    "friction": [],
+    "open_items": []
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-20T12:51:48.027809Z",
+    "agent_lines": 28,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 28,
+    "agent_percentage": 100
+  }
+}
