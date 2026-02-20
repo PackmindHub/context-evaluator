@@ -1,0 +1,88 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "357067d4d28e",
+  "session_id": "054bd433-cf13-416a-af41-48f036301c08",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-20T10:33:15.887624Z",
+  "branch": "main",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "frontend/src/components/AgentLogos.tsx",
+    "frontend/src/components/RemediateTab.tsx",
+    "frontend/src/components/RepositoryUrlInput.tsx"
+  ],
+  "agent": "Claude Code",
+  "token_usage": {
+    "input_tokens": 37,
+    "cache_creation_tokens": 64581,
+    "cache_read_tokens": 2226823,
+    "output_tokens": 1406,
+    "api_call_count": 31
+  },
+  "summary": {
+    "intent": "Add missing OpenCode and OpenAI Codex logos to the agent UI and display which files each coding agent generates, shown contextually near agent selection controls.",
+    "outcome": "All three frontend files were successfully modified with logos and generated-file hints, 1309 tests passed, lint was clean, but the changes were bundled into an unrelated Husky checkpoint commit rather than a clean dedicated commit.",
+    "learnings": {
+      "repo": [
+        "SVG assets for agents live in frontend/assets/agents/ and must be manually converted to inline React components in AgentLogos.tsx",
+        "agentLogoMap in AgentLogos.tsx is the central registry for agent logos used across the app",
+        "The project uses Biome for both linting and formatting; auto-fix is available and needed after some edits",
+        "Husky post-commit hook creates automatic 'checkpoint' commits, which can absorb staged changes from a prior failed commit attempt",
+        "Pre-commit hook runs TypeScript typecheck across the entire project, not just staged files — unrelated unstaged errors can block commits",
+        "GitHub Copilot generates files in both .github/copilot-instructions.md and .github/instructions and .github/skills directories"
+      ],
+      "code": [
+        {
+          "path": "frontend/src/components/AgentLogos.tsx",
+          "finding": "Central file for agent logos and the new AGENT_GENERATED_FILES constant mapping agent keys to generated file paths"
+        },
+        {
+          "path": "frontend/src/components/RepositoryUrlInput.tsx",
+          "line": 284,
+          "end_line": 396,
+          "finding": "renderAgentCard() function where agent logos were added above agent name inside detection cards"
+        },
+        {
+          "path": "frontend/src/components/RepositoryUrlInput.tsx",
+          "line": 916,
+          "end_line": 916,
+          "finding": "Provider \u003cselect\u003e element location where 'Generates: ...' subtitle was inserted below the dropdown"
+        },
+        {
+          "path": "frontend/src/components/RemediateTab.tsx",
+          "line": 657,
+          "end_line": 657,
+          "finding": "Target agent button group location where 'Generates: ...' subtitle was inserted"
+        },
+        {
+          "path": "src/shared/remediation/ai-file-consolidator.test.ts",
+          "finding": "Contains a pre-existing TypeScript error unrelated to this task that blocks the pre-commit typecheck hook"
+        }
+      ],
+      "workflow": [
+        "When pre-commit hooks typecheck the full project, existing errors in unstaged files can block commits for unrelated changes — isolating staged files does not help",
+        "After a failed commit attempt, Husky's post-commit hook may fire and create a checkpoint commit that absorbs previously staged files, making it appear the commit succeeded"
+      ]
+    },
+    "friction": [
+      "Pre-commit hook ran typecheck on the entire project and failed due to a TypeScript error in an unrelated unstaged file (ai-file-consolidator.test.ts)",
+      "Attempting to unstage unrelated files caused all staged files to be dropped, requiring re-staging",
+      "The commit ended up bundled inside an auto-generated Husky checkpoint commit rather than as a clean, isolated commit",
+      "Biome formatting required a separate auto-fix pass after one of the edits"
+    ],
+    "open_items": [
+      "Pre-existing TypeScript error in src/shared/remediation/ai-file-consolidator.test.ts needs to be fixed to unblock future commits",
+      "Uncommitted changes remain in src/shared/remediation/engine.ts and src/shared/types/remediation.ts from a separate workstream",
+      "The agent logo/generated-files changes are mixed into an unrelated checkpoint commit — consider rebasing to isolate them into a clean commit if commit history cleanliness matters"
+    ]
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-20T10:32:50.390528Z",
+    "agent_lines": 68,
+    "human_added": 1113,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 1181,
+    "agent_percentage": 5.75783234546994
+  }
+}

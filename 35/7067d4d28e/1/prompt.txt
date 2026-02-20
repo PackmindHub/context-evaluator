@@ -1,0 +1,107 @@
+Implement the following plan:
+
+# Plan: Add Missing Agent Logos + Show Generated Files Per Agent
+
+## Context
+
+The welcome page and agent selection UI currently only has inline SVG logos for Claude, Cursor, and GitHub Copilot. OpenAI Codex and OpenCode are missing logos despite having SVG files available in `frontend/assets/agents/`. Additionally, when users select a target coding agent, there's no indication of which files that agent can generate — making it harder for users to understand what each agent produces.
+
+## Changes
+
+### 1. Add OpenCode and OpenAI Codex logos to `AgentLogos.tsx`
+
+**File**: `frontend/src/components/AgentLogos.tsx`
+
+- Add `OpenCodeLogo` component (convert SVG from `frontend/assets/agents/opencode-logo.svg` to React inline SVG)
+- Add `OpenAICodexLogo` component (convert SVG from `frontend/assets/agents/openai-codex-logo.svg` to React inline SVG)
+- Add entries to `agentLogoMap`:
+  - `"opencode"` → `<OpenCodeLogo />`
+  - `"codex"` → `<OpenAICodexLogo />`
+
+### 2. Define agent-to-files mapping
+
+**File**: `frontend/src/components/AgentLogos.tsx` (or a new shared constant near the logo map)
+
+Add a `AGENT_GENERATED_FILES` constant mapping agent keys to their generated file paths:
+
+```typescript
+export const AGENT_GENERATED_FILES: Record<string, string[]> = {
+  "agents-md": ["AGENTS.md"],
+  "claude-code": ["CLAUDE.md", ".claude/rules", ".claude/skills"],
+  "claude": ["CLAUDE.md", ".claude/rules", ".claude/skills"],
+  "github-copilot": [".github/copilot-instructions.md"],
+  "cursor": [".cursor/rules", ".cursor/skills"],
+  "codex": ["AGENTS.md", "codex.md"],
+  "opencode": ["AGENTS.md"],
+};
+```
+
+### 3. Show generated files below evaluation provider dropdown
+
+**File**: `frontend/src/components/RepositoryUrlInput.tsx`
+
+After the provider `<select>` element (line ~916), add inline subtle text showing files for the selected provider:
+
+```tsx
+{AGENT_GENERATED_FILES[provider] && (
+  <p className="text-xs text-slate-500 mt-1">
+    Generates: {AGENT_GENERATED_FILES[provider].join(", ")}
+  </p>
+)}
+```
+
+### 4. Show generated files below remediate target agent buttons
+
+**File**: `frontend/src/components/RemediateTab.tsx`
+
+After the target agent button group (line ~657), add inline subtle text:
+
+```tsx
+{AGENT_GENERATED_FILES[targetAgent] && (
+  <p className="text-xs text-slate-500 mt-1">
+    Generates: {AGENT_GENERATED_FILES[targetAgent].join(", ")}
+  </p>
+)}
+```
+
+### 5. Agent detection cards on welcome page already use `agentLogoMap`
+
+The `renderAgentCard` function in `RepositoryUrlInput.tsx` does NOT currently render logos — it only shows agent name + status. The logos are already available via `agentLogoMap` but aren't used in the cards. I'll add logo rendering inside each agent card, above the agent name.
+
+**File**: `frontend/src/components/RepositoryUrlInput.tsx` — `renderAgentCard()` function (lines 284-396)
+
+Add logo rendering after the status icon section:
+```tsx
+{agentLogoMap[name] && (
+  <span className="w-6 h-6 flex items-center mb-1">
+    {agentLogoMap[name]}
+  </span>
+)}
+```
+
+## Files to Modify
+
+1. `frontend/src/components/AgentLogos.tsx` — add 2 new logo components + update `agentLogoMap` + add `AGENT_GENERATED_FILES` constant
+2. `frontend/src/components/RepositoryUrlInput.tsx` — add logo to agent cards + show generated files below provider dropdown
+3. `frontend/src/components/RemediateTab.tsx` — show generated files below target agent buttons
+
+## Verification
+
+1. `bun run test` — ensure no regressions
+2. `bun run lint` — ensure code passes linting
+3. `bun run dev` — visually verify:
+   - Welcome page agent cards show logos for all 5 agents
+   - Provider dropdown area shows "Generates: ..." text for selected agent
+   - Remediate tab target agent buttons show "Generates: ..." text for selected agent
+   - OpenCode and OpenAI Codex logos appear everywhere agents are displayed (cards, dropdowns, remediate tab)
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+Mention that github also create ".github/instructions" and ".github/skills"
+
+---
+
+commit
