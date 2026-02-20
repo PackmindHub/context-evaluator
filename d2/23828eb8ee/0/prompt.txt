@@ -1,0 +1,79 @@
+I've run a remediation with cursor but got these errors: [Remediation] Plan-first pipeline: 5 errors, 6 suggestions, 4 AI invocations, provider: cursor
+[Remediation] Phase 1: Planning error fixes (5 issues)
+[Cursor Agent] Spawning: agent -p --output-format json (prompt via stdin, 17687 chars, cwd: /Users/cedricteyton/Code/agents-md-evaluator/tmp/clones/agents-eval-aTBoB5)
+[Bun.serve]: request timed out after 10 seconds. Pass `idleTimeout` to configure.
+[Proxy] GET /api/remediation/8227bedf-5752-4b17-80f6-62d8e7c4def5/progress -> http://localhost:REDACTED
+[13:45:07.973] [API] GET /api/remediation/8227bedf-5752-4b17-80f6-62d8e7c4def5/progress
+[RemediationSSE] Connected for job 8227bedf-5752-4b17-80f6-62d8e7c4def5 (2 connections)
+[Proxy] GET /api/remediation/8227bedf-5752-4b17-80f6-62d8e7c4def5/progress -> http://localhost:REDACTED
+[13:45:27.973] [API] GET /api/remediation/8227bedf-5752-4b17-80f6-62d8e7c4def5/progress
+[RemediationSSE] Connected for job 8227bedf-5752-4b17-80f6-62d8e7c4def5 (3 connections)
+[Proxy] GET /api/remediation/8227bedf-5752-4b17-80f6-62d8e7c4def5/progress -> http://localhost:REDACTED
+[13:45:48.028] [API] GET /api/remediation/8227bedf-5752-4b17-80f6-62d8e7c4def5/progress
+[RemediationSSE] Connected for job 8227bedf-5752-4b17-80f6-62d8e7c4def5 (4 connections)
+[Remediation] Phase 1 completed: 64983ms, $0.0000
+[Remediation] Phase 2: Executing error fixes
+[Cursor Agent] Spawning: agent -p --output-format json --dangerously-skip-permissions (prompt via stdin, 12260 chars, cwd: /Users/cedricteyton/Code/agents-md-evaluator/tmp/clones/agents-eval-aTBoB5)
+[Cursor Agent] Process failed with code 1 (general error) after 0.4s
+[Cursor Agent] stdout: 0 bytes, stderr: 0 bytes
+[Cursor Agent] Both stdout and stderr are empty. Possible causes:
+[Cursor Agent]   - 'agent' CLI may not support --output-format json
+[Cursor Agent]   - 'agent' CLI may not support reading prompt from stdin
+[Cursor Agent]   - Check 'agent --version' and 'agent --help' for supported flags
+[Cursor Agent] Attempt 1/3 failed: Cursor Agent CLI exited with code 1 (general error)
+(no stdout)
+[Cursor Agent] Retrying in 1000ms... (2 retries remaining)
+[Cursor Agent] Spawning: agent -p --output-format json --dangerously-skip-permissions (prompt via stdin, 12260 chars, cwd: /Users/cedricteyton/Code/agents-md-evaluator/tmp/clones/agents-eval-aTBoB5)
+[Cursor Agent] Process failed with code 1 (general error) after 0.4s
+[Cursor Agent] stdout: 0 bytes, stderr: 0 bytes
+[Cursor Agent] Both stdout and stderr are empty. Possible causes:
+[Cursor Agent]   - 'agent' CLI may not support --output-format json
+[Cursor Agent]   - 'agent' CLI may not support reading prompt from stdin
+[Cursor Agent]   - Check 'agent --version' and 'agent --help' for supported flags
+[Cursor Agent] Attempt 2/3 failed: Cursor Agent CLI exited with code 1 (general error)
+(no stdout)
+[Cursor Agent] Retrying in 2000ms... (1 retries remaining)
+[Cursor Agent] Spawning: agent -p --output-format json --dangerously-skip-permissions (prompt via stdin, 12260 chars, cwd: /Users/cedricteyton/Code/agents-md-evaluator/tmp/clones/agents-eval-aTBoB5)
+[Cursor Agent] Process failed with code 1 (general error) after 0.4s
+[Cursor Agent] stdout: 0 bytes, stderr: 0 bytes
+[Cursor Agent] Both stdout and stderr are empty. Possible causes:
+[Cursor Agent]   - 'agent' CLI may not support --output-format json
+[Cursor Agent]   - 'agent' CLI may not support reading prompt from stdin
+[Cursor Agent]   - Check 'agent --version' and 'agent --help' for supported flags
+[RemediationRepository] Saved failed remediation 8227bedf-5752-4b17-80f6-62d8e7c4def5
+[RemediationJobManager] Job 8227bedf-5752-4b17-80f6-62d8e7c4def5 failed: Cursor Agent CLI exited with code 1 (general error)
+(no stdout)
+[Proxy] GET /api/remediation/list-for-evaluation/44cfdd32-f125-42e4-80e6-6d43121fafc2 -> http://localhost:3001/api/remediation/list-for-evaluation/44cfdd32-f125-42e4-80e6-6d43121fafc2
+[13:45:56.724] [API] GET /api/remediation/list-for-evaluation/44cfdd32-f125-42e4-80e6-6d43121fafc2
+
+ - Here is the doc: # Parameters
+
+## Global options
+
+Global options can be used with any command:
+
+OptionDescription`-v, --version`Output the version number`-a, --api-key <key>`API key for authentication (can also use `CURSOR_API_KEY` env var)`-p, --print`Print responses to console (for scripts or non-interactive use). Has access to all tools, including write and bash.`--output-format <format>`Output format (only works with `--print`): `text`, `json`, or `stream-json` (default: `text`)`--stream-partial-output`Stream partial output as individual text deltas (only works with `--print` and `stream-json` format)`-b, --background`Start in background mode (open composer picker on launch)`--fullscreen`Enable fullscreen mode`--resume [chatId]`Resume a chat session`-m, --model <model>`Model to use`--mode <mode>`Set agent mode: `agent` (default), `plan`, or `ask``--list-models`List all available models`-f, --force`Force allow commands unless explicitly denied`-h, --help`Display help for command
+## Commands
+
+CommandDescriptionUsage`login`Authenticate with Cursor`agent login``logout`Sign out and clear stored authentication`agent logout``status`Check authentication status`agent status``models`List all available models`agent models``mcp`Manage MCP servers`agent mcp``update|upgrade`Update Cursor Agent to the latest version`agent update` or `agent upgrade``ls`Resume a chat session`agent ls``resume`Resume the latest chat session`agent resume``help [command]`Display help for command`agent help [command]`
+When no command is specified, Cursor Agent starts in interactive chat mode by
+default.
+
+## MCP
+
+Manage MCP servers configured for Cursor Agent.
+
+SubcommandDescriptionUsage`login <identifier>`Authenticate with an MCP server configured in `.cursor/mcp.json``agent mcp login <identifier>``list`List configured MCP servers and their status`agent mcp list``list-tools <identifier>`List available tools and their argument names for a specific MCP`agent mcp list-tools <identifier>``enable <identifier>`Enable an MCP server`agent mcp enable <identifier>``disable <identifier>`Disable an MCP server`agent mcp disable <identifier>`
+All MCP commands support `-h, --help` for command-specific help.
+
+## Arguments
+
+When starting in chat mode (default behavior), you can provide an initial prompt:
+
+**Arguments:**
+
+- `prompt` — Initial prompt for the agent
+
+## Getting help
+
+All commands support the global `-h, --help` option to display command-specific help.
