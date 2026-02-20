@@ -1,0 +1,50 @@
+Implement the following plan:
+
+# Fix: Show issues alongside diff when expanded
+
+## Context
+
+In `UnifiedFileRow`, the expanded/collapsed states use a ternary that hides issues (action bullets) when the diff is shown. Users expect to see both the issues and the diff when expanded.
+
+## Change
+
+**File**: `frontend/src/components/RemediationHistoryCard.tsx` (lines 631-654)
+
+Replace the ternary with:
+1. Always render action bullets when they exist
+2. Additionally render the diff when expanded
+
+```tsx
+{/* Row body */}
+{entry.actions.length > 0 && (
+  <div className="border-t border-slate-700/30 px-6 py-1.5 space-y-1">
+    {entry.actions.map((action) => (
+      <div key={`${action.issueIndex}-${action.status}`} className="flex items-start gap-2 text-xs">
+        <span className="text-green-400 mt-0.5">✓</span>
+        <span className="text-slate-400 flex-1">{action.summary}</span>
+      </div>
+    ))}
+  </div>
+)}
+{expanded && (
+  <div className="border-t border-slate-700/40 pt-2 pb-2 space-y-2">
+    {entry.fileChanges.map((fc) => (
+      <DiffViewer key={fc.path} diff={fc.diff} />
+    ))}
+  </div>
+)}
+```
+
+## Verification
+
+1. Run `bun run test`
+2. Run `bun run dev` and trigger a remediation
+3. Verify: collapsed state shows issues with checkmarks
+4. Verify: expanded state shows issues AND the diff below them
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+commit

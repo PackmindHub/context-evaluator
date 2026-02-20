@@ -1,0 +1,55 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "2d4b7a36f369",
+  "session_id": "d0c07c08-0bd1-4add-a82d-58ed5152399e",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-20T11:07:09.731076Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "frontend/src/components/RemediationHistoryCard.tsx"
+  ],
+  "agent": "Claude Code",
+  "token_usage": {
+    "input_tokens": 19,
+    "cache_creation_tokens": 23939,
+    "cache_read_tokens": 532314,
+    "output_tokens": 329,
+    "api_call_count": 15
+  },
+  "summary": {
+    "intent": "Fix the UnifiedFileRow component in RemediationHistoryCard.tsx so that action bullet issues are always visible alongside the diff when a file row is expanded, rather than being hidden by a ternary.",
+    "outcome": "Replaced the ternary (lines 631-654) with two independent conditional blocks — actions always render when present, diff renders additionally when expanded. All 1318 tests passed, lint passed, and the change was committed.",
+    "learnings": {
+      "repo": [
+        "Project uses bun (bun run test, bun run dev) as the primary task runner.",
+        "Test suite contains 1318 tests.",
+        "The file uses tab indentation, not spaces."
+      ],
+      "code": [
+        {
+          "path": "frontend/src/components/RemediationHistoryCard.tsx",
+          "line": 631,
+          "end_line": 654,
+          "finding": "UnifiedFileRow row body previously used a ternary to toggle between action bullets and diff viewer; now uses two independent conditionals so both can render simultaneously."
+        }
+      ],
+      "workflow": [
+        "When an Edit fails due to whitespace mismatch, re-reading the file and explicitly checking tab vs space characters (via Bash) is the reliable recovery path before retrying."
+      ]
+    },
+    "friction": [
+      "First Edit attempt failed because the old_string didn't match due to tab vs space indentation ambiguity; required a secondary Bash check to confirm tabs before the edit succeeded."
+    ],
+    "open_items": []
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-20T11:06:55.786134Z",
+    "agent_lines": 14,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 14,
+    "agent_percentage": 100
+  }
+}
