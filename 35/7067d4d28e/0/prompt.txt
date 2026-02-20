@@ -1,0 +1,91 @@
+Implement the following plan:
+
+# Plan: AI-Powered Intelligent Merge for AGENTS.md/CLAUDE.md Consolidation
+
+## Context
+
+When a repo has both AGENTS.md and CLAUDE.md, the remediation system consolidates them before running fixes. Currently, `consolidateColocatedFiles()` in `src/shared/remediation/file-consolidator.ts:49` does a **naive concatenation** with a `<!-- Merged from CLAUDE.md -->` separator. This creates duplicate sections (commands, architecture, project structure appear twice) because both files typically overlap. The downstream AI then works on a bloated, duplicated file — and evaluators flag the duplicates as issues.
+
+**Goal**: Replace naive concatenation with an AI-powered intelligent merge that deduplicates content, integrates unique CLAUDE.md content into appropriate AGENTS.md sections, and produces a clean single file.
+
+---
+
+## Implementation Steps
+
+### 1. Create merge prompt builder
+**New file**: `src/shared/remediation/merge-prompt.ts`
+
+- Export `buildMergePrompt(agentsContent: string, claudeContent: string): string`
+- Prompt instructs the AI to:
+  - Use AGENTS.md structure as the base skeleton
+  - Identify equivalent sections across both files and keep the more complete version
+  - Insert unique CLAUDE.md sections at relevant locations
+  - Never duplicate information
+  - Output raw merged markdown (no code fences, no preamble)
+
+### 2. Create AI-powered consolidation function
+**New file**: `src/shared/remediation/ai-file-consolidator.ts`
+
+- Export `consolidateColocatedFilesWithAI(workDir, pairs, provider)` → `Promise<AIConsolidationResult>`
+- `AIConsolidationResult = { results: ConsolidationResult[], stats?: IPromptExecutionStats }`
+- For each pair:
+  1. Skip if CLAUDE.md is already `@AGENTS.md` (same as naive)
+  2. Read both files, build merge prompt, call `provider.invokeWithRetry(prompt, { writeMode: false })`
+  3. Validate AI output (non-empty, reasonable length)
+  4. Write merged content to AGENTS.md, write `@AGENTS.md` to CLAUDE.md
+  5. On AI failure: **fall back to naive** `consolidateColocatedFiles()` for that pair only
+- Accumulate cost/tokens/duration stats across all pairs
+
+### 3. Add `consolidationStats` to result type
+**Modify**: `src/shared/types/remediation.ts`
+
+- Add `consolidationStats?: IPromptExecutionStats` to `IRemediationResult` (alongside existing `errorPlanStats`, etc.)
+
+### 4. Wire up in remediation engine
+**Modify**: `src/shared/remediation/engine.ts`
+
+- Move `const provider = getProvider(...)` (currently line 304) to before the consolidation block (~line 218)
+- Replace `consolidateColocatedFiles(workDir, colocatedPairs)` call with `consolidateColocatedFilesWithAI(workDir, colocatedPairs, provider)`
+- Store returned `stats` as `consolidationStats`
+- Include consolidation cost/tokens in the running totals (lines 689-703)
+- Include `consolidationStats` in the return object (line 710)
+- **Keep** the post-execution re-consolidation at line 626-630 as naive (it's just a safety net)
+
+### 5. Tests
+**New file**: `src/shared/remediation/ai-file-consolidator.test.ts`
+- Happy path: mock provider returns merged content → verify AGENTS.md has AI output, CLAUDE.md is `@AGENTS.md`, stats populated
+- AI returns empty: verify fallback to naive concatenation
+- AI throws error: verify fallback for failing pair, other pairs still use AI
+- Already-referenced pair: verify skip behavior unchanged
+- Multiple pairs with partial failure: first succeeds via AI, second falls back
+
+**New file**: `src/shared/remediation/merge-prompt.test.ts`
+- Verify prompt contains both file contents
+- Verify prompt structure has merge rules
+
+---
+
+## Files Changed
+
+| File | Action |
+|------|--------|
+| `src/shared/remediation/merge-prompt.ts` | NEW |
+| `src/shared/remediation/ai-file-consolidator.ts` | NEW |
+| `src/shared/types/remediation.ts` | MODIFY — add `consolidationStats` field |
+| `src/shared/remediation/engine.ts` | MODIFY — use AI consolidation, track stats |
+| `src/shared/remediation/ai-file-consolidator.test.ts` | NEW |
+| `src/shared/remediation/merge-prompt.test.ts` | NEW |
+
+## Verification
+
+1. `bun run test` — all existing tests pass, new tests pass
+2. `bun run lint` — no lint errors
+3. Manual test: run remediation on a repo with both AGENTS.md and CLAUDE.md → verify the merged file has no `<!-- Merged from CLAUDE.md -->` separator, no duplicate sections, and all unique content preserved
+4. Verify fallback: if AI provider fails, the naive concatenation still works
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+commit
