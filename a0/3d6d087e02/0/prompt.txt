@@ -1,0 +1,47 @@
+Implement the following plan:
+
+# Plan: Improve Past Remediations UI
+
+## Context
+The "Past Remediations" section in the Remediate tab has three UX issues:
+1. No link to view the re-evaluation results (the evaluation that produced the new score)
+2. The remediation card header text is too small — score, metadata, and title don't stand out enough
+3. The panel starts collapsed even when there are no selected issues, forcing unnecessary clicks
+
+## Changes
+
+### 1. Add evaluation link to score comparison (`RemediationHistoryCard.tsx`)
+- Wrap the `ScoreComparison` component in an `<a>` tag linking to `/evaluation/{resultEvaluationId || impactJobId}`
+- The link should be visually indicated (e.g., hover underline or a small arrow icon)
+- Pass `resultEvaluationId` (from `item`) and `impactJobId` to `ScoreComparison`, or wrap it externally
+
+**File:** `frontend/src/components/RemediationHistoryCard.tsx` (lines 225-233)
+
+### 2. Increase visual prominence of remediation card header (`RemediationHistoryCard.tsx`)
+- Bump the remediation label (`Remediation #N`) from `text-sm` to `text-base font-semibold`
+- Bump the stat label (errors/suggestions count) from `text-xs` to `text-sm`
+- Bump the metadata row (date, files, +/-, duration, cost) from `text-xs` to `text-sm`
+- Make the score comparison text slightly larger: `text-sm` instead of `text-xs`
+
+**File:** `frontend/src/components/RemediationHistoryCard.tsx` (lines 119-151, 670)
+
+### 3. Auto-open panel when no issues selected (`RemediationHistory.tsx`)
+- Add a `defaultOpen` prop to `RemediationHistory`
+- Initialize `collapsed` state based on `defaultOpen` instead of always `true`
+- In `RemediateTab.tsx`, pass `defaultOpen={selectedIssueKeys.size === 0}` to `RemediationHistory`
+
+**Files:**
+- `frontend/src/components/RemediationHistory.tsx` (lines 22-32, 45)
+- `frontend/src/components/RemediateTab.tsx` (line 534-548)
+
+## Verification
+- Run `bun run test` to ensure no test regressions
+- Run `bun run lint` to ensure code quality
+- Visual check: open the Remediate tab with past remediations — panel should be open when no issues selected, text should be larger, and score should link to the evaluation
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+commit
