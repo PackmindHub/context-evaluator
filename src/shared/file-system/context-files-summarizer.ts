@@ -61,11 +61,8 @@ export function getContextFileType(
 		return "copilot";
 	}
 
-	// New pattern: *.instructions.md in .github/instructions/ directory
-	if (
-		filename.endsWith(".instructions.md") &&
-		filePath.includes(".github/instructions/")
-	) {
+	// Files in .github/instructions/ directory (Copilot instructions)
+	if (filePath.includes(".github/instructions/")) {
 		return "copilot";
 	}
 

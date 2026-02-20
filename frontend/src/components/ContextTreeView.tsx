@@ -92,7 +92,7 @@ function getFileTypeBadge(
 			};
 		case "copilot":
 			return {
-				label: "Copilot",
+				label: "Copilot instructions",
 				className: "bg-slate-600/40 text-slate-300",
 			};
 		case "rules":
