@@ -35,7 +35,7 @@ description: <When the agent should activate this skill. Be specific. Use third-
 
 ## Instructions
 
-<Step-by-step procedural instructions written in imperative/infinitive form (verb-first, not second person). Keep concise, under 5k words.>
+<Step-by-step procedural instructions written in imperative/infinitive form (verb-first, not second person). Use indented sub-bullets when a step has sub-steps, expected behaviors, or details. Keep concise, under 5k words.>
 ```
 
 ## Progressive Disclosure
