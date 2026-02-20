@@ -1,0 +1,41 @@
+Implement the following plan:
+
+# Plan: Improve project structure remediation quality
+
+## Context
+
+When the remediation AI fixes a "missing project structure" issue (evaluator 08, section 8.1), it produces bare folder listings like `- src/`, `- src/components/` with no descriptions. This has zero value for AI coding agents who need to know what each directory contains. The evaluator 08 prompt already shows excellent annotated examples, but this quality guidance doesn't flow into the remediation prompt.
+
+## Change
+
+Add a `project-structure`-specific quality hint in the `errorDefaultGuidance` dispatch table inside `getOutputTypeInstructions()`.
+
+### File: `src/shared/remediation/prompt-generator.ts`
+
+In the `errorDefaultGuidance` string (line 257), add a new entry for `project-structure` after the existing `outdated-documentation` line:
+
+```
+- `outdated-documentation`, `structure-formatting` → usually **generic update** (factual corrections: wrong paths, outdated names)
++ - `project-structure` → **generic update**; produce an annotated directory tree where each entry includes a brief description of its purpose (e.g., `src/components/  # React UI components`). Bare folder listings without descriptions have no value for AI agents — every directory must explain what it contains.
+```
+
+This works because:
+- `getOutputTypeInstructions()` is called by both `buildErrorPlanPrompt` and `buildErrorExecutionPrompt`, so both plan and execution phases get the guidance
+- It's co-located with existing per-evaluator routing hints — clean pattern
+- No conditional logic or new functions needed
+
+### File: `src/shared/remediation/prompt-generator.test.ts`
+
+Add one test asserting the annotated-tree guidance appears in error prompts containing a project-structure issue.
+
+## Verification
+
+1. `bun run test` — all tests pass including new test
+2. `bun run lint` — no lint errors
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.claude/projects/-Users-cedricteyton-Code-agents-md-evaluator/eed11748-d5b3-4ea2-a47a-ed15168a3efc.jsonl
+
+---
+
+commit
