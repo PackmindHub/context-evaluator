@@ -12,6 +12,7 @@ import { useProviderDetection } from "../hooks/useProviderDetection";
 import { isValidGitUrl } from "../lib/url-validation";
 import type { EvaluatorFilter } from "../types/evaluation";
 import type { IEvaluator } from "../types/evaluator";
+import { AGENT_GENERATED_FILES, agentLogoMap } from "./AgentLogos";
 
 type InputMode = "single" | "batch" | "import";
 
@@ -352,6 +353,13 @@ export const RepositoryUrlInput: React.FC<IRepositoryUrlInputProps> = ({
 							d="M6 18L18 6M6 6l12 12"
 						/>
 					</svg>
+				)}
+
+				{/* Agent logo */}
+				{agentLogoMap[name] && (
+					<span className="w-6 h-6 flex items-center mb-1">
+						{agentLogoMap[name]}
+					</span>
 				)}
 
 				{/* Agent name */}
@@ -913,6 +921,11 @@ export const RepositoryUrlInput: React.FC<IRepositoryUrlInputProps> = ({
 												</option>
 											))}
 										</select>
+										{AGENT_GENERATED_FILES[provider] && (
+											<p className="text-xs text-slate-500 mt-1">
+												Generates: {AGENT_GENERATED_FILES[provider].join(", ")}
+											</p>
+										)}
 									</div>
 
 									{/* Concurrency Selector */}

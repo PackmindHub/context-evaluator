@@ -28,7 +28,7 @@ import {
 	countPackmindArtifacts,
 	formatArtifactCount,
 } from "../utils/packmind-artifacts";
-import { agentLogoMap } from "./AgentLogos";
+import { AGENT_GENERATED_FILES, agentLogoMap } from "./AgentLogos";
 import { RemediationHistory } from "./RemediationHistory";
 import { RemediationProgress } from "./RemediationProgress";
 import { CopyButton } from "./shared/CopyButton";
@@ -655,6 +655,11 @@ export function RemediateTab({
 								</button>
 							))}
 						</div>
+						{AGENT_GENERATED_FILES[targetAgent] && (
+							<p className="text-xs text-slate-500 mt-1">
+								Generates: {AGENT_GENERATED_FILES[targetAgent].join(", ")}
+							</p>
+						)}
 					</div>
 
 					{/* Provider Selector */}

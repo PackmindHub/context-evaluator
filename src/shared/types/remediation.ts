@@ -90,6 +90,7 @@ export interface IRemediationResult {
 	suggestionPlanPrompt?: string;
 	errorFixDiff?: string;
 	errorFixFileChanges?: IFileChange[];
+	consolidationStats?: IPromptExecutionStats;
 }
 
 export interface IRemediationRequest {

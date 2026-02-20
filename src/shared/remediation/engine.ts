@@ -20,6 +20,7 @@ import {
 } from "@shared/types/remediation";
 import { evaluationRepository } from "../../api/db/evaluation-repository";
 import type { JobManager } from "../../api/jobs/job-manager";
+import { consolidateColocatedFilesWithAI } from "./ai-file-consolidator";
 import { consolidateColocatedFiles } from "./file-consolidator";
 import {
 	captureGitDiff,
@@ -186,6 +187,8 @@ export async function executeRemediation(
 		}
 
 		// 2.5. Consolidate colocated AGENTS.md/CLAUDE.md pairs
+		const provider = getProvider(request.provider as ProviderName);
+		let consolidationStats: IPromptExecutionStats | undefined;
 		const pc = evaluationData.result?.metadata?.projectContext;
 
 		// Re-detect colocated pairs at remediation time for backward compat with
@@ -219,13 +222,15 @@ export async function executeRemediation(
 		if (colocatedPairs.length > 0) {
 			emitStep(onProgress, "consolidating_files", "started");
 			console.log(
-				`[Remediation] Consolidating ${colocatedPairs.length} colocated AGENTS.md/CLAUDE.md pair(s)`,
+				`[Remediation] Consolidating ${colocatedPairs.length} colocated AGENTS.md/CLAUDE.md pair(s) with AI merge`,
 			);
-			const consolidationResults = await consolidateColocatedFiles(
+			const aiConsolidation = await consolidateColocatedFilesWithAI(
 				workDir,
 				colocatedPairs,
+				provider,
 			);
-			for (const result of consolidationResults) {
+			consolidationStats = aiConsolidation.stats;
+			for (const result of aiConsolidation.results) {
 				if (result.skipped) {
 					console.log(
 						`[Remediation] Skipped ${result.claudePath}: ${result.reason}`,
@@ -301,7 +306,6 @@ export async function executeRemediation(
 		};
 
 		// 4. Plan-first 4-phase pipeline
-		const provider = getProvider(request.provider as ProviderName);
 		let errorPlanStats: IPromptExecutionStats | undefined;
 		let errorFixStats: IPromptExecutionStats | undefined;
 		let suggestionPlanStats: IPromptExecutionStats | undefined;
@@ -687,16 +691,19 @@ export async function executeRemediation(
 
 		// 8. Build result
 		const totalCostUsd =
+			(consolidationStats?.costUsd ?? 0) +
 			(errorPlanStats?.costUsd ?? 0) +
 			(errorFixStats?.costUsd ?? 0) +
 			(suggestionPlanStats?.costUsd ?? 0) +
 			(suggestionEnrichStats?.costUsd ?? 0);
 		const totalInputTokens =
+			(consolidationStats?.inputTokens ?? 0) +
 			(errorPlanStats?.inputTokens ?? 0) +
 			(errorFixStats?.inputTokens ?? 0) +
 			(suggestionPlanStats?.inputTokens ?? 0) +
 			(suggestionEnrichStats?.inputTokens ?? 0);
 		const totalOutputTokens =
+			(consolidationStats?.outputTokens ?? 0) +
 			(errorPlanStats?.outputTokens ?? 0) +
 			(errorFixStats?.outputTokens ?? 0) +
 			(suggestionPlanStats?.outputTokens ?? 0) +
@@ -728,6 +735,7 @@ export async function executeRemediation(
 			suggestionPlanPrompt,
 			errorFixDiff,
 			errorFixFileChanges,
+			consolidationStats,
 		};
 	} finally {
 		// Always reset and cleanup
