@@ -1,0 +1,1 @@
+For a remediation I've selected both Cursor as agent and target rendering. After clicking on "Execute Remediation", the modals shows me "copilot". Investigate why and fix this bug
