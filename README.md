@@ -98,27 +98,43 @@ Each issue includes:
 
 ## Remediation
 
-After reviewing evaluation results, you can automatically fix issues using AI-powered remediation (web UI only).
+AI-powered automated fix for evaluation issues — available in the web UI only.
 
 ### How it works
 
-1. **Select issues** — Use the + button on issue cards to add them to your selection basket
-2. **Configure** — Choose your target file type (AGENTS.md or CLAUDE.md) and AI provider
-3. **Execute** — Click "Execute Remediation" to let the AI agent fix errors and add missing content
-4. **Review** — Inspect the generated diffs per file, then download the patch
+1. **Select issues** — Add issues from the Errors or Suggestions tabs using the **+** button on each card
+2. **Configure** — Pick a target agent format and AI provider (auto-detected from installed CLI tools)
+3. **Execute** — Runs a 4-phase pipeline: plan error fixes → execute error fixes → plan suggestions → execute suggestions. Live progress shows step labels, cost, and token tracking in real time.
+4. **Review** — Inspect per-file diffs, view the action summary (fixed / added / skipped), and download a `.patch` file
 
-Errors are fixed first (sorted by severity), then suggestions are added on top. Issues are batched automatically to stay within token limits.
+Errors are processed first (sorted by severity), then suggestions are layered on top.
 
-### Output
+### Target agents
 
-- Per-file diffs with additions/deletions
-- Action summary showing what was fixed, added, or skipped
-- Downloadable `.patch` file
-- Cost and token usage breakdown
+The target format determines which files and directory structure the remediation produces:
+
+| Target | Main file | Rules / Instructions | Skills |
+|--------|-----------|---------------------|--------|
+| AGENTS.md | `AGENTS.md` | `.agents/rules/` | `.agents/skills/` |
+| Claude Code | `CLAUDE.md` | `.claude/rules/` | `.claude/skills/` |
+| GitHub Copilot | `.github/copilot-instructions.md` | `.github/instructions/` | `.github/skills/` |
+| Cursor | `.cursor/rules/*.mdc` | *(integrated)* | `.cursor/skills/` |
+
+### Output types
+
+The AI decides per-issue which output type to use:
+
+- **Rule** — Short declarative constraint, always loaded by the agent
+- **Skill** — Procedural workflow loaded on demand via a trigger phrase
+- **Context update** — Direct edit to the main file (project structure, setup steps, env vars, etc.)
+
+### Remediation history & impact evaluation
+
+Past remediations are saved and visible in the **Remediate** tab. Click **Evaluate Impact** to re-run the full evaluation on the patched repository and see a before → after score comparison.
 
 ### Alternative: Generate Prompts
 
-If you prefer manual control, click "Generate Prompts" to get copy-paste-ready prompts for your own CLI agent.
+If you prefer manual control, click **Generate Prompts** to get copy-paste-ready prompts for your own CLI agent.
 
 ---
 
