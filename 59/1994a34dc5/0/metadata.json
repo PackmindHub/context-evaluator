@@ -1,0 +1,81 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "591994a34dc5",
+  "session_id": "c4558963-4eaf-4386-b23e-9a9cf6bf43af",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-20T13:07:29.453775Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "CLAUDE.md",
+    "frontend/src/components/RemediateTab.tsx",
+    "src/shared/providers/opencode-provider.ts"
+  ],
+  "agent": "Claude Code",
+  "token_usage": {
+    "input_tokens": 23,
+    "cache_creation_tokens": 44653,
+    "cache_read_tokens": 997196,
+    "output_tokens": 901,
+    "api_call_count": 19
+  },
+  "summary": {
+    "intent": "Implement a local execution warning in the remediation confirmation modal that shows users the exact CLI command that will run on their machine, along with security implications. Also update the OpenCode default model from gpt-5.2-codex to gpt-5.3-codex.",
+    "outcome": "All changes were successfully implemented and committed (fe67dd4): PROVIDER_EXECUTION_INFO constant, LocalExecutionWarning sub-component, modal widening and warning insertion gated by cloudMode, and the OpenCode model version bump across 3 locations. 1319 tests passed, lint auto-fixed.",
+    "learnings": {
+      "repo": [
+        "Amber warning pattern for security/caution UI is established: `border-amber-700/40 bg-amber-900/20 text-amber-400`",
+        "Cloud mode is gated via `cloudMode` boolean already threaded into RemediateTab — local-only UI uses `{!cloudMode \u0026\u0026 ...}` pattern",
+        "Pre-commit hooks enforce tests, lint, and typecheck — all must pass before commit lands",
+        "OpenCode model string appears in 3 places: provider args array, verbose log message, and CLAUDE.md docs"
+      ],
+      "code": [
+        {
+          "path": "frontend/src/components/RemediateTab.tsx",
+          "line": 39,
+          "end_line": 73,
+          "finding": "PROVIDER_EXECUTION_INFO constant added here — maps ProviderName to write-phase CLI command and security note"
+        },
+        {
+          "path": "frontend/src/components/RemediateTab.tsx",
+          "line": 787,
+          "end_line": 851,
+          "finding": "Confirmation modal block — widened from max-w-md to max-w-lg and LocalExecutionWarning inserted between summary info and action buttons"
+        },
+        {
+          "path": "src/shared/providers/opencode-provider.ts",
+          "line": 95,
+          "end_line": 110,
+          "finding": "Model string appears twice: once in the args array (line 95) and once in the verbose log message (line 110)"
+        },
+        {
+          "path": "CLAUDE.md",
+          "line": 270,
+          "end_line": 270,
+          "finding": "Documentation reference to OpenCode model version — must be kept in sync with provider source"
+        }
+      ],
+      "workflow": [
+        "`rtk bun run test` wrapper failed; direct `bun run test` was needed instead",
+        "Lint auto-fix (`bun run lint:fix`) was needed after edits — formatting issues are not caught until lint runs explicitly",
+        "Selectively staged only files touched in the session to avoid accidentally bundling pre-existing unstaged changes from other files"
+      ]
+    },
+    "friction": [
+      "`rtk bun run test` failed as a command prefix — had to fall back to plain `bun run test`",
+      "Lint failed after edits due to formatting, requiring a separate `lint:fix` pass before lint went clean"
+    ],
+    "open_items": [
+      "`codex-provider.ts` and `cursor-provider.ts` had pre-existing uncommitted changes that were intentionally excluded from this commit — they remain unstaged and unaddressed"
+    ]
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-20T13:07:09.519159Z",
+    "agent_lines": 80,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 80,
+    "agent_percentage": 100
+  }
+}

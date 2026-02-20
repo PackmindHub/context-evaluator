@@ -1,0 +1,69 @@
+Implement the following plan:
+
+# Plan: Local Execution Warning in Remediation Confirmation Modal
+
+## Context
+
+When users click "Execute Remediation", a confirmation modal appears. Currently it only shows issue counts, target, and provider name. But locally, the system spawns CLI agents with elevated permissions (e.g., `--dangerously-skip-permissions` for Claude). Users should be informed about **what command will run on their machine** and its security implications before confirming. This warning is only relevant for local execution — in cloud mode, we control the infrastructure.
+
+## Changes
+
+### 0. Update OpenCode default model to `gpt-5.3-codex`
+
+Replace `openai/gpt-5.2-codex` with `openai/gpt-5.3-codex` in 3 locations:
+
+- `src/shared/providers/opencode-provider.ts:95` — the actual model argument
+- `src/shared/providers/opencode-provider.ts:110` — the verbose log message
+- `CLAUDE.md:270` — documentation reference
+
+### 1. Add `PROVIDER_EXECUTION_INFO` constant (after imports, before component)
+
+**File:** `frontend/src/components/RemediateTab.tsx`
+
+A `Record<ProviderName, { writeCommand: string; securityNote: string }>` mapping each provider to:
+- The exact CLI command used during the **write/execution phase** (the security-sensitive one)
+- A one-sentence explanation of what the key flags mean
+
+| Provider | Write Command | Security Note |
+|---|---|---|
+| Claude | `claude -p --output-format json --no-session-persistence --disable-slash-commands --dangerously-skip-permissions` | `--dangerously-skip-permissions` bypasses all file-write prompts |
+| Cursor | `agent -p --output-format json --force` | `--force` allows writes without confirmation |
+| Codex | `codex exec --json --full-auto --sandbox workspace-write --skip-git-repo-check` | `--full-auto` autonomous execution, writes restricted to workspace |
+| OpenCode | `opencode run --format json --model openai/gpt-5.3-codex --variant medium` | No sandbox restrictions documented |
+| GitHub Copilot | `copilot -p <prompt> -s --no-ask-user --no-custom-instructions --allow-all-tools` | `--allow-all-tools` + `--no-ask-user` = fully autonomous |
+| random | (placeholder text) | Depends on selected provider |
+
+### 2. Add `LocalExecutionWarning` sub-component (bottom of file, next to `IssueSection`)
+
+Takes `provider: ProviderName` as prop. Renders an amber-tinted warning block:
+- Warning icon (triangle) + "Local Execution" header
+- "The following command will run on your machine:" label
+- Monospace `<code>` block with the write command (using `break-all` for wrapping)
+- Security note text below
+
+Uses the amber warning pattern already established in the codebase (`border-amber-700/40 bg-amber-900/20 text-amber-400`).
+
+### 3. Update the confirmation modal
+
+Two changes in the existing `<Modal>` block (lines 787-851):
+
+- **Widen modal**: Change `maxWidth="max-w-md"` to `maxWidth="max-w-lg"` to accommodate the command display
+- **Insert warning**: Add `{!cloudMode && <LocalExecutionWarning provider={selectedProvider} />}` between the summary info block and the action buttons
+
+## Verification
+
+1. `bun run test` — ensure no regressions
+2. `bun run lint` — ensure code passes Biome checks
+3. `bun run dev` — manually verify:
+   - Start an evaluation, go to Remediate tab
+   - Select issues and click "Execute Remediation"
+   - Confirm the amber warning appears in the modal with the correct command for the selected provider
+   - Switch providers and verify the command updates
+   - If testing cloud mode: verify the warning does NOT appear
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+commit

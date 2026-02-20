@@ -1,0 +1,28 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "591994a34dc5",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "CLAUDE.md",
+    "frontend/src/components/RemediateTab.tsx",
+    "src/shared/providers/opencode-provider.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/59/1994a34dc5/0/metadata.json",
+      "transcript": "/59/1994a34dc5/0/full.jsonl",
+      "context": "/59/1994a34dc5/0/context.md",
+      "content_hash": "/59/1994a34dc5/0/content_hash.txt",
+      "prompt": "/59/1994a34dc5/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 23,
+    "cache_creation_tokens": 44653,
+    "cache_read_tokens": 997196,
+    "output_tokens": 901,
+    "api_call_count": 19
+  }
+}
