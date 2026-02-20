@@ -1,0 +1,104 @@
+Implement the following plan:
+
+# Fix: Impact evaluation ignores remediation patch (re-clones fresh repo)
+
+## Context
+
+When clicking "Evaluate Impact" on a remediation, the impact evaluation finds only pre-existing repo files and misses all 8 files created by the remediation patch. The root cause is that the evaluation engine re-clones the repo from scratch instead of using the already-patched local directory.
+
+**Two bugs identified:**
+
+1. **Primary**: `engine.ts` prioritizes `repositoryUrl` over `localPath`. The impact evaluation submits both (localPath=patched clone, repositoryUrl=for metadata), but the engine re-clones from the URL, creating a fresh repo without the patch.
+
+2. **Secondary**: File finder glob `*.instructions.md` doesn't match remediation-generated `.md` files in `.github/instructions/`. Even after fix #1, 5 of 8 Copilot instruction files won't be discovered.
+
+## Fix 1: Engine should prioritize `localPath` over `repositoryUrl`
+
+**File**: `src/shared/evaluation/engine.ts` (line 680)
+
+Change the order of checks so `localPath` takes precedence:
+
+```typescript
+// Before (buggy):
+if (request.repositoryUrl) {
+    // Clones fresh — ignores localPath entirely
+} else if (request.localPath) {
+    workingDir = resolve(request.localPath);
+}
+
+// After (fixed):
+if (request.localPath) {
+    workingDir = resolve(request.localPath);
+} else if (request.repositoryUrl) {
+    // Clone repository to temp directory
+    const cloneResult = await cloneRepository(...);
+    workingDir = cloneResult.path;
+    cleanup = cloneResult.cleanup;
+}
+```
+
+Also update the `gitMetadata` block (lines 704-712) to still capture `repositoryUrl` from the request even when localPath is used, since the impact evaluation needs it for the evaluation record.
+
+## Fix 2: Update remediation prompt to use `.instructions.md` extension
+
+**File**: `src/shared/remediation/prompt-generator.ts` (line 356)
+
+Change:
+```
+Create an instruction file at `.github/instructions/<standard-slug>.md`:
+```
+To:
+```
+Create an instruction file at `.github/instructions/<standard-slug>.instructions.md`:
+```
+
+This matches the GitHub Copilot convention and the file finder's existing glob pattern.
+
+## Fix 3: File finder should also match `.md` in `.github/instructions/` (backward compat)
+
+**File**: `src/shared/file-system/file-finder.ts` (line 360)
+
+Add a second glob to catch `.md` files (from older remediation patches):
+
+```typescript
+// Current:
+glob("**/.github/instructions/**/*.instructions.md", globOptions),
+
+// Updated - add parallel glob for .md files:
+glob("**/.github/instructions/**/*.instructions.md", globOptions),
+glob("**/.github/instructions/**/*.md", globOptions),
+```
+
+Also update the destructured result array (line 348-364) to include the new glob result and merge into `allFiles`.
+
+Update `isCopilotInstructionsFile()` (line 533-550) to also match plain `.md` files in `.github/instructions/`:
+
+```typescript
+// Add: plain .md files in .github/instructions/ directory
+if (filename.endsWith(".md") && filePath.includes(".github/instructions/")) {
+    return true;
+}
+```
+
+## Other agents verified (no issues)
+
+- **Cursor**: Remediation creates `.cursor/rules/<slug>.mdc`, file finder globs `**/.cursor/rules/**/*.mdc` — matches correctly
+- **Claude Code**: Remediation creates `.claude/rules/<slug>.md`, file finder globs `**/.claude/rules/**/*.md` — matches correctly
+- **Only GitHub Copilot** has the extension mismatch (`.md` vs `.instructions.md`)
+
+## Files to modify
+
+1. `src/shared/evaluation/engine.ts` — swap localPath/repositoryUrl priority
+2. `src/shared/remediation/prompt-generator.ts` — fix extension to `.instructions.md`
+3. `src/shared/file-system/file-finder.ts` — add `.md` glob + update `isCopilotInstructionsFile`
+4. Tests for each of the above
+
+## Verification
+
+1. `bun run test` — all existing tests pass
+2. Add test case: engine uses localPath when both localPath and repositoryUrl are set
+3. Add test case: file finder discovers `.md` files in `.github/instructions/`
+4. Manual: run a remediation on a GitHub Copilot target, click "Evaluate Impact", verify all files are discovered in the impact evaluation
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
