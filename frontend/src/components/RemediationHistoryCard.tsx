@@ -629,28 +629,25 @@ function UnifiedFileRow({ entry }: { entry: UnifiedFileEntry }) {
 			</div>
 
 			{/* Row body */}
-			{expanded ? (
-				/* Expanded: show diff(s) */
+			{entry.actions.length > 0 && (
+				<div className="border-t border-slate-700/30 px-6 py-1.5 space-y-1">
+					{entry.actions.map((action) => (
+						<div
+							key={`${action.issueIndex}-${action.status}`}
+							className="flex items-start gap-2 text-xs"
+						>
+							<span className="text-green-400 mt-0.5">✓</span>
+							<span className="text-slate-400 flex-1">{action.summary}</span>
+						</div>
+					))}
+				</div>
+			)}
+			{expanded && (
 				<div className="border-t border-slate-700/40 pt-2 pb-2 space-y-2">
 					{entry.fileChanges.map((fc) => (
 						<DiffViewer key={fc.path} diff={fc.diff} />
 					))}
 				</div>
-			) : (
-				/* Collapsed: show action bullets (if any) */
-				entry.actions.length > 0 && (
-					<div className="border-t border-slate-700/30 px-6 py-1.5 space-y-1">
-						{entry.actions.map((action) => (
-							<div
-								key={`${action.issueIndex}-${action.status}`}
-								className="flex items-start gap-2 text-xs"
-							>
-								<span className="text-green-400 mt-0.5">✓</span>
-								<span className="text-slate-400 flex-1">{action.summary}</span>
-							</div>
-						))}
-					</div>
-				)
 			)}
 		</div>
 	);
