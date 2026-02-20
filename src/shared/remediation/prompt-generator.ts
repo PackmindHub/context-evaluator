@@ -255,6 +255,7 @@ function getOutputTypeInstructions(
 
 Use the evaluator category in each issue header as a signal:
 - \`outdated-documentation\`, \`structure-formatting\` → usually **generic update** (factual corrections: wrong paths, outdated names)
+- \`project-structure\` → **generic update**; produce an annotated directory tree where each entry includes a brief description of its purpose (e.g., \`src/components/  # React UI components\`). Bare folder listings without descriptions have no value for AI agents — every directory must explain what it contains.
 - \`completeness\` (missing workflow or process documentation) → usually **skill**
 - \`completeness\` (missing constraints, conventions, or rules) → usually **standard**
 - \`git-workflow\`, \`testing\`, \`deployment\` → usually **skill** (procedural)

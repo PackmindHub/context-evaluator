@@ -738,6 +738,23 @@ describe("prompt-generator", () => {
 				"**Note:** The **Fix** text for each issue was generated without knowledge of standards or skills",
 			);
 		});
+
+		test("error fix prompt includes annotated directory tree guidance for project-structure issues", () => {
+			const input: RemediationInput = {
+				...baseInput,
+				errors: [makeError()],
+			};
+
+			const result = generateRemediationPrompts(input);
+
+			expect(result.errorFixPrompt).toContain("`project-structure`");
+			expect(result.errorFixPrompt).toContain(
+				"annotated directory tree where each entry includes a brief description",
+			);
+			expect(result.errorFixPrompt).toContain(
+				"Bare folder listings without descriptions have no value for AI agents",
+			);
+		});
 	});
 
 	describe("consolidation instruction", () => {
