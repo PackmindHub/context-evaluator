@@ -1,0 +1,95 @@
+Implement the following plan:
+
+# Plan: Block evaluation of repos exceeding 1M lines of code (cloud mode)
+
+## Context
+
+The cloud-hosted version of the evaluator is vulnerable to abuse or accidental overload from very large repositories. Scanning a repo with millions of lines of code triggers expensive AI evaluator calls. This change adds a guard that rejects repos exceeding 1,000,000 LOC — only in cloud mode, so local/CLI usage is unaffected.
+
+The `cloc` tool already runs during context identification and produces `clocOutput` (JSON with `SUM.code` = total LOC). We leverage this existing data.
+
+## Changes
+
+### 1. Add `cloudMode` to `IEvaluationOptions`
+
+**File**: `src/shared/types/evaluation.ts` (line ~563, before closing brace)
+
+Add:
+```typescript
+/** Whether running in cloud mode (enforces repo size limits) */
+cloudMode?: boolean;
+```
+
+### 2. Pass `cloudMode` from API route into evaluation options
+
+**File**: `src/api/routes/evaluation.ts` (line ~52, in `post()`)
+
+Add `cloudMode: this.cloudMode` to the `body.options` object (same pattern as `verbose`, `debug`, etc.).
+
+### 3. Add LOC guard in the evaluation engine
+
+**File**: `src/shared/evaluation/engine.ts` (after `identifyProjectContext()` + context logging, ~line 1005, before Step 3)
+
+```typescript
+// Enforce repository size limit in cloud mode
+if (options.cloudMode && contextResult.clocOutput) {
+    try {
+        const clocData = JSON.parse(contextResult.clocOutput);
+        const totalLOC: number = clocData.SUM?.code || 0;
+        const maxLOC = Number(process.env.MAX_REPO_LOC) || 1_000_000;
+        if (totalLOC > maxLOC) {
+            const error = new Error(
+                `Repository too large for cloud evaluation: ${totalLOC.toLocaleString()} lines of code exceeds the ${maxLOC.toLocaleString()} line limit.`
+            );
+            (error as any).code = "REPO_TOO_LARGE";
+            throw error;
+        }
+    } catch (err) {
+        if (err instanceof Error && (err as any).code === "REPO_TOO_LARGE") throw err;
+        // Malformed cloc output → fail-safe, allow evaluation
+    }
+}
+```
+
+- **Fail-safe**: If cloc is unavailable or output is malformed, evaluation proceeds.
+- **Configurable**: `MAX_REPO_LOC` env var overrides the 1M default.
+- **Error propagation**: Job manager already extracts `error.code` at `job-manager.ts:434`.
+
+### 4. Add friendly error message in frontend
+
+**File**: `frontend/src/lib/error-messages.ts` (before the "Default fallback" block, ~line 88)
+
+```typescript
+// Repository too large (cloud mode limit)
+if (message.includes("repository too large")) {
+    return {
+        title: "Repository Too Large",
+        description: "This repository exceeds the maximum size limit for cloud evaluation (1,000,000 lines of code).",
+        suggestion: "Try evaluating a smaller repository, or run the evaluation locally using the CLI where there are no size limits.",
+    };
+}
+```
+
+## Files Modified
+
+| File | Change |
+|------|--------|
+| `src/shared/types/evaluation.ts` | Add `cloudMode` field to `IEvaluationOptions` |
+| `src/api/routes/evaluation.ts` | Pass `this.cloudMode` into `body.options` |
+| `src/shared/evaluation/engine.ts` | Add LOC guard after context identification |
+| `frontend/src/lib/error-messages.ts` | Add "Repository Too Large" friendly error |
+
+## Verification
+
+1. `bun run test` — all existing tests pass
+2. `bun run lint` — no lint errors
+3. Manual test: run API in cloud mode (`CLOUD_MODE=true`), evaluate a large repo, confirm rejection with friendly error
+4. Manual test: same repo in non-cloud mode (CLI) proceeds without limit
+5. Manual test: `MAX_REPO_LOC=500000` lowers the threshold as expected
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+commit
