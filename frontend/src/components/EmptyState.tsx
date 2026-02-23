@@ -47,7 +47,15 @@ export const EmptyState: React.FC = () => {
 				</p>
 
 				<p className="text-xs text-slate-500 mt-2">
-					Powered by{" "}
+					<a
+						href="https://github.com/anthropics/context-evaluator"
+						target="_blank"
+						rel="noopener noreferrer"
+						className="text-slate-400 hover:text-slate-300 underline"
+					>
+						Open source
+					</a>
+					{" • "}Powered by{" "}
 					<a
 						href="https://packmind.com?utm_source=context-evaluator"
 						target="_blank"
