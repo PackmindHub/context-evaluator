@@ -105,7 +105,7 @@ AI-powered automated fix for evaluation issues — available in the web UI only.
 1. **Select issues** — Add issues from the Errors or Suggestions tabs using the **+** button on each card
 2. **Configure** — Pick a target agent format and AI provider (auto-detected from installed CLI tools)
 3. **Execute** — Runs a 4-phase pipeline: plan error fixes → execute error fixes → plan suggestions → execute suggestions. Live progress shows step labels, cost, and token tracking in real time.
-4. **Review** — Inspect per-file diffs, view the action summary (fixed / added / skipped), and download a `.patch` file
+4. **Review** — Inspect per-file diffs, view the action summary (fixed / added / skipped), and download a `.patch` file. No changes are committed — apply the patch manually with `git apply remediation.patch`
 
 Errors are processed first (sorted by severity), then suggestions are layered on top.
 
