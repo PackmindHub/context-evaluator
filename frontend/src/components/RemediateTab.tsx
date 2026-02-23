@@ -47,7 +47,7 @@ const PROVIDER_EXECUTION_INFO: Record<
 			"--dangerously-skip-permissions bypasses all file-write prompts",
 	},
 	cursor: {
-		writeCommand: "agent -p --output-format json --force",
+		writeCommand: "agent -p --output-format json --trust --force",
 		securityNote: "--force allows writes without confirmation",
 	},
 	codex: {

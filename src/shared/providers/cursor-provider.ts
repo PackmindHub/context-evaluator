@@ -70,7 +70,7 @@ export class CursorProvider extends BaseProvider {
 
 		// Cursor CLI command format: agent -p --output-format json
 		// Note: prompt is passed via stdin to avoid E2BIG errors on large prompts
-		const args = ["-p", "--output-format", "json"];
+		const args = ["-p", "--output-format", "json", "--trust"];
 
 		if (model) {
 			args.push("--model", model);
