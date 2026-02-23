@@ -1,0 +1,5 @@
+In cloud mode we should not display in the remediation module the possibility to choose the running cli agent as we handle that.
+
+---
+
+commit

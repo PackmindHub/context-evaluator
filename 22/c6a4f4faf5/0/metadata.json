@@ -1,0 +1,68 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "22c6a4f4faf5",
+  "session_id": "6b9a263d-1a81-4e82-9f5b-ff2279ce7257",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-23T09:22:42.087228Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "frontend/src/components/RemediateTab.tsx"
+  ],
+  "agent": "Claude Code",
+  "transcript_identifier_at_start": "465b5eda-ff00-4503-9517-758a835845e6",
+  "token_usage": {
+    "input_tokens": 34,
+    "cache_creation_tokens": 66537,
+    "cache_read_tokens": 1273830,
+    "output_tokens": 1495,
+    "api_call_count": 30
+  },
+  "summary": {
+    "intent": "Hide the CLI agent provider selector UI in the remediation module when the app is running in cloud mode, since the cloud deployment handles agent selection server-side.",
+    "outcome": "Wrapped the provider selector section and the provider row in the confirmation modal with `{!cloudMode \u0026\u0026 (...)}` guards in RemediateTab.tsx, committed as `6c8aa66`.",
+    "learnings": {
+      "repo": [
+        "cloudMode is passed as a prop to RemediateTab.tsx — no need to pull from a hook or context.",
+        "LocalExecutionWarning was already gated on !cloudMode, establishing the pattern for this change.",
+        "The pre-commit hook runs `bun run test` → `bun test src/` plus lint and typecheck via husky at .husky/pre-commit.",
+        "tmp/clones/ directories (leftover from evaluations) cause bun to pick up stray test files and produce noisy stderr / non-zero exit codes during pre-commit; cleaning them unblocks the commit."
+      ],
+      "code": [
+        {
+          "path": "frontend/src/components/RemediateTab.tsx",
+          "line": 701,
+          "end_line": 736,
+          "finding": "Provider Selector section ('Pick the AI agent to execute the remediation') — wrapped with {!cloudMode \u0026\u0026 (...)} to hide in cloud mode."
+        },
+        {
+          "path": "frontend/src/components/RemediateTab.tsx",
+          "line": 863,
+          "end_line": 871,
+          "finding": "Provider summary row inside the confirmation modal — also wrapped with {!cloudMode \u0026\u0026 (...)}."
+        }
+      ],
+      "workflow": [
+        "Bun test discovery can escape the specified directory argument and pick up files in sibling subdirectories (e.g. tmp/clones/) when those directories sit under the project root, causing spurious pre-commit failures.",
+        "Cleaning up tmp/clones/ before committing is necessary to get a clean pre-commit run in this repo."
+      ]
+    },
+    "friction": [
+      "Pre-commit hook failed on first attempt due to bun picking up test files inside tmp/clones/ leftover evaluation directories, producing a non-zero exit code despite all real tests passing.",
+      "Indentation in RemediateTab.tsx uses tabs, which required reading the exact file content before the Edit tool would match correctly."
+    ],
+    "open_items": [
+      "The tmp/clones/ pollution of bun's test discovery is a pre-existing issue that was only worked around (manual cleanup) rather than fixed — the test script or bun config should exclude tmp/ explicitly.",
+      "No automated test covers the cloud-mode conditional rendering of the provider selector; a unit/snapshot test for this branch could be added."
+    ]
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-23T09:22:25.620877Z",
+    "agent_lines": 0,
+    "human_added": 1303,
+    "human_modified": 51,
+    "human_removed": 0,
+    "total_committed": 1350,
+    "agent_percentage": 0
+  }
+}
