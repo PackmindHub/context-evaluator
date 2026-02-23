@@ -698,42 +698,44 @@ export function RemediateTab({
 						)}
 					</div>
 
-					{/* Provider Selector */}
-					<div>
-						<label className="text-label text-slate-300 block mb-2">
-							Pick the AI agent to execute the remediation
-						</label>
-						{providerDetection.status === "detecting" ? (
-							<div className="text-sm text-slate-400">
-								Detecting providers...
-							</div>
-						) : availableProviders.length > 0 ? (
-							<div className="flex flex-wrap gap-2">
-								{availableProviders.map((p) => (
-									<button
-										key={p.name}
-										onClick={() => setSelectedProvider(p.name)}
-										className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm transition-colors ${
-											selectedProvider === p.name
-												? "bg-blue-600 text-white"
-												: "bg-slate-700 text-slate-300 hover:bg-slate-600"
-										}`}
-									>
-										{agentLogoMap[p.name] && (
-											<span className="w-4 h-4 flex items-center">
-												{agentLogoMap[p.name]}
-											</span>
-										)}
-										{p.displayName}
-									</button>
-								))}
-							</div>
-						) : (
-							<div className="text-sm text-slate-400">
-								No providers detected. Defaulting to Claude.
-							</div>
-						)}
-					</div>
+					{/* Provider Selector - hidden in cloud mode where we handle the CLI agent */}
+					{!cloudMode && (
+						<div>
+							<label className="text-label text-slate-300 block mb-2">
+								Pick the AI agent to execute the remediation
+							</label>
+							{providerDetection.status === "detecting" ? (
+								<div className="text-sm text-slate-400">
+									Detecting providers...
+								</div>
+							) : availableProviders.length > 0 ? (
+								<div className="flex flex-wrap gap-2">
+									{availableProviders.map((p) => (
+										<button
+											key={p.name}
+											onClick={() => setSelectedProvider(p.name)}
+											className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm transition-colors ${
+												selectedProvider === p.name
+													? "bg-blue-600 text-white"
+													: "bg-slate-700 text-slate-300 hover:bg-slate-600"
+											}`}
+										>
+											{agentLogoMap[p.name] && (
+												<span className="w-4 h-4 flex items-center">
+													{agentLogoMap[p.name]}
+												</span>
+											)}
+											{p.displayName}
+										</button>
+									))}
+								</div>
+							) : (
+								<div className="text-sm text-slate-400">
+									No providers detected. Defaulting to Claude.
+								</div>
+							)}
+						</div>
+					)}
 
 					{/* Selected Issues */}
 					<div className="space-y-4">
@@ -858,13 +860,15 @@ export function RemediateTab({
 											: "Cursor"}
 							</span>
 						</div>
-						<div className="flex justify-between text-slate-300">
-							<span>Provider</span>
-							<span className="font-semibold">
-								{availableProviders.find((p) => p.name === selectedProvider)
-									?.displayName ?? selectedProvider}
-							</span>
-						</div>
+						{!cloudMode && (
+							<div className="flex justify-between text-slate-300">
+								<span>Provider</span>
+								<span className="font-semibold">
+									{availableProviders.find((p) => p.name === selectedProvider)
+										?.displayName ?? selectedProvider}
+								</span>
+							</div>
+						)}
 					</div>
 					{!cloudMode && <LocalExecutionWarning provider={selectedProvider} />}
 					<div className="flex justify-end gap-3 pt-2">
