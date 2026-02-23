@@ -1157,6 +1157,14 @@
 		animation: fadeIn 0.6s ease-out 0.2s both;
 	}
 
+	.hero-tagline-emphasis {
+		background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 50%, #60a5fa 100%);
+		background-clip: text;
+		-webkit-background-clip: text;
+		-webkit-text-fill-color: transparent;
+		font-weight: 600;
+	}
+
 	/* ============================================
      SKELETON LOADERS
      ============================================ */

@@ -24,13 +24,14 @@ export const EmptyState: React.FC = () => {
 
 				{/* Tagline */}
 				<p className="hero-tagline mb-4">
-					Evaluate and automatically fix your AI agent documentation —
-					AGENTS.md, CLAUDE.md, copilot-instructions.md, SKILL.md, and
-					referenced files
+					Evaluate and automatically fix your AI agent documentation for{" "}
+					<span className="hero-tagline-emphasis">
+						Claude, GitHub Copilot, and Cursor
+					</span>
 				</p>
 
 				<p className="text-sm text-slate-500 mb-4">
-					Paste a Git repository URL below to analyze{" "}
+					Analyze{" "}
 					<code className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-xs font-mono text-slate-300">
 						AGENTS.md
 					</code>
@@ -42,11 +43,7 @@ export const EmptyState: React.FC = () => {
 					<code className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-xs font-mono text-slate-300">
 						copilot-instructions.md
 					</code>
-					,{" "}
-					<code className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-xs font-mono text-slate-300">
-						SKILL.md
-					</code>
-					, and referenced documentation files
+					, rules files, skills, and linked documentation
 				</p>
 
 				<p className="text-xs text-slate-500 mt-2">
