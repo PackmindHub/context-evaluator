@@ -19,6 +19,7 @@ import type {
 export abstract class BaseProvider implements IAIProvider {
 	abstract readonly name: ProviderName;
 	abstract readonly displayName: string;
+	abstract readonly lightweightModel: string;
 
 	/**
 	 * Check if the provider CLI is available

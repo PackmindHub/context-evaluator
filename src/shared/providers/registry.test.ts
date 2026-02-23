@@ -9,6 +9,7 @@ function createMockProvider(
 	return {
 		name,
 		displayName: `Mock ${name}`,
+		lightweightModel: "mock-lightweight",
 		isAvailable: mock(() => Promise.resolve(available)),
 		invoke: mock(() =>
 			Promise.resolve({ result: "mock result", session_id: "test" }),

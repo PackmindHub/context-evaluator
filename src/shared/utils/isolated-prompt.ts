@@ -10,7 +10,10 @@ import type {
  * Options for isolated prompt execution
  */
 export interface IIsolatedPromptOptions
-	extends Omit<IProviderInvokeOptions, "cwd"> {}
+	extends Omit<IProviderInvokeOptions, "cwd"> {
+	/** Use the provider's lightweight model for this invocation */
+	useLightweightModel?: boolean;
+}
 
 /**
  * Invokes an AI provider from an empty temporary directory to prevent
@@ -29,6 +32,13 @@ export async function invokeIsolated(
 	prompt: string,
 	options: IIsolatedPromptOptions = {},
 ): Promise<IProviderResponse> {
+	const { useLightweightModel, ...invokeOptions } = options;
+
+	// Resolve model: explicit model > lightweight flag > undefined (provider default)
+	const model =
+		invokeOptions.model ??
+		(useLightweightModel ? provider.lightweightModel : undefined);
+
 	const projectRoot = path.resolve(process.cwd());
 	const tempBaseDir = path.join(projectRoot, "tmp", "isolated-prompts");
 
@@ -40,7 +50,8 @@ export async function invokeIsolated(
 
 	try {
 		return await provider.invoke(prompt, {
-			...options,
+			...invokeOptions,
+			model,
 			cwd: tempDir,
 		});
 	} finally {

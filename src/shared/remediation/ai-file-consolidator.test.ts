@@ -10,6 +10,7 @@ function createMockProvider(
 	return {
 		name: "claude",
 		displayName: "Claude",
+		lightweightModel: "haiku",
 		isAvailable: mock(() => Promise.resolve(true)),
 		invoke: mock(() => Promise.resolve({} as IProviderResponse)),
 		invokeWithRetry: mock(() => {
@@ -206,6 +207,7 @@ describe("consolidateColocatedFilesWithAI", () => {
 		const provider: IAIProvider = {
 			name: "claude",
 			displayName: "Claude",
+			lightweightModel: "haiku",
 			isAvailable: mock(() => Promise.resolve(true)),
 			invoke: mock(() => Promise.resolve({} as IProviderResponse)),
 			invokeWithRetry: mock(() => {

@@ -242,9 +242,10 @@ export async function summarizeDocFile(
 	const prompt = buildSummarizationPrompt(content);
 
 	try {
-		// Use isolated execution to prevent file exploration
+		// Use isolated execution with lightweight model to prevent file exploration
 		const response = await invokeIsolated(provider, prompt, {
 			timeout: timeout ?? DEFAULT_TIMEOUT_MS,
+			useLightweightModel: true,
 		});
 
 		// Clean up the response - remove any extra whitespace/newlines

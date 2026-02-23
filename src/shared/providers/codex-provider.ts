@@ -47,6 +47,7 @@ interface CodexStreamEvent {
 export class CodexProvider extends BaseProvider {
 	readonly name: ProviderName = "codex";
 	readonly displayName = "OpenAI Codex";
+	readonly lightweightModel = "gpt-5.1-codex-mini";
 
 	/**
 	 * Check if Codex CLI is available
@@ -67,6 +68,7 @@ export class CodexProvider extends BaseProvider {
 			timeout = DEFAULT_TIMEOUT_MS,
 			cwd,
 			writeMode = false,
+			model,
 		} = options;
 
 		// Codex CLI command format: codex exec --json --full-auto
@@ -76,9 +78,13 @@ export class CodexProvider extends BaseProvider {
 			"--json",
 			"--full-auto",
 			"--sandbox",
-			writeMode ? "network-only" : "read-only",
+			writeMode ? "workspace-write" : "read-only",
 			"--skip-git-repo-check",
 		];
+
+		if (model) {
+			args.push("--model", model);
+		}
 
 		if (verbose) {
 			console.log(`\n[${this.displayName}] Starting API call...`);

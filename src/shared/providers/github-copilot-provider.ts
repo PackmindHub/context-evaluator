@@ -26,6 +26,7 @@ const MAX_PROMPT_ARG_BYTES = 200_000;
 export class GitHubCopilotProvider extends BaseProvider {
 	readonly name: ProviderName = "github-copilot";
 	readonly displayName = "GitHub Copilot";
+	readonly lightweightModel = "gpt-5.1-codex-mini";
 
 	/**
 	 * Check if GitHub Copilot CLI is available
@@ -41,7 +42,12 @@ export class GitHubCopilotProvider extends BaseProvider {
 		prompt: string,
 		options: IProviderInvokeOptions = {},
 	): Promise<IProviderResponse> {
-		const { verbose = false, timeout = DEFAULT_TIMEOUT_MS, cwd } = options;
+		const {
+			verbose = false,
+			timeout = DEFAULT_TIMEOUT_MS,
+			cwd,
+			model,
+		} = options;
 
 		// Guard against prompts that exceed OS argument size limits
 		const promptBytes = new TextEncoder().encode(prompt).length;
@@ -68,6 +74,10 @@ export class GitHubCopilotProvider extends BaseProvider {
 			"--no-custom-instructions",
 			"--allow-all-tools",
 		];
+
+		if (model) {
+			args.push("--model", model);
+		}
 
 		if (verbose) {
 			console.log(`\n[GitHub Copilot] Starting API call...`);

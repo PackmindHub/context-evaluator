@@ -37,6 +37,8 @@ export interface IProviderInvokeOptions {
 	cwd?: string;
 	/** Enable file editing mode (for remediation execution) */
 	writeMode?: boolean;
+	/** Override the model used for this invocation */
+	model?: string;
 }
 
 /**
@@ -82,6 +84,11 @@ export interface IAIProvider {
 	 * Human-readable display name
 	 */
 	readonly displayName: string;
+
+	/**
+	 * Lightweight model identifier for simple tasks (e.g. summarization)
+	 */
+	readonly lightweightModel: string;
 
 	/**
 	 * Check if the provider CLI is available

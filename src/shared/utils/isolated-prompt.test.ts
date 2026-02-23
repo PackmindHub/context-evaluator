@@ -12,6 +12,7 @@ function createMockProvider(
 	return {
 		name: "random",
 		displayName: "Mock Provider",
+		lightweightModel: "mock-lightweight",
 		isAvailable: async () => true,
 		invoke: mock(async (_prompt, options) => {
 			if (capturedCwd) {
@@ -113,6 +114,7 @@ describe("invokeIsolated", () => {
 		const provider: IAIProvider = {
 			name: "random",
 			displayName: "Failing Provider",
+			lightweightModel: "mock-lightweight",
 			isAvailable: async () => true,
 			invoke: mock(async (_prompt, options) => {
 				capturedCwd.value = options?.cwd;
@@ -141,6 +143,7 @@ describe("invokeIsolated", () => {
 		const provider: IAIProvider = {
 			name: "random",
 			displayName: "Slow Provider",
+			lightweightModel: "mock-lightweight",
 			isAvailable: async () => true,
 			invoke: mock(async (_prompt, options) => {
 				capturedCwds.push(options?.cwd ?? "");
@@ -160,5 +163,54 @@ describe("invokeIsolated", () => {
 		// Should have created two different temp directories
 		expect(capturedCwds.length).toBe(2);
 		expect(capturedCwds[0]).not.toBe(capturedCwds[1]);
+	});
+
+	test("should pass lightweight model when useLightweightModel is true", async () => {
+		const mockResponse: IProviderResponse = { result: "test" };
+		const provider = createMockProvider(mockResponse);
+
+		await invokeIsolated(provider, "test prompt", {
+			useLightweightModel: true,
+		});
+
+		expect(provider.invoke).toHaveBeenCalledWith(
+			"test prompt",
+			expect.objectContaining({
+				model: "mock-lightweight",
+			}),
+		);
+	});
+
+	test("should not pass model when useLightweightModel is false", async () => {
+		const mockResponse: IProviderResponse = { result: "test" };
+		const provider = createMockProvider(mockResponse);
+
+		await invokeIsolated(provider, "test prompt", {
+			useLightweightModel: false,
+		});
+
+		expect(provider.invoke).toHaveBeenCalledWith(
+			"test prompt",
+			expect.objectContaining({
+				model: undefined,
+			}),
+		);
+	});
+
+	test("should prefer explicit model over useLightweightModel", async () => {
+		const mockResponse: IProviderResponse = { result: "test" };
+		const provider = createMockProvider(mockResponse);
+
+		await invokeIsolated(provider, "test prompt", {
+			model: "custom-model",
+			useLightweightModel: true,
+		});
+
+		expect(provider.invoke).toHaveBeenCalledWith(
+			"test prompt",
+			expect.objectContaining({
+				model: "custom-model",
+			}),
+		);
 	});
 });

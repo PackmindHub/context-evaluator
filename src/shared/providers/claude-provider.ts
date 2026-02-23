@@ -31,6 +31,7 @@ interface ClaudeCLIResponse {
 export class ClaudeProvider extends BaseProvider {
 	readonly name: ProviderName = "claude";
 	readonly displayName = "Claude Code";
+	readonly lightweightModel = "haiku";
 
 	/**
 	 * Check if Claude CLI is available
@@ -51,6 +52,7 @@ export class ClaudeProvider extends BaseProvider {
 			timeout = DEFAULT_TIMEOUT_MS,
 			cwd,
 			writeMode = false,
+			model,
 		} = options;
 
 		// Note: prompt is passed via stdin to avoid E2BIG errors on large prompts
@@ -61,6 +63,10 @@ export class ClaudeProvider extends BaseProvider {
 			"--no-session-persistence",
 			"--disable-slash-commands",
 		];
+
+		if (model) {
+			args.push("--model", model);
+		}
 
 		if (writeMode) {
 			args.push("--dangerously-skip-permissions");

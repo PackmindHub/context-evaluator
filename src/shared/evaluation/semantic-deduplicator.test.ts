@@ -12,6 +12,7 @@ import {
 class MockAIProvider implements IAIProvider {
 	name = "claude" as const;
 	displayName = "Mock Provider";
+	lightweightModel = "haiku";
 	private response: string;
 
 	constructor(response: string) {
@@ -142,6 +143,7 @@ describe("Semantic Deduplicator", () => {
 			const errorProvider: IAIProvider = {
 				name: "claude",
 				displayName: "Error Provider",
+				lightweightModel: "haiku",
 				isAvailable: async () => true,
 				invoke: async () => {
 					throw new Error("AI provider failed");

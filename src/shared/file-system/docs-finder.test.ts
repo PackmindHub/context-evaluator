@@ -236,6 +236,7 @@ It explains how to use the system effectively.
 			const mockProvider = {
 				name: "claude" as const,
 				displayName: "Claude",
+				lightweightModel: "haiku",
 				isAvailable: async () => true,
 				invoke: async () => ({
 					result:
@@ -278,6 +279,7 @@ It explains how to use the system effectively.
 			const mockProvider = {
 				name: "claude" as const,
 				displayName: "Claude",
+				lightweightModel: "haiku",
 				isAvailable: async () => true,
 				invoke: async () => ({ result: "Summary of document." }),
 				invokeWithRetry: async () => ({ result: "Summary" }),
@@ -312,6 +314,7 @@ See [Missing](./docs/missing.md) for missing doc.
 			const mockProvider = {
 				name: "claude" as const,
 				displayName: "Claude",
+				lightweightModel: "haiku",
 				isAvailable: async () => true,
 				invoke: async () => ({ result: "Summary" }),
 				invokeWithRetry: async () => ({ result: "Summary" }),
@@ -358,6 +361,7 @@ See [Guide](../docs/guide.md) for guide.
 			const mockProvider = {
 				name: "claude" as const,
 				displayName: "Claude",
+				lightweightModel: "haiku",
 				isAvailable: async () => true,
 				invoke: async () => {
 					invokeCount++;
@@ -395,6 +399,7 @@ No links here, just text.
 			const mockProvider = {
 				name: "claude" as const,
 				displayName: "Claude",
+				lightweightModel: "haiku",
 				isAvailable: async () => true,
 				invoke: async () => ({ result: "Summary" }),
 				invokeWithRetry: async () => ({ result: "Summary" }),
@@ -446,6 +451,7 @@ All endpoints require Bearer token authentication.
 			const mockProvider = {
 				name: "claude" as const,
 				displayName: "Claude",
+				lightweightModel: "haiku",
 				isAvailable: async () => true,
 				invoke: async (prompt: string) => {
 					receivedPrompt = prompt;
@@ -489,6 +495,7 @@ See [Large Doc](./docs/large.md) for large documentation.
 			const mockProvider = {
 				name: "claude" as const,
 				displayName: "Claude",
+				lightweightModel: "haiku",
 				isAvailable: async () => true,
 				invoke: async (prompt: string) => {
 					receivedPrompt = prompt;
@@ -536,6 +543,7 @@ See [Large Doc](./docs/large.md) for large documentation.
 			const mockProvider = {
 				name: "claude" as const,
 				displayName: "Claude",
+				lightweightModel: "haiku",
 				isAvailable: async () => true,
 				invoke: async (prompt: string) => {
 					// Return different summaries based on content
@@ -596,6 +604,7 @@ See [Guide](./docs/guide.md) for guide.
 			const mockProvider = {
 				name: "claude" as const,
 				displayName: "Claude",
+				lightweightModel: "haiku",
 				isAvailable: async () => true,
 				invoke: async () => {
 					throw new Error("Provider API error");
@@ -637,6 +646,7 @@ See [Advanced Topic](./docs/guides/advanced/topics/deep-guide.md) for advanced i
 			const mockProvider = {
 				name: "claude" as const,
 				displayName: "Claude",
+				lightweightModel: "haiku",
 				isAvailable: async () => true,
 				invoke: async () => ({ result: "Deep guide summary." }),
 				invokeWithRetry: async () => ({ result: "Summary" }),
@@ -682,6 +692,7 @@ See [Advanced Topic](./docs/guides/advanced/topics/deep-guide.md) for advanced i
 			const mockProvider = {
 				name: "claude" as const,
 				displayName: "Claude",
+				lightweightModel: "haiku",
 				isAvailable: async () => true,
 				invoke: async () => ({ result: "File summary." }),
 				invokeWithRetry: async () => ({ result: "Summary" }),

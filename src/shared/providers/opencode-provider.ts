@@ -68,6 +68,7 @@ interface OpenCodeStreamEvent {
 export class OpenCodeProvider extends BaseProvider {
 	readonly name: ProviderName = "opencode";
 	readonly displayName = "OpenCode";
+	readonly lightweightModel = "opencode/gpt-5-nano";
 
 	/**
 	 * Check if OpenCode CLI is available
@@ -83,19 +84,23 @@ export class OpenCodeProvider extends BaseProvider {
 		prompt: string,
 		options: IProviderInvokeOptions = {},
 	): Promise<IProviderResponse> {
-		const { verbose = false, timeout = DEFAULT_TIMEOUT_MS, cwd } = options;
+		const {
+			verbose = false,
+			timeout = DEFAULT_TIMEOUT_MS,
+			cwd,
+			model,
+		} = options;
+
+		const effectiveModel = model ?? "openai/gpt-5.2-codex";
 
 		// OpenCode CLI command format: opencode run --format json
 		// Note: prompt is passed via stdin to avoid E2BIG errors on large prompts
-		const args = [
-			"run",
-			"--format",
-			"json",
-			"--model",
-			"openai/gpt-5.3-codex",
-			"--variant",
-			"medium",
-		];
+		const args = ["run", "--format", "json", "--model", effectiveModel];
+
+		// Only add --variant for the default model
+		if (!model) {
+			args.push("--variant", "medium");
+		}
 
 		if (verbose) {
 			console.log(`\n[OpenCode] Starting API call...`);

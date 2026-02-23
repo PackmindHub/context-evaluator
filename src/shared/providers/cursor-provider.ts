@@ -44,6 +44,7 @@ interface CursorCLIResponse {
 export class CursorProvider extends BaseProvider {
 	readonly name: ProviderName = "cursor";
 	readonly displayName = "Cursor Agent";
+	readonly lightweightModel = "gpt-5.2-codex-high-fast";
 
 	/**
 	 * Check if Cursor Agent CLI is available
@@ -64,14 +65,19 @@ export class CursorProvider extends BaseProvider {
 			timeout = DEFAULT_TIMEOUT_MS,
 			cwd,
 			writeMode = false,
+			model,
 		} = options;
 
 		// Cursor CLI command format: agent -p --output-format json
 		// Note: prompt is passed via stdin to avoid E2BIG errors on large prompts
 		const args = ["-p", "--output-format", "json"];
 
+		if (model) {
+			args.push("--model", model);
+		}
+
 		if (writeMode) {
-			args.push("--dangerously-skip-permissions");
+			args.push("--force");
 		}
 
 		if (verbose) {
