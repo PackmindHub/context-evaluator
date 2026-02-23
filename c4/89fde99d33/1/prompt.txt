@@ -1,0 +1,94 @@
+Implement the following plan:
+
+# Plan: Propagate verbose logging through DocsFinder summarization chain
+
+## Context
+
+During evaluation, the DocsFinder discovers linked `.md` files from AGENTS.md and summarizes them using an AI provider. When verbose mode is enabled, the log shows:
+
+```
+[DocsFinder] Summarizing: .github/skills/turborepo/references/configuration/RULE.md
+[DocsFinder] Summarizing: .github/skills/turborepo/references/configuration/tasks.md
+...
+```
+
+But the underlying provider invocations (spawning `claude --model haiku`) are silent — no `[Claude] Starting API call...`, `[Claude] Process spawned (PID: ...)`, or `[Claude] Still waiting...` messages appear. This is inconsistent with the context identification step, which correctly shows full provider logs.
+
+**Root cause**: The `verbose` flag is not propagated through the call chain:
+```
+discoverLinkedDocs(verbose: true)
+  → summarizeDocFile(no verbose param)
+    → invokeIsolated(no verbose option)
+      → provider.invoke({ verbose: false }) ← silent
+```
+
+## Fix
+
+### 1. Add `verbose` parameter to `summarizeDocFile`
+
+**File**: `src/shared/file-system/docs-finder.ts`
+
+Change `summarizeDocFile` signature to accept `verbose`:
+
+```typescript
+export async function summarizeDocFile(
+  relativePath: string,
+  content: string,
+  provider: IAIProvider,
+  timeout?: number,
+  verbose?: boolean,  // ← add
+): Promise<string>
+```
+
+Pass it to `invokeIsolated`:
+
+```typescript
+const response = await invokeIsolated(provider, prompt, {
+  timeout: timeout ?? DEFAULT_TIMEOUT_MS,
+  useLightweightModel: true,
+  verbose,  // ← add
+});
+```
+
+### 2. Pass `verbose` when calling `summarizeDocFile` in `discoverLinkedDocs`
+
+In the `summarizeLink` closure (~line 390):
+
+```typescript
+const summary = await summarizeDocFile(
+  relativePath,
+  content,
+  provider,
+  options.timeout,
+  verbose,  // ← add
+);
+```
+
+## Critical files
+
+- `src/shared/file-system/docs-finder.ts` — `summarizeDocFile` (line 236) and `summarizeLink` closure (line 390)
+- `src/shared/utils/isolated-prompt.ts` — already forwards all options including `verbose` to `provider.invoke`, no change needed
+
+## Tests
+
+The `docs-finder.test.ts` file may have tests for `summarizeDocFile`. Check if any need updating to pass the new optional parameter.
+
+## Verification
+
+1. Run `bun run test` to ensure no regressions
+2. Run a real evaluation with verbose mode; the DocsFinder summarization section should now show:
+   ```
+   [DocsFinder] Summarizing: some-file.md
+   [Claude] Starting API call...
+   [Claude] Command: claude -p --output-format json --no-session-persistence --model haiku (prompt via stdin)
+   [Claude] Process spawned (PID: ...)
+   [Claude] Process exited with code 0 after X.Xs
+   ```
+3. Run `bun run lint` to pass Biome checks
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+commit
