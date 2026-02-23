@@ -238,6 +238,7 @@ export async function summarizeDocFile(
 	content: string,
 	provider: IAIProvider,
 	timeout?: number,
+	verbose?: boolean,
 ): Promise<string> {
 	const prompt = buildSummarizationPrompt(content);
 
@@ -246,6 +247,7 @@ export async function summarizeDocFile(
 		const response = await invokeIsolated(provider, prompt, {
 			timeout: timeout ?? DEFAULT_TIMEOUT_MS,
 			useLightweightModel: true,
+			verbose,
 		});
 
 		// Clean up the response - remove any extra whitespace/newlines
@@ -392,6 +394,7 @@ export async function discoverLinkedDocs(
 			content,
 			provider,
 			options.timeout,
+			verbose,
 		);
 
 		docs.push({
