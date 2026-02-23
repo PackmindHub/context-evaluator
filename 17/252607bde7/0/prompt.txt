@@ -1,0 +1,77 @@
+Implement the following plan:
+
+# Fix Cursor CLI Unified Evaluation Crash
+
+## Context
+
+When running evaluation with Cursor Agent provider in unified mode, writing the debug response JSON to `debug-output/` fails with ENOENT, which causes the evaluator to "fail". The error is caught, but the aggregation loop at `runner.ts:1177` crashes with `TypeError: undefined is not an object (evaluating 'evalResult.perFileIssues')` because the `runWithConcurrencyLimit` utility stores raw Error objects when callbacks throw outside their inner try/catch.
+
+Two root issues to fix:
+
+1. **Debug file write should never crash an evaluator** — the `writeFile` for debug output (lines 928, 992 in runner.ts) is inside the try block but not wrapped in its own try/catch, meaning a debug IO failure kills the entire evaluator result
+2. **Aggregation must be defensive** — if any `evalResult` in `evaluatorResults` is malformed (e.g., a raw Error from the concurrency limiter), `evalResult.perFileIssues[...]` crashes
+
+## Changes
+
+### File: `src/shared/evaluation/runner.ts`
+
+#### Fix 1: Wrap debug file writes in try/catch (lines ~922-933 and ~986-1001)
+
+Both debug write blocks (prompt and response) should be wrapped so IO failures are logged but never crash the evaluator:
+
+```typescript
+// Save response to debug directory if debug mode is enabled
+if (debug && debugDir) {
+    try {
+        const responseFile = resolve(debugDir, `${evaluatorName}-unified-response.json`);
+        await writeFile(responseFile, JSON.stringify(response, null, 2), "utf-8");
+        if (verbose) {
+            const debugLogger = createLogger("Debug");
+            debugLogger.log(`Saved unified response to: ${responseFile}`);
+        }
+    } catch (debugWriteError) {
+        const debugLogger = createLogger("Debug");
+        debugLogger.error(`Failed to save debug output for ${evaluatorName}: ${debugWriteError}`);
+    }
+}
+```
+
+Same pattern for the prompt write block (~lines 922-933).
+
+Also apply the same fix to the **independent mode** debug writes (~lines 443-458 and the prompt write before it) for consistency.
+
+#### Fix 2: Guard aggregation against malformed evaluator results (line ~1176)
+
+Add a defensive check before accessing `perFileIssues`:
+
+```typescript
+for (const evalResult of evaluatorResults) {
+    if (!evalResult?.perFileIssues) {
+        // Skip malformed results (e.g., raw Error from concurrency limiter)
+        continue;
+    }
+    const fileIssues = evalResult.perFileIssues[file.relativePath] || [];
+    // ...
+}
+```
+
+Same guard for the cross-file issues loop at line ~1194:
+```typescript
+for (const evalResult of evaluatorResults) {
+    if (!evalResult?.perFileIssues) continue;
+    // ...existing code...
+}
+```
+
+## Verification
+
+1. Run `bun run test` to ensure all existing tests pass
+2. Run `bun run lint` to check formatting
+3. Run `bun run typecheck` to verify TypeScript types
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+commit
