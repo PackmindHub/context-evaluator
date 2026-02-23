@@ -306,6 +306,16 @@ export class RemediationRepository {
 		);
 	}
 
+	unlinkResultEvaluation(remediationId: string): void {
+		const db = getDatabase();
+		db.prepare(
+			`UPDATE remediations SET result_evaluation_id = NULL WHERE id = ?`,
+		).run(remediationId);
+		console.log(
+			`[RemediationRepository] Unlinked result evaluation from remediation ${remediationId}`,
+		);
+	}
+
 	private rowToRecord(row: RemediationRow): IRemediationRecord {
 		let fileChanges: IFileChange[] = [];
 		if (row.file_changes_json) {

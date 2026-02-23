@@ -70,19 +70,29 @@ export function RemediationHistory({
 				const existing = impactEvals.get(item.id);
 				if (existing?.score !== undefined) continue;
 
-				api.getEvaluationScore(item.resultEvaluationId).then((data) => {
-					if (data.contextScore !== undefined) {
+				api
+					.getEvaluationScore(item.resultEvaluationId)
+					.then((data) => {
+						if (data.contextScore !== undefined) {
+							setImpactEvals((prev) => {
+								const next = new Map(prev);
+								next.set(item.id, {
+									status: "completed",
+									score: data.contextScore,
+									grade: data.contextGrade,
+								});
+								return next;
+							});
+						}
+					})
+					.catch(() => {
+						// Evaluation was deleted — mark as idle so the button reappears
 						setImpactEvals((prev) => {
 							const next = new Map(prev);
-							next.set(item.id, {
-								status: "completed",
-								score: data.contextScore,
-								grade: data.contextGrade,
-							});
+							next.set(item.id, { status: "idle" });
 							return next;
 						});
-					}
-				});
+					});
 			}
 		}
 	}, [remediations, api, impactEvals]);

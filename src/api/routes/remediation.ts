@@ -265,6 +265,19 @@ export class RemediationRoutes {
 			const remediations =
 				remediationRepository.getRemediationsByEvaluationId(evaluationId);
 
+			// Clean up dangling resultEvaluationId references (evaluation was deleted)
+			for (const rem of remediations) {
+				if (rem.resultEvaluationId) {
+					const linkedEval = evaluationRepository.getEvaluationById(
+						rem.resultEvaluationId,
+					);
+					if (!linkedEval) {
+						remediationRepository.unlinkResultEvaluation(rem.id);
+						rem.resultEvaluationId = null;
+					}
+				}
+			}
+
 			// Check for active in-memory job
 			let activeJob: {
 				id: string;
@@ -490,33 +503,47 @@ export class RemediationRoutes {
 
 			// If a result evaluation already exists, check its state
 			if (remediation.resultEvaluationId) {
-				// Check if the evaluation job is still running in memory
-				const existingJob = this.jobManager.getJob(
+				// Check if the linked evaluation still exists in the database
+				const linkedEvaluation = evaluationRepository.getEvaluationById(
 					remediation.resultEvaluationId,
 				);
-				if (
-					existingJob &&
-					(existingJob.status === "queued" || existingJob.status === "running")
-				) {
-					return new Response(
-						JSON.stringify({
-							error: "Impact evaluation is already in progress",
-							code: "IMPACT_EVAL_ACTIVE",
-							jobId: remediation.resultEvaluationId,
-							sseUrl: `/api/evaluate/${remediation.resultEvaluationId}/progress`,
-						}),
-						{
-							status: 409,
-							headers: { "Content-Type": "application/json" },
-						},
+
+				if (!linkedEvaluation) {
+					// Evaluation was deleted — clear the dangling reference and proceed to create a new one
+					console.log(
+						`[RemediationRoutes] Linked evaluation ${remediation.resultEvaluationId} no longer exists, clearing reference for remediation ${remediationId}`,
 					);
+					remediationRepository.unlinkResultEvaluation(remediationId);
+				} else {
+					// Check if the evaluation job is still running in memory
+					const existingJob = this.jobManager.getJob(
+						remediation.resultEvaluationId,
+					);
+					if (
+						existingJob &&
+						(existingJob.status === "queued" ||
+							existingJob.status === "running")
+					) {
+						return new Response(
+							JSON.stringify({
+								error: "Impact evaluation is already in progress",
+								code: "IMPACT_EVAL_ACTIVE",
+								jobId: remediation.resultEvaluationId,
+								sseUrl: `/api/evaluate/${remediation.resultEvaluationId}/progress`,
+							}),
+							{
+								status: 409,
+								headers: { "Content-Type": "application/json" },
+							},
+						);
+					}
+					// Already completed — return existing evaluation ID
+					return okResponse({
+						jobId: remediation.resultEvaluationId,
+						sseUrl: `/api/evaluate/${remediation.resultEvaluationId}/progress`,
+						status: "already_exists",
+					});
 				}
-				// Already completed — return existing evaluation ID
-				return okResponse({
-					jobId: remediation.resultEvaluationId,
-					sseUrl: `/api/evaluate/${remediation.resultEvaluationId}/progress`,
-					status: "already_exists",
-				});
 			}
 
 			// Fetch parent evaluation for repo URL and git metadata

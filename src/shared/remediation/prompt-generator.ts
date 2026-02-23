@@ -353,7 +353,7 @@ alwaysApply: true
 		case "github-copilot":
 			return `### Standard (GitHub Copilot Instruction)
 
-Create an instruction file at \`.github/instructions/<standard-slug>.md\`:
+Create an instruction file at \`.github/instructions/<standard-slug>.instructions.md\`:
 
 \`\`\`md
 ---

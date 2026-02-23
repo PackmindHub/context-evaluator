@@ -344,12 +344,13 @@ export async function findAgentsFiles(
 		],
 	};
 
-	// Search for AGENTS.md, CLAUDE.md, copilot-instructions.md, *.instructions.md, .claude/rules/*.md, .cursor/rules/*.md/*.mdc, and SKILL.md patterns
+	// Search for AGENTS.md, CLAUDE.md, copilot-instructions.md, *.instructions.md, .github/instructions/*.md, .claude/rules/*.md, .cursor/rules/*.md/*.mdc, and SKILL.md patterns
 	const [
 		agentsFiles,
 		claudeFiles,
 		copilotFiles,
 		instructionFiles,
+		instructionMdFiles,
 		rulesFiles,
 		cursorRulesFiles,
 		skillFiles,
@@ -358,20 +359,24 @@ export async function findAgentsFiles(
 		glob("**/CLAUDE.md", globOptions),
 		glob("**/.github/**/copilot-instructions.md", globOptions),
 		glob("**/.github/instructions/**/*.instructions.md", globOptions),
+		glob("**/.github/instructions/**/*.md", globOptions),
 		findClaudeRulesFiles(baseDir, maxDepth, verbose),
 		findCursorRulesFiles(baseDir, maxDepth, verbose),
 		findSkillFiles(baseDir, maxDepth, verbose),
 	]);
 
-	// Combine results
+	// Combine results (deduplicate since *.md glob overlaps with *.instructions.md glob)
 	const allFiles = [
-		...agentsFiles,
-		...claudeFiles,
-		...copilotFiles,
-		...instructionFiles,
-		...rulesFiles,
-		...cursorRulesFiles,
-		...skillFiles,
+		...new Set([
+			...agentsFiles,
+			...claudeFiles,
+			...copilotFiles,
+			...instructionFiles,
+			...instructionMdFiles,
+			...rulesFiles,
+			...cursorRulesFiles,
+			...skillFiles,
+		]),
 	];
 
 	// Filter by depth if maxDepth is specified
@@ -543,6 +548,11 @@ function isCopilotInstructionsFile(filePath: string): boolean {
 		filename.endsWith(".instructions.md") &&
 		filePath.includes(".github/instructions/")
 	) {
+		return true;
+	}
+
+	// Backward compat: plain .md files in .github/instructions/ directory
+	if (filename.endsWith(".md") && filePath.includes(".github/instructions/")) {
 		return true;
 	}
 

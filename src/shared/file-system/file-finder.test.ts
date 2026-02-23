@@ -591,6 +591,41 @@ describe("File Finder", () => {
 			);
 		});
 
+		test("should find plain .md files in .github/instructions/ (backward compat)", async () => {
+			const instructionsDir = join(testDir, ".github", "instructions");
+			await mkdir(instructionsDir, { recursive: true });
+			await writeFile(
+				join(instructionsDir, "code-style.md"),
+				"# Code Style Instructions",
+			);
+
+			const files = await findAgentsFiles(testDir);
+
+			expect(files.length).toBe(1);
+			expect(files[0]).toContain(".github/instructions/code-style.md");
+		});
+
+		test("should find both .instructions.md and plain .md in .github/instructions/ without duplicates", async () => {
+			const instructionsDir = join(testDir, ".github", "instructions");
+			await mkdir(instructionsDir, { recursive: true });
+			await writeFile(
+				join(instructionsDir, "typescript.instructions.md"),
+				"# TypeScript Instructions",
+			);
+			await writeFile(
+				join(instructionsDir, "code-style.md"),
+				"# Code Style Instructions",
+			);
+
+			const files = await findAgentsFiles(testDir);
+
+			expect(files.length).toBe(2);
+			expect(files.some((f) => f.endsWith("typescript.instructions.md"))).toBe(
+				true,
+			);
+			expect(files.some((f) => f.endsWith("code-style.md"))).toBe(true);
+		});
+
 		test("should find all context file types together", async () => {
 			// Create AGENTS.md in root
 			await writeFile(join(testDir, "AGENTS.md"), "# AGENTS content");

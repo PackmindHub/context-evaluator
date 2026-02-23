@@ -346,7 +346,7 @@ describe("prompt-generator", () => {
 				"### Standard (GitHub Copilot Instruction)",
 			);
 			expect(result.suggestionEnrichPrompt).toContain(
-				".github/instructions/<standard-slug>.md",
+				".github/instructions/<standard-slug>.instructions.md",
 			);
 			expect(result.suggestionEnrichPrompt).toContain(
 				".github/skills/<skill-name>/",
