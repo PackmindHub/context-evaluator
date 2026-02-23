@@ -381,11 +381,18 @@ export async function runAllEvaluators(
 
 				// Save prompt to debug directory if debug mode is enabled
 				if (debug && debugDir) {
-					const promptFile = resolve(debugDir, `${evaluatorName}-prompt.md`);
-					await writeFile(promptFile, fullPrompt, "utf-8");
-					if (verbose) {
+					try {
+						const promptFile = resolve(debugDir, `${evaluatorName}-prompt.md`);
+						await writeFile(promptFile, fullPrompt, "utf-8");
+						if (verbose) {
+							const debugLogger = createLogger("Debug");
+							debugLogger.log(`Saved prompt to: ${promptFile}`);
+						}
+					} catch (debugWriteError) {
 						const debugLogger = createLogger("Debug");
-						debugLogger.log(`Saved prompt to: ${promptFile}`);
+						debugLogger.error(
+							`Failed to save debug prompt for ${evaluatorName}: ${debugWriteError}`,
+						);
 					}
 				}
 
@@ -442,18 +449,25 @@ export async function runAllEvaluators(
 
 				// Save response to debug directory if debug mode is enabled
 				if (debug && debugDir) {
-					const responseFile = resolve(
-						debugDir,
-						`${evaluatorName}-response.json`,
-					);
-					await writeFile(
-						responseFile,
-						JSON.stringify(response, null, 2),
-						"utf-8",
-					);
-					if (verbose) {
+					try {
+						const responseFile = resolve(
+							debugDir,
+							`${evaluatorName}-response.json`,
+						);
+						await writeFile(
+							responseFile,
+							JSON.stringify(response, null, 2),
+							"utf-8",
+						);
+						if (verbose) {
+							const debugLogger = createLogger("Debug");
+							debugLogger.log(`Saved response to: ${responseFile}`);
+						}
+					} catch (debugWriteError) {
 						const debugLogger = createLogger("Debug");
-						debugLogger.log(`Saved response to: ${responseFile}`);
+						debugLogger.error(
+							`Failed to save debug response for ${evaluatorName}: ${debugWriteError}`,
+						);
 					}
 				}
 
@@ -921,14 +935,21 @@ export async function runUnifiedEvaluation(
 
 					// Save prompt to debug directory if debug mode is enabled
 					if (debug && debugDir) {
-						const promptFile = resolve(
-							debugDir,
-							`${evaluatorName}-unified-prompt.md`,
-						);
-						await writeFile(promptFile, fullPrompt, "utf-8");
-						if (verbose) {
+						try {
+							const promptFile = resolve(
+								debugDir,
+								`${evaluatorName}-unified-prompt.md`,
+							);
+							await writeFile(promptFile, fullPrompt, "utf-8");
+							if (verbose) {
+								const debugLogger = createLogger("Debug");
+								debugLogger.log(`Saved unified prompt to: ${promptFile}`);
+							}
+						} catch (debugWriteError) {
 							const debugLogger = createLogger("Debug");
-							debugLogger.log(`Saved unified prompt to: ${promptFile}`);
+							debugLogger.error(
+								`Failed to save debug prompt for ${evaluatorName}: ${debugWriteError}`,
+							);
 						}
 					}
 
@@ -985,18 +1006,25 @@ export async function runUnifiedEvaluation(
 
 					// Save response to debug directory if debug mode is enabled
 					if (debug && debugDir) {
-						const responseFile = resolve(
-							debugDir,
-							`${evaluatorName}-unified-response.json`,
-						);
-						await writeFile(
-							responseFile,
-							JSON.stringify(response, null, 2),
-							"utf-8",
-						);
-						if (verbose) {
+						try {
+							const responseFile = resolve(
+								debugDir,
+								`${evaluatorName}-unified-response.json`,
+							);
+							await writeFile(
+								responseFile,
+								JSON.stringify(response, null, 2),
+								"utf-8",
+							);
+							if (verbose) {
+								const debugLogger = createLogger("Debug");
+								debugLogger.log(`Saved unified response to: ${responseFile}`);
+							}
+						} catch (debugWriteError) {
 							const debugLogger = createLogger("Debug");
-							debugLogger.log(`Saved unified response to: ${responseFile}`);
+							debugLogger.error(
+								`Failed to save debug response for ${evaluatorName}: ${debugWriteError}`,
+							);
 						}
 					}
 
@@ -1174,6 +1202,10 @@ export async function runUnifiedEvaluation(
 		const fileEvaluations: EvaluatorResult[] = [];
 
 		for (const evalResult of evaluatorResults) {
+			if (!evalResult?.perFileIssues) {
+				// Skip malformed results (e.g., raw Error from concurrency limiter)
+				continue;
+			}
 			const fileIssues = evalResult.perFileIssues[file.relativePath] || [];
 			fileEvaluations.push({
 				evaluator: evalResult.evaluator,
@@ -1192,6 +1224,10 @@ export async function runUnifiedEvaluation(
 
 	// Aggregate cross-file issues and usage
 	for (const evalResult of evaluatorResults) {
+		if (!evalResult?.perFileIssues) {
+			// Skip malformed results (e.g., raw Error from concurrency limiter)
+			continue;
+		}
 		allCrossFileIssues.push(
 			...evalResult.crossFileIssues.map((issue) => ({
 				...issue,
