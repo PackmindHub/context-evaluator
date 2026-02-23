@@ -677,7 +677,12 @@ export class EvaluationEngine {
 		let workingDir: string;
 		let cleanup: (() => Promise<void>) | undefined;
 
-		if (request.repositoryUrl) {
+		if (request.localPath) {
+			workingDir = resolve(request.localPath);
+			if (verbose) {
+				engineLogger.log(`Using local path: ${workingDir}`);
+			}
+		} else if (request.repositoryUrl) {
 			// Clone repository to temp directory
 			engineLogger.log(`Cloning repository: ${request.repositoryUrl}`);
 
@@ -689,11 +694,6 @@ export class EvaluationEngine {
 			cleanup = cloneResult.cleanup;
 
 			engineLogger.log(`Repository cloned to: ${workingDir}`);
-		} else if (request.localPath) {
-			workingDir = resolve(request.localPath);
-			if (verbose) {
-				engineLogger.log(`Using local path: ${workingDir}`);
-			}
 		} else {
 			workingDir = process.cwd();
 			if (verbose) {
@@ -1002,6 +1002,29 @@ export class EvaluationEngine {
 				engineLogger.log(
 					`  Architecture: ${contextResult.context.architecture}`,
 				);
+			}
+
+			// Enforce repository size limit in cloud mode
+			if (options.cloudMode && contextResult.clocOutput) {
+				try {
+					const clocData = JSON.parse(contextResult.clocOutput);
+					const totalLOC: number = clocData.SUM?.code || 0;
+					const maxLOC = Number(process.env.MAX_REPO_LOC) || 1_000_000;
+					if (totalLOC > maxLOC) {
+						const error: Error & { code?: string } = new Error(
+							`Repository too large for cloud evaluation: ${totalLOC.toLocaleString()} lines of code exceeds the ${maxLOC.toLocaleString()} line limit.`,
+						);
+						error.code = "REPO_TOO_LARGE";
+						throw error;
+					}
+				} catch (err) {
+					if (
+						err instanceof Error &&
+						(err as Error & { code?: string }).code === "REPO_TOO_LARGE"
+					)
+						throw err;
+					// Malformed cloc output → fail-safe, allow evaluation
+				}
 			}
 
 			// Step 3: Handle case where no context files were found

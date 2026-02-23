@@ -54,6 +54,7 @@ export class EvaluationRoutes {
 				verbose: true,
 				debug: true,
 				preserveDebugOutput: body.options?.preserveDebugOutput ?? false,
+				cloudMode: this.cloudMode,
 				curation: {
 					enabled: true,
 					topN: body.options?.curation?.topN ?? 20,

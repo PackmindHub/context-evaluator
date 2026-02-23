@@ -86,6 +86,17 @@ export function getUserFriendlyError(
 		};
 	}
 
+	// Repository too large (cloud mode limit)
+	if (message.includes("repository too large")) {
+		return {
+			title: "Repository Too Large",
+			description:
+				"This repository exceeds the maximum size limit for cloud evaluation (1,000,000 lines of code).",
+			suggestion:
+				"Try evaluating a smaller repository, or run the evaluation locally using the CLI where there are no size limits.",
+		};
+	}
+
 	// Default fallback
 	return {
 		title: "Evaluation Failed",

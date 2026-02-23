@@ -561,6 +561,8 @@ export interface IEvaluationOptions {
 	 * - Default: 300000 (5 minutes)
 	 */
 	timeout?: number;
+	/** Whether running in cloud mode (enforces repo size limits) */
+	cloudMode?: boolean;
 }
 
 export interface IEvaluationRequest {
