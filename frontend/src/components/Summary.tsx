@@ -579,7 +579,8 @@ export const Summary: React.FC<SummaryProps> = ({
 						</div>
 					)}
 
-					{metadata.contextIdentificationCostUsd !== undefined &&
+					{!cloudMode &&
+						metadata.contextIdentificationCostUsd !== undefined &&
 						metadata.contextIdentificationDurationMs !== undefined && (
 							<div className="mt-3 pt-3 border-t border-slate-700/50 flex items-center gap-4 text-xs text-slate-400">
 								<span>
