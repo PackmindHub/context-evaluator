@@ -1,0 +1,84 @@
+Implement the following plan:
+
+# Fix Remediation UI Layout - Alignment & Border Issues
+
+## Context
+
+The right-side panel of the remediation UI (Action Summary with Skills/Context Files sections) has visual issues:
+1. **Fragmented borders**: Each row has its own `border border-slate-700/40`, creating isolated boxes separated by `space-y-1` gaps — looks like randomly rendered borders
+2. **Misaligned badge column**: Grid uses `items-start` so when descriptions span multiple lines, the badge/line-count column top-aligns instead of centering
+3. **Internal column dividers**: `border-l` on columns 2 and 3 combined with each row's outer border creates excessive visual noise
+
+## Changes
+
+### 1. Rework row borders into cohesive table-like sections
+
+**File**: `frontend/src/styles.css` (lines 1526-1542)
+
+- Remove individual `border` and `rounded` from `.action-summary-row`
+- Instead, wrap each section's rows in a single bordered container with `overflow-hidden rounded`
+- Use `border-b` between rows (except last) instead of full border per row
+- Remove `border-l` from cells; use consistent subtle left borders or no dividers
+
+Updated CSS approach:
+```
+.action-summary-table {
+  @apply border border-slate-700/40 rounded overflow-hidden;
+}
+
+.action-summary-row {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) auto;
+  @apply items-center gap-0 bg-slate-800/30 border-b border-slate-700/40 last:border-b-0;
+}
+```
+
+### 2. Fix vertical alignment of badge column
+
+**File**: `frontend/src/styles.css`
+
+- Change `.action-summary-row` from `items-start` to `items-center`
+- This ensures badge + line counts vertically center against multi-line descriptions
+
+### 3. Clean up internal column dividers
+
+**File**: `frontend/src/styles.css`
+
+- Remove `border-l` from `.action-summary-cell-description` and `.action-summary-cell-badge`
+- The row boundaries alone provide sufficient visual separation
+
+### 4. Wrap section entries in table container
+
+**File**: `frontend/src/components/RemediationHistoryCard.tsx` (lines 630-651)
+
+- Add a wrapper `<div className="action-summary-table">` around the entry rows within each section (around the `.map(entry => <UnifiedFileRow>)` calls)
+- Keep the section headers outside this wrapper
+
+### 5. Handle expanded diff border
+
+**File**: `frontend/src/components/RemediationHistoryCard.tsx` (line 786)
+
+- Adjust the expanded diff border to work with the new table layout (remove `border border-t-0 rounded-b` since rows no longer have individual borders)
+
+## Files to Modify
+
+1. `frontend/src/styles.css` — CSS class changes (~lines 1526-1542)
+2. `frontend/src/components/RemediationHistoryCard.tsx` — Add table wrapper, adjust diff container (~lines 630-651, 710-792)
+
+## Verification
+
+1. `bun run test` — ensure no regressions
+2. `bun run lint` — ensure code passes linting
+3. Visual check: run `bun run dev` and navigate to a completed remediation to verify:
+   - Rows within a section share a single outer border
+   - No gaps between rows within a section
+   - Badge column (added/modified + line counts) vertically centers
+   - Expanded diffs render cleanly below rows
+   - Section headers remain visually distinct
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+Great. Also, sort issues fixed by alphabtical order.
