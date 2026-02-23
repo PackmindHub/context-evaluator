@@ -1,0 +1,110 @@
+Implement the following plan:
+
+# Plan: Filter skills sub-files from linked-doc resolution
+
+## Context
+
+When scanning linked documentation (files referenced via Markdown links inside AGENTS.md/CLAUDE.md), the system currently includes all linked `.md` files. However, skill directories follow a specific structure:
+
+```
+.github/skills/<skill-name>/SKILL.md        ← useful: the skill's main file
+.github/skills/<skill-name>/reference/*.md  ← noise: progressive-disclosure refs
+.github/skills/<skill-name>/other.md        ← noise: any non-SKILL.md file
+```
+
+The SKILL.md itself is the only meaningful entry point for an AI agent. Sub-files within each skill folder are secondary reference docs designed for progressive disclosure and should not be included in the evaluated context.
+
+This filtering applies **only to linked-doc resolution** (not file discovery), matching the same stage where `isSelfReference()` already filters out AGENTS.md/CLAUDE.md self-links.
+
+---
+
+## Implementation
+
+### File: `src/shared/file-system/docs-finder.ts`
+
+**Add a new helper function** (after `isSelfReference`, ~line 104):
+
+```typescript
+/**
+ * Check if a path is a skill sub-file that should be excluded from linked docs.
+ * Skills are structured as: <root>/skills/<skill-name>/SKILL.md
+ * Only the top-level SKILL.md is relevant; nested files are progressive-disclosure refs.
+ *
+ * Keeps:   */skills/<skill-name>/SKILL.md
+ * Discards: */skills/<skill-name>/anything-else.md
+ *           */skills/<skill-name>/subdir/file.md
+ */
+function isSkillsSubFile(absolutePath: string): boolean {
+  const normalized = absolutePath.replace(/\\/g, "/");
+  const match = normalized.match(/\/skills\/[^/]+\/(.+)$/);
+  if (!match) return false;
+  return match[1] !== "SKILL.md";
+}
+```
+
+**In `extractMarkdownLinks()`**, add the check right after `absolutePath` is resolved, in **both** loops (inline and reference-definition):
+
+```typescript
+// After absolutePath is resolved, before deduplication:
+if (isSkillsSubFile(absolutePath)) {
+  continue;
+}
+```
+
+Exact positions:
+- Inline loop: after line ~150 (`resolve(sourceDir, cleanPath)`)
+- Reference def loop: after line ~184 (`resolve(sourceDir, cleanPath)`)
+
+---
+
+## Test Cases
+
+### File: `src/shared/file-system/docs-finder.test.ts`
+
+Add a new `describe` block inside `extractMarkdownLinks` tests:
+
+```
+describe("skills directory filtering", () => {
+  test("keeps SKILL.md at the root of a skill folder")
+    → [Skill Guide](.github/skills/my-skill/SKILL.md) → 1 link extracted
+
+  test("discards files nested inside a skill's subdirectory")
+    → [Ref](. github/skills/my-skill/reference/doc.md) → 0 links
+
+  test("discards non-SKILL.md files at the skill folder root")
+    → [Other](.github/skills/my-skill/other.md) → 0 links
+
+  test("filters skills across different agent directories (cursor, copilot, github)")
+    → links from .cursor/skills/*, .github/skills/* with non-SKILL.md → 0 links
+    → links to SKILL.md from any of these → kept
+
+  test("does not affect non-skills paths containing 'skills' in the name")
+    → [Guide](./docs/devskills/guide.md) → 1 link (no /skills/ segment)
+})
+```
+
+---
+
+## Critical Files
+
+- `src/shared/file-system/docs-finder.ts` — add `isSkillsSubFile()` + 2 `continue` statements
+- `src/shared/file-system/docs-finder.test.ts` — add test cases
+
+---
+
+## Verification
+
+```bash
+bun run test                    # All tests must pass (including new skills filter tests)
+bun run lint                    # No lint issues
+bun run typecheck               # No type errors
+```
+
+Manual spot check: in a repo with `.github/skills/<skill-name>/SKILL.md` and nested reference files linked from AGENTS.md, run an evaluation and verify only the SKILL.md appears in `linkedDocs`, not nested files.
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+commit then

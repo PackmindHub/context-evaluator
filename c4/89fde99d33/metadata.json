@@ -3,12 +3,13 @@
   "checkpoint_id": "c489fde99d33",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 3,
+  "checkpoints_count": 4,
   "files_touched": [
     "frontend/src/lib/error-messages.ts",
     "src/api/routes/evaluation.ts",
     "src/shared/evaluation/engine.ts",
     "src/shared/evaluation/runner.ts",
+    "src/shared/file-system/docs-finder.test.ts",
     "src/shared/file-system/docs-finder.ts",
     "src/shared/types/evaluation.ts"
   ],
@@ -33,13 +34,20 @@
       "context": "/c4/89fde99d33/2/context.md",
       "content_hash": "/c4/89fde99d33/2/content_hash.txt",
       "prompt": "/c4/89fde99d33/2/prompt.txt"
+    },
+    {
+      "metadata": "/c4/89fde99d33/3/metadata.json",
+      "transcript": "/c4/89fde99d33/3/full.jsonl",
+      "context": "/c4/89fde99d33/3/context.md",
+      "content_hash": "/c4/89fde99d33/3/content_hash.txt",
+      "prompt": "/c4/89fde99d33/3/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 69,
-    "cache_creation_tokens": 138165,
-    "cache_read_tokens": 2644830,
-    "output_tokens": 2586,
-    "api_call_count": 57
+    "input_tokens": 91,
+    "cache_creation_tokens": 172704,
+    "cache_read_tokens": 3515992,
+    "output_tokens": 2791,
+    "api_call_count": 75
   }
 }

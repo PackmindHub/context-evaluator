@@ -1,0 +1,74 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "c489fde99d33",
+  "session_id": "eb99d5a6-3179-4cb3-83fc-339d255b90d7",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-23T10:10:03.628609Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "src/shared/file-system/docs-finder.test.ts",
+    "src/shared/file-system/docs-finder.ts"
+  ],
+  "agent": "Claude Code",
+  "token_usage": {
+    "input_tokens": 22,
+    "cache_creation_tokens": 34539,
+    "cache_read_tokens": 871162,
+    "output_tokens": 205,
+    "api_call_count": 18
+  },
+  "summary": {
+    "intent": "Implement a filter in linked-doc resolution that excludes skill sub-files, keeping only SKILL.md at the root of each skill folder and discarding progressive-disclosure reference files nested within skill directories.",
+    "outcome": "Successfully added isSkillsSubFile() helper and two continue guards in docs-finder.ts, plus 5 new test cases in docs-finder.test.ts. All 28 tests pass, lint and typecheck clean. Changes committed.",
+    "learnings": {
+      "repo": [
+        "Skills follow the structure \u003croot\u003e/skills/\u003cskill-name\u003e/SKILL.md; sub-files are progressive-disclosure refs not meant for agent context",
+        "Linked-doc filtering is the correct stage for this logic, matching where isSelfReference() already operates for AGENTS.md/CLAUDE.md self-links",
+        "There is a pre-existing failing test in evaluation routes unrelated to docs-finder",
+        "The project uses the `rtk` prefix wrapper for git commands but not for bun commands"
+      ],
+      "code": [
+        {
+          "path": "src/shared/file-system/docs-finder.ts",
+          "line": 104,
+          "end_line": 104,
+          "finding": "isSelfReference() is the existing precedent for inline filtering at linked-doc resolution stage; isSkillsSubFile() was added directly after it"
+        },
+        {
+          "path": "src/shared/file-system/docs-finder.ts",
+          "line": 150,
+          "end_line": 150,
+          "finding": "absolutePath is resolved here in the inline link loop; filter guard must be inserted immediately after this line"
+        },
+        {
+          "path": "src/shared/file-system/docs-finder.ts",
+          "line": 184,
+          "end_line": 184,
+          "finding": "absolutePath is resolved here in the reference-definition loop; identical filter guard needed in this second loop"
+        }
+      ],
+      "workflow": [
+        "Running a specific test file requires `bunx --bun bun test \u003cfile\u003e` syntax, not `bun run test \u003cfile\u003e`",
+        "JSDoc comments containing `*/` as a glob example (e.g. `*/skills/`) prematurely close the block comment and cause a syntax error; escape or reformat such patterns"
+      ]
+    },
+    "friction": [
+      "JSDoc comment for isSkillsSubFile() used `*/` as a glob pattern example which terminated the block comment early, requiring a follow-up fix",
+      "Initial test invocation with `rtk bun run test` failed; had to fall back to `bun run test` directly",
+      "Running tests scoped to a single file required discovering the `bunx --bun bun test` invocation pattern rather than the standard `bun run test` form"
+    ],
+    "open_items": [
+      "Pre-existing failing test in evaluation routes was noted but not investigated or fixed"
+    ]
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-23T10:09:41.551072Z",
+    "agent_lines": 85,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 85,
+    "agent_percentage": 100
+  }
+}
