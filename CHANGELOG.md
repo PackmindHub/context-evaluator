@@ -1,5 +1,7 @@
 # [Unreleased]
 
+# [0.3.0] - 2026-02-23
+
 ## Added
 
 - **Multi-remediation support**: Users can now run multiple independent remediations per evaluation. Each remediation runs from the current git state and produces its own downloadable patch. Past remediations are displayed in a collapsible history section above the config area, with compact cards that expand to show full diffs and action summaries. The 409 guard blocking new remediations when a completed one exists has been removed; only concurrent remediations are prevented.
