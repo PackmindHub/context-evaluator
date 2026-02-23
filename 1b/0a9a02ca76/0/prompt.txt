@@ -1,0 +1,48 @@
+Implement the following plan:
+
+# Fix: Add `--trust` flag to Cursor Agent CLI invocation
+
+## Context
+
+The Cursor Agent CLI now requires explicit workspace trust when running non-interactively. On the remote machine, evaluations fail with:
+
+```
+⚠ Workspace Trust Required
+Pass --trust, --yolo, or -f if you trust this directory
+```
+
+This blocks all Cursor-based evaluations on remote/headless servers since there's no interactive prompt to accept trust.
+
+## Change
+
+**File:** `src/shared/providers/cursor-provider.ts` (line 73)
+
+Add `--trust` to the base args array so it's always passed, regardless of `writeMode`. This is safe because evaluations always run on either user-owned local repos or our own temporary clones.
+
+```typescript
+// Before
+const args = ["-p", "--output-format", "json"];
+
+// After
+const args = ["-p", "--output-format", "json", "--trust"];
+```
+
+This mirrors how other providers handle non-interactive trust:
+- Claude: `--dangerously-skip-permissions`
+- Codex: `--full-auto --skip-git-repo-check`
+
+## Verification
+
+1. `bun run test` — all tests pass
+2. `bun run lint` — no lint issues
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+Ensure the command is properly displayed when running remediations with cursor in the frontend
+
+---
+
+commit a

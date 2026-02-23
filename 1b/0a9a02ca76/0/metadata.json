@@ -1,0 +1,67 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "1b0a9a02ca76",
+  "session_id": "beb0056c-ce4d-42d8-9762-1b8b78ade068",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-23T16:47:36.920703Z",
+  "branch": "main",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "frontend/src/components/RemediateTab.tsx",
+    "src/shared/providers/cursor-provider.ts"
+  ],
+  "agent": "Claude Code",
+  "token_usage": {
+    "input_tokens": 22,
+    "cache_creation_tokens": 23199,
+    "cache_read_tokens": 633463,
+    "output_tokens": 333,
+    "api_call_count": 16
+  },
+  "summary": {
+    "intent": "Add --trust flag to the Cursor Agent CLI invocation so evaluations work on remote/headless servers that block due to workspace trust prompts. Also ensure the frontend remediation command display reflects the actual invocation.",
+    "outcome": "Added --trust to the base args array in cursor-provider.ts and updated the hardcoded cursor writeCommand in RemediateTab.tsx to match. Both changes committed together with 1329 tests passing and lint clean.",
+    "learnings": {
+      "repo": [
+        "Cursor CLI requires --trust for non-interactive/headless use; analogous to Claude's --dangerously-skip-permissions and Codex's --full-auto --skip-git-repo-check",
+        "The frontend RemediateTab.tsx hardcodes command strings for display purposes and must be kept manually in sync with backend provider args",
+        "There is also an embedded frontend under src/web/ that should be checked when updating command display strings",
+        "Test suite runs 1329 tests via `bun run test`; lint via `bun run lint`"
+      ],
+      "code": [
+        {
+          "path": "src/shared/providers/cursor-provider.ts",
+          "line": 73,
+          "end_line": 73,
+          "finding": "Base args array for Cursor CLI; --trust added here applies to all invocations regardless of writeMode"
+        },
+        {
+          "path": "frontend/src/components/RemediateTab.tsx",
+          "line": 50,
+          "end_line": 50,
+          "finding": "Hardcoded cursor writeCommand for frontend display; must mirror the backend provider args (now: agent -p --output-format json --trust --force)"
+        }
+      ],
+      "workflow": [
+        "When changing a CLI provider's base args, always grep the frontend for hardcoded command display strings that duplicate those args",
+        "rtk prefix is used to run commands in the remote/target environment"
+      ]
+    },
+    "friction": [
+      "Frontend command display string was a non-obvious second location that required multiple grep passes to find — it diverged silently from the backend"
+    ],
+    "open_items": [
+      "Verbose log near line 95 (description of base command before write mode flags) was left as-is; worth revisiting if it causes confusion in logs",
+      "src/web/ embedded frontend was checked and clear, but should be monitored if it gains its own command display components"
+    ]
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-23T16:47:18.369702Z",
+    "agent_lines": 2,
+    "human_added": 1113,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 1115,
+    "agent_percentage": 0.17937219730941703
+  }
+}
