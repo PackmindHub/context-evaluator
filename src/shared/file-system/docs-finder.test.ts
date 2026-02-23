@@ -180,6 +180,67 @@ This is just plain text with no links.
 			expect(links).toHaveLength(0);
 		});
 
+		describe("skills directory filtering", () => {
+			test("keeps SKILL.md at the root of a skill folder", () => {
+				const content = `[Skill Guide](.github/skills/my-skill/SKILL.md)`;
+				const sourcePath = join(testDir, "AGENTS.md");
+
+				const links = extractMarkdownLinks(content, sourcePath);
+
+				expect(links).toHaveLength(1);
+				expect(links[0]!.rawPath).toBe(".github/skills/my-skill/SKILL.md");
+			});
+
+			test("discards files nested inside a skill's subdirectory", () => {
+				const content = `[Ref](.github/skills/my-skill/reference/doc.md)`;
+				const sourcePath = join(testDir, "AGENTS.md");
+
+				const links = extractMarkdownLinks(content, sourcePath);
+
+				expect(links).toHaveLength(0);
+			});
+
+			test("discards non-SKILL.md files at the skill folder root", () => {
+				const content = `[Other](.github/skills/my-skill/other.md)`;
+				const sourcePath = join(testDir, "AGENTS.md");
+
+				const links = extractMarkdownLinks(content, sourcePath);
+
+				expect(links).toHaveLength(0);
+			});
+
+			test("filters skills across different agent directories (cursor, copilot, github)", () => {
+				const content = `
+[A](.cursor/skills/my-skill/README.md)
+[B](.github/skills/my-skill/notes.md)
+[C](.cursor/skills/my-skill/SKILL.md)
+[D](.github/skills/my-skill/SKILL.md)
+`;
+				const sourcePath = join(testDir, "AGENTS.md");
+
+				const links = extractMarkdownLinks(content, sourcePath);
+
+				// Only SKILL.md files are kept
+				expect(links).toHaveLength(2);
+				expect(links.map((l) => l.rawPath)).toContain(
+					".cursor/skills/my-skill/SKILL.md",
+				);
+				expect(links.map((l) => l.rawPath)).toContain(
+					".github/skills/my-skill/SKILL.md",
+				);
+			});
+
+			test("does not affect non-skills paths containing 'skills' in the name", () => {
+				const content = `[Guide](./docs/devskills/guide.md)`;
+				const sourcePath = join(testDir, "AGENTS.md");
+
+				const links = extractMarkdownLinks(content, sourcePath);
+
+				expect(links).toHaveLength(1);
+				expect(links[0]!.rawPath).toBe("./docs/devskills/guide.md");
+			});
+		});
+
 		test("extracts links from real-world example", () => {
 			const content = `
 # AGENTS.md

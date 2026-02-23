@@ -111,6 +111,22 @@ function removeAnchor(path: string): string {
 }
 
 /**
+ * Check if a path is a skill sub-file that should be excluded from linked docs.
+ * Skills are structured as: <root>/skills/<skill-name>/SKILL.md
+ * Only the top-level SKILL.md is relevant; nested files are progressive-disclosure refs.
+ *
+ * Keeps:    .../skills/<skill-name>/SKILL.md
+ * Discards: .../skills/<skill-name>/anything-else.md
+ *           .../skills/<skill-name>/subdir/file.md
+ */
+function isSkillsSubFile(absolutePath: string): boolean {
+	const normalized = absolutePath.replace(/\\/g, "/");
+	const match = normalized.match(/\/skills\/[^/]+\/(.+)$/);
+	if (!match) return false;
+	return match[1] !== "SKILL.md";
+}
+
+/**
  * Extract Markdown links to .md files from content.
  * Handles: [text](path.md), [text](path.md#anchor), [ref]: path.md
  * Excludes: external URLs, anchor-only links, self-references
@@ -149,6 +165,10 @@ export function extractMarkdownLinks(
 			? cleanPath
 			: resolve(sourceDir, cleanPath);
 
+		if (isSkillsSubFile(absolutePath)) {
+			continue;
+		}
+
 		// Deduplicate
 		if (seenPaths.has(absolutePath)) {
 			continue;
@@ -182,6 +202,10 @@ export function extractMarkdownLinks(
 		const absolutePath = isAbsolute(cleanPath)
 			? cleanPath
 			: resolve(sourceDir, cleanPath);
+
+		if (isSkillsSubFile(absolutePath)) {
+			continue;
+		}
 
 		if (seenPaths.has(absolutePath)) {
 			continue;
