@@ -1,0 +1,74 @@
+Implement the following plan:
+
+# Plan: Add Lightweight Model Support for Basic Tasks
+
+## Context
+
+Currently, all AI provider invocations use the same (full) model regardless of task complexity. Basic tasks like linked documentation summarization don't need a powerful model — they're simple single-sentence summaries. Adding lightweight model support will reduce cost and latency for these tasks.
+
+The user specified these lightweight models per provider:
+- **Claude Code**: `--model haiku`
+- **OpenCode**: `opencode/gpt-5-nano`
+- **Codex**: `--model gpt-5.1-codex-mini`
+- **Cursor**: `--model gpt-5.2-codex-high-fast`
+- **GitHub Copilot**: `--model gpt-5.1-codex-mini`
+
+## Approach
+
+Each provider declares its own `lightweightModel` string. A new `model` option in `IProviderInvokeOptions` lets callers override the model per-invocation. `invokeIsolated()` gains a `useLightweightModel` flag that auto-resolves to the provider's lightweight model.
+
+## Changes
+
+### 1. `src/shared/providers/types.ts` — Add `model` option and `lightweightModel` to interfaces
+
+- Add `model?: string` to `IProviderInvokeOptions`
+- Add `readonly lightweightModel: string` to `IAIProvider`
+
+### 2. `src/shared/providers/base-provider.ts` — Add abstract `lightweightModel`
+
+- Add `abstract readonly lightweightModel: string`
+
+### 3. Each provider — Add `lightweightModel` + use `model` in `invoke()`
+
+**`claude-provider.ts`**: `lightweightModel = "haiku"`, add `--model` arg when `model` is set
+
+**`opencode-provider.ts`**: `lightweightModel = "opencode/gpt-5-nano"`, replace hardcoded model with `model ?? "openai/gpt-5.2-codex"`, skip `--variant medium` when using non-default model
+
+**`codex-provider.ts`**: `lightweightModel = "gpt-5.1-codex-mini"`, add `--model` arg when `model` is set
+
+**`cursor-provider.ts`**: `lightweightModel = "gpt-5.2-codex-high-fast"`, add `--model` arg when `model` is set
+
+**`github-copilot-provider.ts`**: `lightweightModel = "gpt-5.1-codex-mini"`, add `--model` arg when `model` is set
+
+### 4. `src/shared/utils/isolated-prompt.ts` — Add `useLightweightModel` flag
+
+- Add `useLightweightModel?: boolean` to `IIsolatedPromptOptions`
+- In `invokeIsolated()`: resolve model as `options.model ?? (useLightweightModel ? provider.lightweightModel : undefined)`
+- Pass resolved `model` to `provider.invoke()`
+
+### 5. `src/shared/file-system/docs-finder.ts` — Use lightweight model for summarization
+
+- In `summarizeDocFile()`: pass `useLightweightModel: true` to `invokeIsolated()`
+
+### 6. Test files — Add `lightweightModel` to all mock providers
+
+Files needing mock updates (6 files):
+- `src/shared/utils/isolated-prompt.test.ts` — Also add tests for `useLightweightModel` behavior
+- `src/shared/file-system/docs-finder.test.ts`
+- `src/shared/remediation/ai-file-consolidator.test.ts`
+- `src/shared/remediation/prompt-generator.test.ts`
+- `src/shared/providers/registry.test.ts`
+- `src/shared/evaluation/semantic-deduplicator.test.ts`
+
+## Verification
+
+1. `bun run typecheck` — all types compile
+2. `bun run test` — all existing + new tests pass
+3. `bun run lint` — no lint errors
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+Commit

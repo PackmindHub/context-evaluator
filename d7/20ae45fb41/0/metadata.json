@@ -1,0 +1,88 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "d720ae45fb41",
+  "session_id": "a69dd5c6-e51b-4893-ab00-9cfa9e524670",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-23T09:45:35.500089Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "src/shared/evaluation/semantic-deduplicator.test.ts",
+    "src/shared/file-system/docs-finder.test.ts",
+    "src/shared/file-system/docs-finder.ts",
+    "src/shared/providers/base-provider.ts",
+    "src/shared/providers/claude-provider.ts",
+    "src/shared/providers/codex-provider.ts",
+    "src/shared/providers/cursor-provider.ts",
+    "src/shared/providers/github-copilot-provider.ts",
+    "src/shared/providers/opencode-provider.ts",
+    "src/shared/providers/registry.test.ts",
+    "src/shared/providers/types.ts",
+    "src/shared/remediation/ai-file-consolidator.test.ts",
+    "src/shared/utils/isolated-prompt.test.ts",
+    "src/shared/utils/isolated-prompt.ts"
+  ],
+  "agent": "Claude Code",
+  "token_usage": {
+    "input_tokens": 54,
+    "cache_creation_tokens": 79466,
+    "cache_read_tokens": 3857964,
+    "output_tokens": 2531,
+    "api_call_count": 50
+  },
+  "summary": {
+    "intent": "Add lightweight model support so basic tasks (like doc summarization) can use cheaper/faster models instead of the full model, with each AI provider declaring its own lightweight model string.",
+    "outcome": "Successfully implemented lightweight model support across 14 files: new `lightweightModel` property on all 5 providers, `model` option in `IProviderInvokeOptions`, `useLightweightModel` flag in `IIsolatedPromptOptions`, docs-finder updated to use it, and all 6 mock provider test files updated. All 1324 tests pass, lint and typecheck clean, committed as `0f9bd26`.",
+    "learnings": {
+      "repo": [
+        "Pre-commit hook runs `bun test src/` — it scans the entire `src/` tree, but also risks picking up unrelated test files if leftover cloned repos exist under `tmp/clones/`.",
+        "6 test files contain inline mock providers implementing `IAIProvider` that must be kept in sync with interface changes: isolated-prompt.test.ts, docs-finder.test.ts, ai-file-consolidator.test.ts, prompt-generator.test.ts (no mock), registry.test.ts, semantic-deduplicator.test.ts.",
+        "OpenCode provider has special `--variant medium` flag logic that should only apply to the default model and must be skipped when using a non-default/lightweight model.",
+        "The project uses Biome for linting and Bun for test running and typechecking.",
+        "Working tree contained 8 pre-existing unrelated modified files; only the 14 task-related files were staged and committed."
+      ],
+      "code": [
+        {
+          "path": "src/shared/providers/types.ts",
+          "finding": "Both `IProviderInvokeOptions` (add `model?: string`) and `IAIProvider` (add `readonly lightweightModel: string`) live in this file — the central contract for all provider changes."
+        },
+        {
+          "path": "src/shared/providers/opencode-provider.ts",
+          "finding": "`--variant medium` is a default-model-only flag; it must be conditionally skipped when `model` is set to a non-default value, otherwise the CLI call mixes incompatible flags."
+        },
+        {
+          "path": "src/shared/utils/isolated-prompt.ts",
+          "finding": "Model resolution priority in `invokeIsolated()`: explicit `options.model` \u003e `useLightweightModel ? provider.lightweightModel : undefined` \u003e provider default (undefined)."
+        },
+        {
+          "path": "src/shared/file-system/docs-finder.ts",
+          "finding": "`summarizeDocFile()` is the only current call site for `useLightweightModel: true`; it generates single-sentence summaries that don't require a powerful model."
+        }
+      ],
+      "workflow": [
+        "When a pre-commit hook runs the test suite, leftover directories from cloned repos (`tmp/clones/`) can cause spurious test failures — clean them up before committing.",
+        "Staging only task-related files (`git add \u003cexplicit paths\u003e`) keeps commits focused when the working tree has unrelated in-progress changes.",
+        "Reading all affected files in parallel at the start of an implementation session saves multiple round-trips and gives a complete picture before making any edits.",
+        "After adding a required interface property, run typecheck immediately to catch all mock providers that missed the update rather than discovering them test-by-test."
+      ]
+    },
+    "friction": [
+      "Pre-commit hook failed on first commit attempt because `tmp/clones/` contained a leftover cloned repository whose test files were picked up by `bun test src/` — required manual cleanup of `tmp/clones/` before the commit succeeded.",
+      "Two mock providers (semantic-deduplicator.test.ts and ai-file-consolidator.test.ts) were missed in the initial mock update pass and required a second typecheck round to catch.",
+      "GitHub Copilot provider required three separate Edit operations due to incremental additions (lightweightModel property, then invoke model arg, then a fix), suggesting the initial edit was incomplete."
+    ],
+    "open_items": [
+      "8 pre-existing modified files remain uncommitted in the working tree — these are unrelated changes that were intentionally excluded from this commit.",
+      "No other callers currently use `useLightweightModel: true` besides `summarizeDocFile()` — other simple/cheap invocation sites could be audited and opted in to reduce cost further."
+    ]
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-23T09:45:00.420272Z",
+    "agent_lines": 137,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 137,
+    "agent_percentage": 100
+  }
+}
