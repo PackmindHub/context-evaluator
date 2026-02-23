@@ -1,0 +1,37 @@
+Implement the following plan:
+
+# Plan: Clarify remediation output in README.md
+
+## Context
+
+The remediation feature runs a 4-phase AI pipeline that produces file changes, but it **does not commit or persist any changes**. After capturing the diff, the working directory is fully reset. The user receives a downloadable `.patch` file to apply manually.
+
+The current README step 4 says: *"Inspect per-file diffs, view the action summary, and download a `.patch` file"* — but doesn't clarify that no changes are applied to the repository. This could mislead users into thinking the tool modifies their codebase.
+
+## Change
+
+**File:** `README.md` (line ~108)
+
+Update step 4 of the remediation section from:
+
+```
+4. **Review** — Inspect per-file diffs, view the action summary (fixed / added / skipped), and download a `.patch` file
+```
+
+To:
+
+```
+4. **Review** — Inspect per-file diffs, view the action summary (fixed / added / skipped), and download a `.patch` file. No changes are committed — apply the patch manually with `git apply remediation.patch`.
+```
+
+## Verification
+
+- Read the updated README and confirm the sentence reads naturally
+- Run `bun run test` and `bun run lint` to ensure no regressions
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+commit

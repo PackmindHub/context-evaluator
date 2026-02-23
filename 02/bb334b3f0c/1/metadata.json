@@ -1,0 +1,54 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "02bb334b3f0c",
+  "session_id": "3c7e488d-d200-4459-a292-559880d9917c",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-23T16:00:04.033931Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "README.md"
+  ],
+  "agent": "Claude Code",
+  "token_usage": {
+    "input_tokens": 16,
+    "cache_creation_tokens": 38853,
+    "cache_read_tokens": 420674,
+    "output_tokens": 158,
+    "api_call_count": 12
+  },
+  "summary": {
+    "intent": "Update README.md to clarify that the remediation pipeline produces a downloadable patch file but does not commit or persist any changes to the repository.",
+    "outcome": "README.md line ~108 was updated with the clarifying sentence, all 1329 tests passed, lint was clean, and the change was committed as 6d0bfc5.",
+    "learnings": {
+      "repo": [
+        "The remediation feature runs a 4-phase AI pipeline that resets the working directory after capturing a diff — users receive a .patch file to apply manually with `git apply remediation.patch`.",
+        "The project uses pre-commit hooks that run tests, lint, and typecheck before allowing a commit.",
+        "Test suite has 1329 tests."
+      ],
+      "code": [
+        {
+          "path": "README.md",
+          "line": 108,
+          "end_line": 108,
+          "finding": "Step 4 of the remediation section describes the Review phase; updated to explicitly state no changes are committed and how to apply the patch manually."
+        }
+      ],
+      "workflow": [
+        "The project uses `bun run test` and `bun run lint` for verification.",
+        "Commit messages follow a descriptive imperative style (e.g., 'Clarify that remediation does not commit changes')."
+      ]
+    },
+    "friction": [],
+    "open_items": []
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-23T15:59:57.02877Z",
+    "agent_lines": 1,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 1,
+    "agent_percentage": 100
+  }
+}
