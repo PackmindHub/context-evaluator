@@ -643,9 +643,11 @@ function UnifiedFilesSection({ result }: { result: RemediationResult }) {
 								</span>
 							</div>
 							{/* Entry rows */}
-							{section.entries.map((entry) => (
-								<UnifiedFileRow key={entry.key} entry={entry} />
-							))}
+							<div className="action-summary-table">
+								{section.entries.map((entry) => (
+									<UnifiedFileRow key={entry.key} entry={entry} />
+								))}
+							</div>
 						</div>
 					))}
 				</div>
@@ -744,15 +746,17 @@ function UnifiedFileRow({ entry }: { entry: UnifiedFileEntry }) {
 				<div className="action-summary-cell-description">
 					{entry.actions.length > 0 ? (
 						<div className="space-y-0.5">
-							{entry.actions.map((action) => (
-								<div
-									key={`${action.issueIndex}-${action.status}`}
-									className="flex items-start gap-1.5 text-xs"
-								>
-									<span className="text-green-400 flex-shrink-0">✓</span>
-									<span className="text-slate-400">{action.summary}</span>
-								</div>
-							))}
+							{[...entry.actions]
+								.sort((a, b) => a.summary.localeCompare(b.summary))
+								.map((action) => (
+									<div
+										key={`${action.issueIndex}-${action.status}`}
+										className="flex items-start gap-1.5 text-xs"
+									>
+										<span className="text-green-400 flex-shrink-0">✓</span>
+										<span className="text-slate-400">{action.summary}</span>
+									</div>
+								))}
 						</div>
 					) : (
 						<span className="text-xs text-slate-600">&mdash;</span>
@@ -783,7 +787,7 @@ function UnifiedFileRow({ entry }: { entry: UnifiedFileEntry }) {
 
 			{/* Expanded diff — full width below the grid */}
 			{expanded && (
-				<div className="border border-t-0 border-slate-700/40 rounded-b pt-2 pb-2 space-y-2 bg-slate-800/30">
+				<div className="border-t border-slate-700/40 pt-2 pb-2 space-y-2 bg-slate-800/30">
 					{entry.fileChanges.map((fc) => (
 						<DiffViewer key={fc.path} diff={fc.diff} />
 					))}

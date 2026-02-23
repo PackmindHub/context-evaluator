@@ -1523,10 +1523,18 @@
 		@apply text-xs text-slate-500;
 	}
 
+	.action-summary-table {
+		@apply border border-slate-700/40 rounded overflow-hidden;
+	}
+
 	.action-summary-row {
 		display: grid;
 		grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) auto;
-		@apply items-start gap-0 border border-slate-700/40 bg-slate-800/30 rounded;
+		@apply items-center gap-0 bg-slate-800/30 border-b border-slate-700/40;
+	}
+
+	.action-summary-row:last-child {
+		@apply border-b-0;
 	}
 
 	.action-summary-cell-file {
@@ -1534,11 +1542,11 @@
 	}
 
 	.action-summary-cell-description {
-		@apply px-2 py-1.5 border-l border-slate-700/30 min-w-0;
+		@apply px-2 py-1.5 min-w-0;
 	}
 
 	.action-summary-cell-badge {
-		@apply px-2 py-1.5 border-l border-slate-700/30 flex items-center gap-1.5 flex-shrink-0;
+		@apply px-2 py-1.5 flex items-center gap-1.5 flex-shrink-0;
 	}
 
 	/* Output type badges for remediation strategy */
