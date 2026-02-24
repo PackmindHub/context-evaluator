@@ -1,0 +1,200 @@
+Implement the following plan:
+
+# Evaluation Prompt Optimization Plan
+
+## Context
+
+Analysis of evaluation `093eedea` (Supabase, 26 files, unified mode) revealed that **66% of the $7.72 cost** was spent on 12 evaluators that found zero issues. The 5 optimizations below target prompt size, evaluator selection, and output efficiency to reduce cost by an estimated 30-50% per evaluation.
+
+---
+
+## Optimization #2: Evaluator Skip Based on Technical Inventory
+
+**Goal**: Use pre-computed `ITechnicalInventory` to skip clearly irrelevant evaluators before sending them to the LLM.
+
+### Skip Rules
+
+| Evaluator | Skip when |
+|-----------|-----------|
+| `database-patterns-coverage` | No DB deps (postgres, mysql, mongo, prisma, typeorm, etc.), no migration/ORM/seed/repository files, no DB Docker services |
+| `test-patterns-coverage` | No test deps (jest, vitest, mocha, pytest, etc.), no test files (.test.*, .spec.*), no mock/fixture patterns |
+| `security` | No env vars, no config files, no dependencies at all (very minimal repo only) |
+
+### Files to Modify
+
+1. **New: `src/shared/evaluation/inventory-skip-rules.ts`** — Skip rule logic with `computeInventorySkips(inventory) → Map<string, SkipDecision>`
+2. **New: `src/shared/evaluation/inventory-skip-rules.test.ts`** — Unit tests
+3. **`src/shared/evaluation/runner.ts`** — Accept `technicalInventory` in options of both `runAllEvaluators()` and `runUnifiedEvaluation()`. Compute skip decisions once before concurrency loop, apply per-evaluator
+4. **`src/shared/evaluation/engine.ts`** — Pass `technicalInventory` from context to runner calls (~line 1504, ~1907, ~1122)
+
+### Implementation Details
+
+- `computeInventorySkips()` returns a `Map<string, SkipDecision>` where `SkipDecision = { skip: boolean; reason?: string }`
+- Call it **once** before the evaluator loop, not per-evaluator
+- Skipped evaluators return existing `{ skipped: true, skipReason: "..." }` pattern already supported by `EvaluatorResult`
+- If `technicalInventory` is undefined (collection failed), no skips — safe fallback
+- DB dep detection: match against a set of ~30 known database package names across JS/Python/Go/Ruby/Java
+- Test dep detection: match against a set of ~25 known test framework names + check `fileCountsByExtension` for test file patterns
+- Docker service detection: regex match service names against `/postgres|mysql|mongo|redis|mariadb/i`
+
+---
+
+## Optimization #3: Smarter File Filtering Per Evaluator
+
+**Goal**: Add `ROOT_ONLY` filtering to evaluators that operate at repository level, reducing prompt size from ~121K chars (26 files) to ~7K chars (1 file).
+
+### New Filter Entries
+
+Add to `EVALUATOR_FILE_CONFIGS` in `src/shared/evaluation/config.ts`:
+
+| Evaluator | Strategy | Reason |
+|-----------|----------|--------|
+| `project-structure.md` | ROOT_ONLY | Project structure is inherently repo-wide |
+| `security.md` | ROOT_ONLY | Security policy should be defined at repo level |
+| `completeness.md` | ROOT_ONLY | Content balance is best evaluated at root |
+
+### Files to Modify
+
+1. **`src/shared/evaluation/config.ts`** — Add 3 entries to `EVALUATOR_FILE_CONFIGS` (lines 33-45)
+
+No other changes needed — the filtering infrastructure (`filterFilesForEvaluator` called in `runner.ts`) already works end-to-end for both independent and unified modes.
+
+---
+
+## Optimization #5: Output Format Compaction
+
+**Goal**: Reduce output format templates from ~230 lines to ~80-100 lines by removing redundant examples and verbose checklists.
+
+### Sections to Compact
+
+| Section | Current | Target | Action |
+|---------|---------|--------|--------|
+| Location format examples | 50 lines | 8 lines | Consolidate to essentials: full-path rule + single/multi/cross examples |
+| JSON formatting checklist | 65 lines | 5 lines | Reduce to 3 key rules (double-quoted keys, no text around JSON, all fields required) |
+| Self-validation ceremony | 12 lines | 0 lines | Remove — `JSON_OUTPUT_REMINDER` at prompt end already enforces this |
+| Invalid examples | 8 lines | 0 lines | Remove — checklist rules cover this |
+| Valid JSON example | 7 lines | Keep | Useful as reference |
+| Field specifications | 50 lines | 30 lines | Make inline/compact |
+
+### Files to Modify
+
+1. **`prompts/shared/output-format-error.md`** — Compact from 234 to ~100 lines
+2. **`prompts/shared/output-format-suggestion.md`** — Compact from 209 to ~80 lines
+
+### Key Content to Preserve
+
+- The JSON example structure (essential for format compliance)
+- Full-path requirement for `location.file` (critical for multi-file mode)
+- Line number extraction rule ("read number before `|`")
+- Severity/impact scale definitions
+- Max 10 issues rule
+- `JSON_OUTPUT_REMINDER` (stays in `prompt-builder.ts` line 63, not in template)
+
+---
+
+## Optimization #6: Empty Result Fast-Path Instructions
+
+**Goal**: Reduce output tokens for zero-issue evaluators from 490-2,806 to ~3-5 tokens.
+
+### Changes
+
+1. **`prompts/shared/output-format-error.md`** — Add to Rules section:
+   ```
+   - **FAST PATH**: If no issues with severity > 5, immediately return `[]`. No reasoning, no explanation.
+   ```
+
+2. **`prompts/shared/output-format-suggestion.md`** — Add to Rules section:
+   ```
+   - **FAST PATH**: If no suggestions with "Medium" or "High" impact, immediately return `[]`. No reasoning, no explanation.
+   ```
+
+3. **`src/shared/claude/prompt-builder.ts`** — Update `JSON_OUTPUT_REMINDER` (line 63) to append: `"If no issues found, return exactly \`[]\`."
+
+These are prompt-only changes. The parser already handles `[]` correctly.
+
+---
+
+## Optimization #7: Two-Phase Triage Evaluation
+
+**Goal**: Run a single lightweight LLM call (~$0.15-0.30) to identify which evaluators are likely to find issues, then skip the rest.
+
+### Architecture
+
+```
+File Content + Context → Triage LLM Call → ["Y","N","?"] per evaluator → Run only "Y"/"?" evaluators
+```
+
+### Files to Create/Modify
+
+1. **New: `src/shared/evaluation/triage.ts`** — `runTriage(fileContents, evaluatorFiles, options) → TriageResult`
+2. **New: `prompts/shared/triage-prompt.md`** — Compact prompt listing all 17 evaluators with 1-line descriptions, asking for Y/N/? per evaluator
+3. **New: `src/shared/evaluation/triage.test.ts`** — Unit tests
+4. **`src/shared/evaluation/engine.ts`** — Integrate triage before evaluator execution in both unified and independent modes
+5. **`src/shared/types/evaluation.ts`** — Add `enableTriage?: boolean` to evaluation options; add triage metadata fields
+
+### Key Design Decisions
+
+- **Conservative by default**: "?" (uncertain) maps to "run" — only explicit "N" causes a skip
+- **Safety minimum**: If triage selects < 3 evaluators, fall back to running all (triage likely miscalibrated)
+- **Parsing failure fallback**: If triage response can't be parsed, run all evaluators
+- **Triage runs once**: For unified mode, single call with all file content. For independent mode, single call with root file content
+- **User selection override**: If user explicitly selected evaluators (`selectedEvaluators` option), triage is skipped or only filters within user's selection
+- **Metadata tracking**: Triage cost, duration, and selection counts added to evaluation metadata for transparency
+- **Skipped evaluator reporting**: Triage-skipped evaluators appear in results with `skipped: true, skipReason: "Triage: ..."` for auditability
+- **Opt-in**: Triage is off by default (`enableTriage: false`). Enable via CLI flag `--triage` or API option
+
+### Triage Prompt Structure (~2K tokens)
+
+```markdown
+# Evaluator Triage
+Given the AGENTS.md file(s) and project context, determine which evaluators are LIKELY to find issues.
+[1-line description per evaluator]
+Return JSON: {"content-quality": "Y", "structure-formatting": "N", ...}
+Conservative: when in doubt, return "Y" or "?".
+```
+
+### Integration in Engine
+
+After building `projectContext` and before `runUnifiedEvaluation`/`runAllEvaluators`, insert:
+1. Check `options.enableTriage`
+2. Call `runTriage()` with file content + context
+3. Use `triageResult.selectedEvaluators` as `selectedEvaluators` option in runner call
+4. Add synthetic skipped results for triage-excluded evaluators
+5. Record triage metadata in evaluation output
+
+---
+
+## Implementation Order
+
+1. **#6 + #5** (output format changes) — No code logic changes, just prompt edits. Test immediately.
+2. **#3** (file filtering) — 3 lines added to config.ts. Test with unified mode evaluation.
+3. **#2** (inventory skip) — New file + wiring. Moderate effort, high impact.
+4. **#7** (triage) — Most complex. New feature, opt-in. Implement last.
+
+## Verification
+
+After each optimization:
+1. `bun run test` — All tests pass
+2. `bun run lint` — No lint errors
+3. Run evaluation on Supabase repo and compare:
+   - Total cost (target: < $5.00 down from $7.72)
+   - Cache hit ratio (target: > 70%)
+   - Per-evaluator costs and issue counts (same issues found)
+   - Wall-clock duration (target: < 400s down from 534s)
+4. Check `prompts/debug/` for prompt size reduction
+5. For triage (#7): A/B test comparing issues found with vs without triage to measure false negative rate
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+[Request interrupted by user]
+
+---
+
+I've reverted your changes - focus only " Evaluator Skip Based on Technical Inventory  " and "Optimization #6: Empty Result Fast-Path Instructions"
+
+---
+
+commit

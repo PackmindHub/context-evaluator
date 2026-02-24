@@ -1,0 +1,33 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "09597b5bde42",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "prompts/shared/output-format-error.md",
+    "prompts/shared/output-format-suggestion.md",
+    "src/shared/claude/prompt-builder.test.ts",
+    "src/shared/claude/prompt-builder.ts",
+    "src/shared/evaluation/engine.ts",
+    "src/shared/evaluation/inventory-skip-rules.test.ts",
+    "src/shared/evaluation/inventory-skip-rules.ts",
+    "src/shared/evaluation/runner.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/09/597b5bde42/0/metadata.json",
+      "transcript": "/09/597b5bde42/0/full.jsonl",
+      "context": "/09/597b5bde42/0/context.md",
+      "content_hash": "/09/597b5bde42/0/content_hash.txt",
+      "prompt": "/09/597b5bde42/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 66,
+    "cache_creation_tokens": 103402,
+    "cache_read_tokens": 5860975,
+    "output_tokens": 10920,
+    "api_call_count": 60
+  }
+}

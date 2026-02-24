@@ -1,0 +1,88 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "09597b5bde42",
+  "session_id": "2d14de52-046f-4151-9c9a-8841f80af584",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-24T14:19:04.406491Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "prompts/shared/output-format-error.md",
+    "prompts/shared/output-format-suggestion.md",
+    "src/shared/claude/prompt-builder.test.ts",
+    "src/shared/claude/prompt-builder.ts",
+    "src/shared/evaluation/engine.ts",
+    "src/shared/evaluation/inventory-skip-rules.test.ts",
+    "src/shared/evaluation/inventory-skip-rules.ts",
+    "src/shared/evaluation/runner.ts"
+  ],
+  "agent": "Claude Code",
+  "transcript_identifier_at_start": "5a3f0462-7d06-49a4-9625-295fb3e6b1d4",
+  "token_usage": {
+    "input_tokens": 66,
+    "cache_creation_tokens": 103402,
+    "cache_read_tokens": 5860975,
+    "output_tokens": 10920,
+    "api_call_count": 60
+  },
+  "summary": {
+    "intent": "Implement two cost-reduction optimizations for an LLM evaluation pipeline: inventory-based evaluator skipping (#2) and empty-result fast-path instructions (#6), out of a larger 5-optimization plan.",
+    "outcome": "Both optimizations were implemented and verified: fast-path instructions added to output-format prompts and JSON_OUTPUT_REMINDER, and a new inventory-skip-rules module wired into the runner and engine. All 1351 tests pass, lint and typecheck clean, committed as c653b3c.",
+    "learnings": {
+      "repo": [
+        "EvaluatorResult already supports { skipped: true, skipReason: '...' } pattern — no new type changes needed for skip logic",
+        "engine.ts has 3 distinct runner call sites that need to receive technicalInventory: unified mode (~line 1504), independent mode (~line 1907), and no-file mode (~line 1122)",
+        "technicalInventory is accessed via contextResult?.context?.technicalInventory in engine.ts",
+        "Skip decisions should be computed once before the concurrency loop, not per-evaluator, to avoid redundant work",
+        "The evaluation pipeline targets: cost \u003c $5.00 (from $7.72), cache hit ratio \u003e 70%, wall-clock \u003c 400s (from 534s)"
+      ],
+      "code": [
+        {
+          "path": "src/shared/claude/prompt-builder.ts",
+          "line": 63,
+          "end_line": 63,
+          "finding": "JSON_OUTPUT_REMINDER is appended at end of prompt; updated to include 'If no issues found, return exactly [].' — adding text here pushes prompt length past the 200-char window tested in prompt-builder.test.ts"
+        },
+        {
+          "path": "src/shared/claude/prompt-builder.test.ts",
+          "finding": "Tests assert that JSON_OUTPUT_REMINDER appears within last N chars of prompt; threshold had to be raised from 200 to 250 after the reminder text was extended"
+        },
+        {
+          "path": "src/shared/evaluation/inventory-skip-rules.ts",
+          "line": 1,
+          "finding": "New module: computeInventorySkips(inventory) returns Map\u003cstring, SkipDecision\u003e. DB dep detection covers ~30 packages across JS/Python/Go/Ruby/Java. Security evaluator only skipped for very minimal repos (no env vars, no config files, no deps at all)."
+        },
+        {
+          "path": "src/shared/evaluation/runner.ts",
+          "finding": "Both runAllEvaluators and runUnifiedEvaluation accept technicalInventory in options; skip map is computed once before the evaluator loop via computeInventorySkips()"
+        }
+      ],
+      "workflow": [
+        "Tests run with 'bun run test', lint with 'bun run lint' — both must pass before committing",
+        "User reverted changes mid-session to narrow scope; always confirm scope before starting multi-optimization implementations",
+        "Prompt-only changes (fast-path instructions) are lower risk and should be verified first before code changes"
+      ]
+    },
+    "friction": [
+      "User interrupted initial implementation (which had started on all 5 optimizations) and requested a revert to focus only on #2 and #6 — scope was not confirmed before starting",
+      "3 test failures after updating JSON_OUTPUT_REMINDER because the reminder position threshold in prompt-builder.test.ts was hardcoded to 200 chars and needed to be bumped to 250",
+      "Multiple redundant reads of a cached tool-result file when trying to access specific sections of engine.ts, suggesting the file was too large to navigate efficiently"
+    ],
+    "open_items": [
+      "Optimization #3 (ROOT_ONLY file filtering for project-structure.md, security.md, completeness.md in config.ts) — deferred by user",
+      "Optimization #5 (output format template compaction from ~230 to ~80-100 lines) — deferred by user",
+      "Optimization #7 (two-phase triage LLM call to pre-select evaluators) — deferred, most complex, intended to be opt-in via --triage flag",
+      "A/B testing for triage (#7) to measure false negative rate vs baseline has not been done",
+      "Verification against Supabase repo to confirm actual cost/duration reduction has not been performed"
+    ]
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-24T14:18:31.602047Z",
+    "agent_lines": 484,
+    "human_added": 1211,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 1695,
+    "agent_percentage": 28.55457227138643
+  }
+}
