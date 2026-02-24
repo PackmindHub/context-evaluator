@@ -1,0 +1,73 @@
+Implement the following plan:
+
+# Plan: Reduce evaluator prompt size and improve cache utilization
+
+## Context
+
+Evaluation of a repo with 26 context files produces ~170K char prompts per evaluator, totaling 2.56M chars across 17 evaluators. Two problems:
+
+1. **SKILL.md files are sent as full content** to every evaluator (22K chars for 4 skill files + 30K for a skill-colocated AGENTS.md). Only frontmatter (name/description) is needed — enough to detect if a skill is irrelevant to the project.
+
+2. **Poor cache prefix sharing** — the prompt structure is `evaluatorTemplate → projectContext → outputFormat → fileBlocks → jsonReminder`. Since the evaluator template (5-26K chars, different per evaluator) comes first, the shared content (project context + file blocks, ~130K chars) never benefits from Anthropic's prompt caching across evaluators.
+
+## Changes
+
+### 1. Exclude skill files from evaluator file content
+
+**Files:** `src/shared/file-system/file-finder.ts`
+
+In `findAgentsFiles()` (line 369-380), filter out files whose path matches a skill directory pattern before adding to `allFiles`. This removes both SKILL.md files AND AGENTS.md files colocated inside skill directories from the evaluator file list.
+
+```
+Filter: paths containing .cursor/skills/, .claude/skills/, .agents/skills/, .github/skills/
+```
+
+Skills metadata is already included in prompts via `buildSkillsSection()` in prompt-builder.ts (frontmatter name + description). No information is lost for evaluators.
+
+**Note:** The `findSkillsFilesWithContent()` pipeline (used for the skills summary section) is unchanged — it still reads full content for frontmatter extraction and deduplication. Only the evaluator file list is affected.
+
+### 2. Reorder prompt sections for cache prefix sharing
+
+**Files:** `src/shared/claude/prompt-builder.ts`
+
+Change `buildMultiFilePrompt()` (line 540) and `buildPrompt()` (line 510) prompt ordering from:
+
+```
+evaluatorTemplate → contextSection → outputFormat → fileBlocks → jsonReminder
+```
+
+To:
+
+```
+fileBlocks → contextSection → evaluatorTemplate → outputFormat → jsonReminder
+```
+
+Rationale: File content blocks (~120K chars) and project context (~18K chars) are identical across all evaluators using ALL_FILES strategy. Placing them first maximizes the shared prefix that Anthropic's prompt caching can reuse. The evaluator-specific template and output format (5-26K chars) come after.
+
+### 3. Update tests
+
+Update any snapshot or assertion tests that depend on prompt structure ordering.
+
+## Files to modify
+
+1. `src/shared/file-system/file-finder.ts` — filter skill-directory files from `allFiles`
+2. `src/shared/claude/prompt-builder.ts` — reorder prompt sections
+3. Test files for the above
+
+## Verification
+
+1. `bun run test` — all tests pass
+2. `bun run lint` — no lint errors
+3. Run a local evaluation and verify:
+   - SKILL.md files no longer appear as FILE N blocks in prompts
+   - Skill-colocated AGENTS.md files are also excluded
+   - Skills section in project context still shows skill names/descriptions
+   - Prompt sections are reordered (file blocks first)
+   - Check `prompts/debug/` for actual prompt structure
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+commit

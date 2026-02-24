@@ -1,0 +1,74 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "73602cec3b3f",
+  "session_id": "fde17e2f-8a98-494f-9ef1-31e7bfcc7a89",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-24T12:42:34.491542Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "src/shared/claude/prompt-builder.ts",
+    "src/shared/file-system/file-finder.test.ts",
+    "src/shared/file-system/file-finder.ts"
+  ],
+  "agent": "Claude Code",
+  "token_usage": {
+    "input_tokens": 36,
+    "cache_creation_tokens": 87361,
+    "cache_read_tokens": 2184446,
+    "output_tokens": 3731,
+    "api_call_count": 32
+  },
+  "summary": {
+    "intent": "Reduce evaluator prompt size (~170K chars/evaluator, 2.56M total across 17 evaluators) by excluding full SKILL.md file content from evaluator file blocks, and improve Anthropic prompt cache reuse by reordering prompt sections so shared content (file blocks + project context) appears before evaluator-specific content.",
+    "outcome": "All three changes implemented and committed as fb87f34: skill files filtered from evaluator file lists, prompt sections reordered for cache prefix sharing, and tests updated. All 1331 tests pass with lint and typecheck clean.",
+    "learnings": {
+      "repo": [
+        "Skills metadata already flows to evaluators via buildSkillsSection() in prompt-builder.ts (frontmatter name + description only) — full SKILL.md content was redundant in file blocks",
+        "Two separate skill file pipelines exist: findSkillFiles() in file-finder.ts (was adding to evaluator file list) vs skills-finder.ts (used for skills summary section with frontmatter extraction) — only the former was changed",
+        "findSkillFiles() call in findAgentsFiles() was entirely removable since skill files are now excluded; the skills-finder.ts pipeline is independent",
+        "Pre-commit hooks enforce tests + lint + typecheck on every commit",
+        "Repo had pre-existing dirty files (frontend/src/lib/error-messages.ts, src/shared/evaluation/engine.ts) unrelated to this task"
+      ],
+      "code": [
+        {
+          "path": "src/shared/file-system/file-finder.ts",
+          "line": 369,
+          "end_line": 380,
+          "finding": "findAgentsFiles() — added filter to exclude files whose path contains .cursor/skills/, .claude/skills/, .agents/skills/, .github/skills/; also removed the now-unnecessary findSkillFiles() parallel call"
+        },
+        {
+          "path": "src/shared/claude/prompt-builder.ts",
+          "line": 510,
+          "end_line": 540,
+          "finding": "buildPrompt() and buildMultiFilePrompt() — reordered from evaluatorTemplate→context→output→files→json to fileBlocks→context→evaluatorTemplate→output→json to maximize shared cache prefix across evaluators"
+        },
+        {
+          "path": "src/shared/file-system/file-finder.test.ts",
+          "finding": "Integration test updated to assert skill files are excluded from findAgentsFiles(); two new tests added for AGENTS.md and CLAUDE.md colocated inside skill directories"
+        }
+      ],
+      "workflow": [
+        "When pre-existing dirty files exist, stage only the files modified in the current task rather than using git add -A",
+        "bun run test and bun run lint are the verification commands for this repo"
+      ]
+    },
+    "friction": [
+      "One expected test failure after implementing skill file filtering — the integration test for findAgentsFiles() needed updating to match the new exclusion behavior",
+      "Had to verify that removing findSkillFiles() from findAgentsFiles() was safe by grepping for all usages to confirm the skills-finder.ts pipeline was independent"
+    ],
+    "open_items": [
+      "Manual verification of actual prompt structure via prompts/debug/ directory was listed in the plan's verification checklist but not performed in the session",
+      "Cache hit rate improvement is theoretical — no measurement of actual cache reuse before/after the reordering was done"
+    ]
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-24T12:42:08.162235Z",
+    "agent_lines": 63,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 63,
+    "agent_percentage": 100
+  }
+}

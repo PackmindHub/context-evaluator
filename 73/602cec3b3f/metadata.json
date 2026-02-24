@@ -1,0 +1,28 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "73602cec3b3f",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "src/shared/claude/prompt-builder.ts",
+    "src/shared/file-system/file-finder.test.ts",
+    "src/shared/file-system/file-finder.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/73/602cec3b3f/0/metadata.json",
+      "transcript": "/73/602cec3b3f/0/full.jsonl",
+      "context": "/73/602cec3b3f/0/context.md",
+      "content_hash": "/73/602cec3b3f/0/content_hash.txt",
+      "prompt": "/73/602cec3b3f/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 36,
+    "cache_creation_tokens": 87361,
+    "cache_read_tokens": 2184446,
+    "output_tokens": 3731,
+    "api_call_count": 32
+  }
+}
