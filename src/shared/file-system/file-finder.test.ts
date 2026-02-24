@@ -1319,7 +1319,7 @@ describe("File Finder", () => {
 			expect(files.length).toBe(4);
 		});
 
-		test("should integrate skill files into findAgentsFiles", async () => {
+		test("should NOT include skill files in findAgentsFiles (skills are summarized separately)", async () => {
 			await writeFile(join(testDir, "AGENTS.md"), "# AGENTS content");
 
 			const skillDir = join(testDir, ".cursor", "skills", "testing");
@@ -1329,9 +1329,41 @@ describe("File Finder", () => {
 			const files = await findAgentsFiles(testDir);
 
 			expect(files.some((f) => f.endsWith("AGENTS.md"))).toBe(true);
+			// SKILL.md files are excluded from evaluator file list — they are
+			// summarized via buildSkillsSection() using frontmatter only
 			expect(
 				files.some((f) => f.includes(".cursor/skills/testing/SKILL.md")),
-			).toBe(true);
+			).toBe(false);
+		});
+
+		test("should exclude AGENTS.md colocated inside skill directories", async () => {
+			await writeFile(join(testDir, "AGENTS.md"), "# Root AGENTS content");
+
+			// AGENTS.md inside a skill directory should be excluded
+			const skillDir = join(testDir, ".cursor", "skills", "testing");
+			await mkdir(skillDir, { recursive: true });
+			await writeFile(join(skillDir, "AGENTS.md"), "# Skill-colocated AGENTS");
+
+			const files = await findAgentsFiles(testDir);
+
+			expect(files.length).toBe(1);
+			expect(files[0]).toContain("AGENTS.md");
+			expect(files[0]).not.toContain(".cursor/skills/");
+		});
+
+		test("should exclude CLAUDE.md colocated inside skill directories", async () => {
+			await writeFile(join(testDir, "CLAUDE.md"), "# Root CLAUDE content");
+
+			// CLAUDE.md inside a skill directory should be excluded
+			const skillDir = join(testDir, ".claude", "skills", "deploy");
+			await mkdir(skillDir, { recursive: true });
+			await writeFile(join(skillDir, "CLAUDE.md"), "# Skill-colocated CLAUDE");
+
+			const files = await findAgentsFiles(testDir);
+
+			expect(files.length).toBe(1);
+			expect(files[0]).toContain("CLAUDE.md");
+			expect(files[0]).not.toContain(".claude/skills/");
 		});
 	});
 });

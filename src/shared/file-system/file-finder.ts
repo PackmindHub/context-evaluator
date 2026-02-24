@@ -344,7 +344,9 @@ export async function findAgentsFiles(
 		],
 	};
 
-	// Search for AGENTS.md, CLAUDE.md, copilot-instructions.md, *.instructions.md, .github/instructions/*.md, .claude/rules/*.md, .cursor/rules/*.md/*.mdc, and SKILL.md patterns
+	// Search for AGENTS.md, CLAUDE.md, copilot-instructions.md, *.instructions.md, .github/instructions/*.md, .claude/rules/*.md, .cursor/rules/*.md/*.mdc
+	// Note: SKILL.md files are NOT included — skills are summarized via buildSkillsSection()
+	// in the prompt builder using frontmatter (name + description) only.
 	const [
 		agentsFiles,
 		claudeFiles,
@@ -353,7 +355,6 @@ export async function findAgentsFiles(
 		instructionMdFiles,
 		rulesFiles,
 		cursorRulesFiles,
-		skillFiles,
 	] = await Promise.all([
 		glob("**/AGENTS.md", globOptions),
 		glob("**/CLAUDE.md", globOptions),
@@ -362,20 +363,30 @@ export async function findAgentsFiles(
 		glob("**/.github/instructions/**/*.md", globOptions),
 		findClaudeRulesFiles(baseDir, maxDepth, verbose),
 		findCursorRulesFiles(baseDir, maxDepth, verbose),
-		findSkillFiles(baseDir, maxDepth, verbose),
 	]);
 
 	// Combine results (deduplicate since *.md glob overlaps with *.instructions.md glob)
+	// Exclude files inside skill directories: any AGENTS.md/CLAUDE.md colocated
+	// inside skill directories are filtered out. Skills metadata is already included
+	// in prompts via buildSkillsSection() (frontmatter name + description).
+	const skillDirPatterns = [
+		"/.cursor/skills/",
+		"/.claude/skills/",
+		"/.agents/skills/",
+		"/.github/skills/",
+	];
+	const isInSkillDirectory = (filePath: string) =>
+		skillDirPatterns.some((pattern) => filePath.includes(pattern));
+
 	const allFiles = [
 		...new Set([
-			...agentsFiles,
-			...claudeFiles,
+			...agentsFiles.filter((f) => !isInSkillDirectory(f)),
+			...claudeFiles.filter((f) => !isInSkillDirectory(f)),
 			...copilotFiles,
 			...instructionFiles,
 			...instructionMdFiles,
 			...rulesFiles,
 			...cursorRulesFiles,
-			...skillFiles,
 		]),
 	];
 

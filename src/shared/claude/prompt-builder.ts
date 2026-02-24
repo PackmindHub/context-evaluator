@@ -501,13 +501,17 @@ export async function buildSingleFilePrompt(
 	);
 	const contextSection = buildProjectContextSection(projectContext);
 
+	// Prompt ordering: file content → project context → evaluator template → output format → JSON reminder
+	// File content and project context are identical across evaluators, so placing them first
+	// maximizes the shared prefix for Anthropic's prompt caching.
+
 	// Handle empty or missing content
 	if (isEmptyContent(agentsContent)) {
-		return `${evaluatorPrompt}\n\n${contextSection}${outputFormatTemplate}\n\n---\n\n${NO_FILE_MESSAGE}${JSON_OUTPUT_REMINDER}`;
+		return `${NO_FILE_MESSAGE}\n\n${contextSection}${evaluatorPrompt}\n\n${outputFormatTemplate}${JSON_OUTPUT_REMINDER}`;
 	}
 
 	const numberedContent = addLineNumbers(agentsContent);
-	return `${evaluatorPrompt}\n\n${contextSection}${outputFormatTemplate}\n\n---\n\n## Context File Content to Evaluate:\n\n\`\`\`markdown\n${numberedContent}\n\`\`\`${JSON_OUTPUT_REMINDER}`;
+	return `## Context File Content to Evaluate:\n\n\`\`\`markdown\n${numberedContent}\n\`\`\`\n\n---\n\n${contextSection}${evaluatorPrompt}\n\n${outputFormatTemplate}${JSON_OUTPUT_REMINDER}`;
 }
 
 /**
@@ -526,18 +530,22 @@ export async function buildMultiFilePrompt(
 	);
 	const contextSection = buildProjectContextSection(projectContext);
 
+	// Prompt ordering: file content → project context → evaluator template → output format → JSON reminder
+	// File content and project context are identical across evaluators, so placing them first
+	// maximizes the shared prefix for Anthropic's prompt caching.
+
 	// Handle case where all files have empty content (no AGENTS.md files mode)
 	const allEmpty =
 		files.length === 0 || files.every((f) => isEmptyContent(f.content));
 	if (allEmpty) {
-		return `${evaluatorPrompt}\n\n${contextSection}${outputFormatTemplate}\n\n---\n\n${NO_FILE_MESSAGE}${JSON_OUTPUT_REMINDER}`;
+		return `${NO_FILE_MESSAGE}\n\n${contextSection}${evaluatorPrompt}\n\n${outputFormatTemplate}${JSON_OUTPUT_REMINDER}`;
 	}
 
 	const fileBlocks = files
 		.map((file, index) => formatFileBlockWithSeparators(file, index))
 		.join("\n\n");
 
-	return `${evaluatorPrompt}\n\n${contextSection}${outputFormatTemplate}\n\n---\n\n## Multiple Context Files to Evaluate:\n\n${fileBlocks}${JSON_OUTPUT_REMINDER}`;
+	return `## Multiple Context Files to Evaluate:\n\n${fileBlocks}\n\n---\n\n${contextSection}${evaluatorPrompt}\n\n${outputFormatTemplate}${JSON_OUTPUT_REMINDER}`;
 }
 
 /**
