@@ -180,7 +180,7 @@ describe("prompt-builder", () => {
 
 			expect(prompt).toContain(jsonReminder);
 			// Verify it's at the very end
-			expect(prompt.indexOf(jsonReminder)).toBeGreaterThan(prompt.length - 200);
+			expect(prompt.indexOf(jsonReminder)).toBeGreaterThan(prompt.length - 250);
 		});
 
 		it("should append reminder at end of multi-file prompt", async () => {
@@ -200,7 +200,7 @@ describe("prompt-builder", () => {
 			);
 
 			expect(prompt).toContain(jsonReminder);
-			expect(prompt.indexOf(jsonReminder)).toBeGreaterThan(prompt.length - 200);
+			expect(prompt.indexOf(jsonReminder)).toBeGreaterThan(prompt.length - 250);
 		});
 
 		it("should append reminder for empty content prompts", async () => {
@@ -212,7 +212,7 @@ describe("prompt-builder", () => {
 			);
 
 			expect(prompt).toContain(jsonReminder);
-			expect(prompt.indexOf(jsonReminder)).toBeGreaterThan(prompt.length - 200);
+			expect(prompt.indexOf(jsonReminder)).toBeGreaterThan(prompt.length - 250);
 		});
 	});
 

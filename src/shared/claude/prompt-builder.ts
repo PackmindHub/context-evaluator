@@ -60,7 +60,7 @@ Use location {"file": "AGENTS.md", "start": 0, "end": 0} for all issues since th
  * Brief JSON-only reminder appended at the very end of every assembled prompt.
  * Leverages recency bias so the model sees this constraint last, right before generating.
  */
-const JSON_OUTPUT_REMINDER = `\n\n---\n\nREMINDER: Your ENTIRE response must be ONLY a valid JSON array. Start with \`[\` and end with \`]\`. No text before or after. No markdown. No explanations. Just the JSON array.`;
+const JSON_OUTPUT_REMINDER = `\n\n---\n\nREMINDER: Your ENTIRE response must be ONLY a valid JSON array. Start with \`[\` and end with \`]\`. No text before or after. No markdown. No explanations. Just the JSON array. If no issues found, return exactly \`[]\`.`;
 
 /**
  * Check if content is empty or effectively empty.

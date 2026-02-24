@@ -1134,6 +1134,7 @@ export class EvaluationEngine {
 					selectedEvaluators: options.selectedEvaluators,
 					timeout: options.timeout,
 					noFileMode: true,
+					technicalInventory: contextResult?.context?.technicalInventory,
 				});
 
 				const totalDuration = Date.now() - startTime;
@@ -1517,6 +1518,7 @@ export class EvaluationEngine {
 			evaluatorFilter: options.evaluatorFilter,
 			selectedEvaluators: options.selectedEvaluators,
 			timeout: options.timeout,
+			technicalInventory: contextResult?.context?.technicalInventory,
 		});
 
 		const duration = Date.now() - startTime;
@@ -1919,6 +1921,7 @@ export class EvaluationEngine {
 				evaluatorFilter: options.evaluatorFilter,
 				selectedEvaluators: options.selectedEvaluators,
 				timeout: options.timeout,
+				technicalInventory: contextResult?.context?.technicalInventory,
 			});
 
 			const fileResult = createFileResult(filePath, relativePath, evaluations);

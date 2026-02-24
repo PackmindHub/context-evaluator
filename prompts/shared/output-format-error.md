@@ -172,6 +172,7 @@ Only return your JSON array AFTER completing this validation.
 ---
 
 **Rules:**
+- **FAST PATH**: If no issues with severity > 5, immediately return `[]`. No reasoning, no explanation.
 - Only include issues with severity > 5
 - Return a MAXIMUM of 10 issues per evaluator - prioritize the most severe and impactful issues
 - If more than 10 issues are found, select the 10 with highest severity/impact

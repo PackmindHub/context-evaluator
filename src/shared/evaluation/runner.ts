@@ -15,6 +15,7 @@ import { getProvider, type IAIProvider } from "@shared/providers";
 import type {
 	EvaluatorFilter,
 	Issue,
+	ITechnicalInventory,
 	StructuredError,
 	Usage,
 } from "@shared/types/evaluation";
@@ -35,6 +36,7 @@ import {
 	getIssueTypeFromEvaluatorName,
 	shouldExecuteIfNoFile,
 } from "./evaluator-types";
+import { computeInventorySkips } from "./inventory-skip-rules";
 import { logRuntimePrompt } from "./runtime-prompt-logger";
 
 /**
@@ -221,6 +223,8 @@ export async function runAllEvaluators(
 		selectedEvaluators?: string[];
 		/** Timeout per evaluator in milliseconds */
 		timeout?: number;
+		/** Pre-computed technical inventory for skip rule evaluation */
+		technicalInventory?: ITechnicalInventory;
 	} = {},
 ): Promise<EvaluatorResult[]> {
 	const {
@@ -239,7 +243,11 @@ export async function runAllEvaluators(
 		evaluatorFilter = "all",
 		selectedEvaluators,
 		timeout = DEFAULT_TIMEOUT_MS,
+		technicalInventory,
 	} = options;
+
+	// Compute inventory-based skip decisions once before the loop
+	const inventorySkips = computeInventorySkips(technicalInventory);
 
 	// Apply filter first, then limit by count
 	const allEvaluatorFiles = EVALUATOR_FILES;
@@ -286,6 +294,22 @@ export async function runAllEvaluators(
 					skipped: true,
 					skipReason:
 						"No context file exists and this evaluator requires existing content to evaluate",
+				};
+			}
+
+			// Check if evaluator should be skipped based on technical inventory
+			const inventorySkip = inventorySkips.get(evaluatorFilename);
+			if (inventorySkip?.skip) {
+				if (verbose) {
+					runnerLogger.log(
+						`Skipping ${evaluatorName} - ${inventorySkip.reason}`,
+					);
+				}
+				return {
+					evaluator: evaluatorName,
+					issues: [],
+					skipped: true,
+					skipReason: `Inventory: ${inventorySkip.reason}`,
 				};
 			}
 
@@ -787,6 +811,8 @@ export async function runUnifiedEvaluation(
 		selectedEvaluators?: string[];
 		/** Timeout per evaluator in milliseconds */
 		timeout?: number;
+		/** Pre-computed technical inventory for skip rule evaluation */
+		technicalInventory?: ITechnicalInventory;
 	} = {},
 ): Promise<UnifiedEvaluationResult> {
 	const {
@@ -806,7 +832,11 @@ export async function runUnifiedEvaluation(
 		evaluatorFilter = "all",
 		selectedEvaluators,
 		timeout = DEFAULT_TIMEOUT_MS,
+		technicalInventory,
 	} = options;
+
+	// Compute inventory-based skip decisions once before the loop
+	const inventorySkips = computeInventorySkips(technicalInventory);
 
 	// Build file context
 	const context = await buildMultiFileContext(filePaths, getRelativePath);
@@ -875,6 +905,27 @@ export async function runUnifiedEvaluation(
 						skipped: true,
 						skipReason:
 							"No context file exists and this evaluator requires existing content to evaluate",
+					};
+				}
+
+				// Check if evaluator should be skipped based on technical inventory
+				const inventorySkip = inventorySkips.get(evaluatorFilename);
+				if (inventorySkip?.skip) {
+					if (verbose) {
+						unifiedLogger.log(
+							`Skipping ${evaluatorName} - ${inventorySkip.reason}`,
+						);
+					}
+					const perFileIssues: Record<string, Issue[]> = {};
+					for (const file of context.files) {
+						perFileIssues[file.relativePath] = [];
+					}
+					return {
+						evaluator: evaluatorName,
+						perFileIssues,
+						crossFileIssues: [],
+						skipped: true,
+						skipReason: `Inventory: ${inventorySkip.reason}`,
 					};
 				}
 

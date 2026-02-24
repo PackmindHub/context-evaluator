@@ -147,6 +147,7 @@ Only return your JSON array AFTER completing this validation.
 ---
 
 **Rules:**
+- **FAST PATH**: If no suggestions with "Medium" or "High" impact, immediately return `[]`. No reasoning, no explanation.
 - Only include suggestions with "Medium" or "High" impact level
 - Return a MAXIMUM of 10 suggestions per evaluator - prioritize those with the highest potential impact
 - If more than 10 suggestions are found, select the 10 with highest impact
