@@ -1,5 +1,16 @@
 # [Unreleased]
 
+# [0.4.1] - 2026-02-26
+
+## Added
+
+- macOS code signing and notarization for darwin binaries in the release workflow
+- Hardened runtime entitlements (`entitlements.plist`) for Bun-compiled CLI binaries
+
+## Changed
+
+- Split CI release job into build → sign → release pipeline (3 jobs)
+
 # [0.4.0] - 2026-02-26
 
 ## Added
@@ -65,6 +76,8 @@
 
 - Initial version of context-evaluator
 
+[0.4.1]: https://github.com/PackmindHub/context-evaluator/compare/release/0.4.0...release/0.4.1
+[0.4.0]: https://github.com/PackmindHub/context-evaluator/compare/release/0.3.0...release/0.4.0
 [0.3.0]: https://github.com/PackmindHub/context-evaluator/compare/release/0.2.0...release/0.3.0
 [0.2.0]: https://github.com/PackmindHub/context-evaluator/compare/release/0.0.1...release/0.2.0
 [0.0.1]: https://github.com/PackmindHub/context-evaluator/compare/5c44587a...release/0.0.1
