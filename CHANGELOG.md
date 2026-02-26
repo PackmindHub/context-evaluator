@@ -1,5 +1,11 @@
 # [Unreleased]
 
+# [0.4.0] - 2026-02-26
+
+## Added
+
+- Many improvements have been added to the remediation module
+
 # [0.3.0] - 2026-02-23
 
 ## Added
