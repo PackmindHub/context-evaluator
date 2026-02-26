@@ -129,8 +129,6 @@ export function RemediateTab({
 	);
 
 	// Legacy prompt generation state
-	const [isGenerating, setIsGenerating] = useState(false);
-	const [generateError, setGenerateError] = useState<string | null>(null);
 	const [prompts, setPrompts] = useState<RemediationPromptsResponse | null>(
 		null,
 	);
@@ -471,39 +469,6 @@ export function RemediateTab({
 	]);
 
 	// Generate prompts (legacy copy-paste mode)
-	const handleGeneratePrompts = useCallback(async () => {
-		if (!evaluationId || totalSelected === 0) return;
-
-		setIsGenerating(true);
-		setGenerateError(null);
-
-		try {
-			const issues = [
-				...errorEntries.map((e) => e.issue),
-				...suggestionEntries.map((e) => e.issue),
-			];
-			const result = await api.generateRemediationPrompts(
-				evaluationId,
-				issues,
-				targetAgent,
-			);
-			setPrompts(result);
-		} catch (err) {
-			setGenerateError(
-				err instanceof Error ? err.message : "Failed to generate prompts",
-			);
-		} finally {
-			setIsGenerating(false);
-		}
-	}, [
-		evaluationId,
-		totalSelected,
-		errorEntries,
-		suggestionEntries,
-		targetAgent,
-		api,
-	]);
-
 	// Delete a remediation from history
 	const handleDeleteRemediation = useCallback(
 		async (remediationId: string) => {
@@ -773,7 +738,7 @@ export function RemediateTab({
 					<div className="flex flex-wrap gap-3">
 						<button
 							onClick={() => setShowConfirmModal(true)}
-							disabled={isExecuting || isGenerating}
+							disabled={isExecuting}
 							className="btn-primary"
 						>
 							{isExecuting ? (
@@ -803,20 +768,10 @@ export function RemediateTab({
 								`Execute Remediation (${totalSelected})`
 							)}
 						</button>
-						<button
-							onClick={handleGeneratePrompts}
-							disabled={isExecuting || isGenerating}
-							className="btn-secondary"
-						>
-							{isGenerating ? "Generating..." : "Generate Prompts"}
-						</button>
 					</div>
 
 					{executeError && (
 						<p className="text-sm text-red-400 mt-2">{executeError}</p>
-					)}
-					{generateError && (
-						<p className="text-sm text-red-400 mt-2">{generateError}</p>
 					)}
 				</div>
 			)}
