@@ -1,0 +1,5 @@
+Remove the button "Generate Prompts" in the remediation module
+
+---
+
+commit
