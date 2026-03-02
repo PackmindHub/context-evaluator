@@ -1,0 +1,41 @@
+Implement the following plan:
+
+# Plan: Make `evaluate` the default CLI subcommand
+
+## Context
+
+Running `./dist/bin/context-evaluator-darwin-arm64 cli --url <url>` fails with `error: unknown option '--url'` because `--url` is defined on the `evaluate` subcommand, not the root `cli` program. Users must currently type the full `cli evaluate --url <url>`, but since `evaluate` is the **only** subcommand, it should be the default.
+
+## Approach
+
+Make `evaluate` the default command in Commander.js so that `cli --url <url>` is equivalent to `cli evaluate --url <url>`.
+
+### File to modify
+
+**`src/cli/index.ts`** (line 25)
+
+Add `.default()` to the evaluate command definition:
+
+```typescript
+program
+  .command("evaluate", { isDefault: true })  // ← add { isDefault: true }
+  .description(...)
+```
+
+This is a single-line change. Commander.js's `isDefault` option makes the command run when no subcommand is matched, so all existing `--url`, `--path`, etc. options will work directly after `cli`.
+
+## Verification
+
+1. Run `bun run test` to ensure no regressions
+2. Test both invocations work:
+   - `bun run src/index.ts cli evaluate --url https://github.com/jayvicsanantonio/ai-timeline-automation` (existing)
+   - `bun run src/index.ts cli --url https://github.com/jayvicsanantonio/ai-timeline-automation` (new)
+3. Verify `cli --help` still shows the evaluate subcommand
+4. Run `bun run lint`
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+commit
