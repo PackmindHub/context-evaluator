@@ -29,6 +29,9 @@ chmod +x ./context-evaluator-<platform>
 
 # Or run a CLI evaluation
 ./context-evaluator-<platform> cli evaluate --url https://github.com/user/repo
+
+# Or evaluate a local directory
+./context-evaluator-<platform> cli evaluate --path /path/to/project
 ```
 
 Then open **http://localhost:3000** in your browser.
