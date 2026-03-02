@@ -1,0 +1,33 @@
+Implement the following plan:
+
+# Plan: Change default CLI report mode to "json"
+
+## Context
+The current default report mode for the CLI `evaluate` command is `"terminal"`. The user wants `"json"` to be the default instead, as `raw` output isn't usable and `json` provides comprehensive, structured output.
+
+## Change
+
+**File:** `src/cli/index.ts` (line ~92)
+
+Change the default value of the `--report` option from `"terminal"` to `"json"`:
+
+```typescript
+// Before
+.option("--report <mode>", "Report mode: terminal (default), raw, json", "terminal")
+
+// After
+.option("--report <mode>", "Report mode: json (default), raw, terminal", "json")
+```
+
+That's it — single line change.
+
+## Verification
+- `bun run test` — ensure no tests break
+- `bun run lint` — ensure lint passes
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+then commit, and update changelog

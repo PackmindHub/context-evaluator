@@ -1,0 +1,57 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "1ebff44644f8",
+  "session_id": "540a8f92-9d04-4794-9d44-a53d78eedef2",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-02T10:16:13.534927Z",
+  "branch": "main",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "CHANGELOG.md",
+    "src/cli/index.ts"
+  ],
+  "agent": "Claude Code",
+  "token_usage": {
+    "input_tokens": 13,
+    "cache_creation_tokens": 21882,
+    "cache_read_tokens": 296460,
+    "output_tokens": 1145,
+    "api_call_count": 9
+  },
+  "summary": {
+    "intent": "Change the default CLI report mode from 'terminal' to 'json' for the evaluate command, as raw/terminal output is less useful than structured JSON output.",
+    "outcome": "Successfully changed the default --report option value to 'json' in the CLI, committed the change with passing pre-commit hooks (1351 tests, lint, typecheck), and updated CHANGELOG.md.",
+    "learnings": {
+      "repo": [
+        "Project uses pre-commit hooks that run tests, lint, and typecheck before allowing commits",
+        "Test suite has 1351 tests and is run with 'bun run test'",
+        "Linting is run with 'bun run lint'",
+        "CHANGELOG.md follows Keep a Changelog format with an [Unreleased] section"
+      ],
+      "code": [
+        {
+          "path": "src/cli/index.ts",
+          "line": 92,
+          "end_line": 92,
+          "finding": "The --report CLI option default value is defined here; changed from 'terminal' to 'json'. The option string format is: .option(\"--report \u003cmode\u003e\", \"description\", defaultValue)"
+        }
+      ],
+      "workflow": [
+        "Tests and lint were run in parallel for efficiency",
+        "Commit message format follows conventional commits style based on project history",
+        "Changelog is updated as part of the commit, not as a separate step"
+      ]
+    },
+    "friction": [],
+    "open_items": []
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-02T10:16:05.435548Z",
+    "agent_lines": 6,
+    "human_added": 1113,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 1119,
+    "agent_percentage": 0.5361930294906166
+  }
+}
