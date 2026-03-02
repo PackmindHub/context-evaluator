@@ -22,7 +22,7 @@ program
 	.option("--port <number>", "Port number (API mode only)", "3001");
 
 program
-	.command("evaluate")
+	.command("evaluate", { isDefault: true })
 	.description(
 		"Evaluate all AGENTS.md, CLAUDE.md, and copilot-instructions.md files in the current directory or a remote repository",
 	)
@@ -147,6 +147,32 @@ program
 				"Error: --url and --path are mutually exclusive. Please specify only one.",
 			);
 			process.exit(1);
+		}
+
+		// Auto-detect local paths passed to --url and redirect to --path
+		if (options.url && !options.path) {
+			const urlValue = options.url;
+			const looksLikeLocalPath =
+				urlValue === "." ||
+				urlValue.startsWith("/") ||
+				urlValue.startsWith("./") ||
+				urlValue.startsWith("../") ||
+				urlValue.startsWith("~");
+			const looksLikeUrl = urlValue.includes("://");
+			const looksLikeBareRepo = /^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/.test(
+				urlValue,
+			);
+
+			if (looksLikeLocalPath && !looksLikeUrl) {
+				console.log("Detected local path in --url, using it as --path instead");
+				options.path = urlValue;
+				options.url = undefined;
+			} else if (!looksLikeUrl && !looksLikeBareRepo) {
+				// Doesn't look like a URL or a bare owner/repo — likely a local path
+				console.log("Detected local path in --url, using it as --path instead");
+				options.path = urlValue;
+				options.url = undefined;
+			}
 		}
 
 		// Validate and resolve path if provided
