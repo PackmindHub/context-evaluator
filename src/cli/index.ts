@@ -89,8 +89,8 @@ program
 	)
 	.option(
 		"--report <mode>",
-		"Report mode: terminal (default), raw, json",
-		"terminal",
+		"Report mode: json (default), raw, terminal",
+		"json",
 	)
 	.option(
 		"--enable-assessment-features",

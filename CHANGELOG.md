@@ -1,5 +1,9 @@
 # [Unreleased]
 
+## Changed
+
+- Default CLI report mode changed from `terminal` to `json` for structured, comprehensive output
+
 # [0.4.1] - 2026-02-26
 
 ## Added
