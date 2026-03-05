@@ -4,6 +4,14 @@
 ## Added
 ## Fixed
 
+# [0.4.3] - 2026-03-05
+
+## Added
+
+- Smart target agent auto-selection in Remediate tab: automatically selects the correct target format (AGENTS.md, Claude Code, GitHub Copilot, Cursor) based on discovered context files instead of always defaulting to AGENTS.md
+- When multiple agent file types are detected (e.g., AGENTS.md + CLAUDE.md + .cursor/rules), the Execute button is disabled until the user explicitly selects a target format
+- Amber hint message shown when no target is auto-selected due to mixed agent types
+
 # [0.4.2] - 2026-03-02
 
 ## Changed
@@ -86,6 +94,8 @@
 
 - Initial version of context-evaluator
 
+[0.4.3]: https://github.com/PackmindHub/context-evaluator/compare/release/0.4.2...release/0.4.3
+[0.4.2]: https://github.com/PackmindHub/context-evaluator/compare/release/0.4.1...release/0.4.2
 [0.4.1]: https://github.com/PackmindHub/context-evaluator/compare/release/0.4.0...release/0.4.1
 [0.4.0]: https://github.com/PackmindHub/context-evaluator/compare/release/0.3.0...release/0.4.0
 [0.3.0]: https://github.com/PackmindHub/context-evaluator/compare/release/0.2.0...release/0.3.0

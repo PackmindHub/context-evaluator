@@ -102,7 +102,8 @@ export function RemediateTab({
 
 	// Phase: idle (config visible) or progress (SSE running)
 	const [phase, setPhase] = useState<Phase>("idle");
-	const [targetAgent, setTargetAgent] = useState<TargetAgent>("agents-md");
+	const [targetAgent, setTargetAgent] = useState<TargetAgent | null>(null);
+	const [userHasSelectedAgent, setUserHasSelectedAgent] = useState(false);
 	const [selectedProvider, setSelectedProvider] =
 		useState<ProviderName>("claude");
 	const [isExecuting, setIsExecuting] = useState(false);
@@ -139,6 +140,48 @@ export function RemediateTab({
 			providerDetection.detectProviders();
 		}
 	}, [providerDetection]);
+
+	// Auto-select target agent based on discovered context files
+	useEffect(() => {
+		if (userHasSelectedAgent || !evaluationData) return;
+
+		const contextFiles = evaluationData.metadata?.projectContext?.contextFiles;
+		if (!contextFiles || contextFiles.length === 0) {
+			// No-file mode: default to agents-md for backward compat
+			setTargetAgent("agents-md");
+			return;
+		}
+
+		// Determine which agent families are present
+		const families = new Set<TargetAgent>();
+		for (const file of contextFiles) {
+			switch (file.type) {
+				case "agents":
+					families.add("agents-md");
+					break;
+				case "claude":
+				case "rules":
+					families.add("claude-code");
+					break;
+				case "copilot":
+					families.add("github-copilot");
+					break;
+				case "cursor-rules":
+					families.add("cursor");
+					break;
+				// "skills" doesn't map to a target agent
+			}
+		}
+
+		if (families.size === 1) {
+			setTargetAgent([...families][0]);
+		} else if (families.size === 0) {
+			setTargetAgent("agents-md");
+		} else {
+			// Multiple families: force explicit selection
+			setTargetAgent(null);
+		}
+	}, [evaluationData, userHasSelectedAgent]);
 
 	// Load remediation history on mount / evaluationId change
 	const refreshHistory = useCallback(async () => {
@@ -427,7 +470,7 @@ export function RemediateTab({
 
 	// Execute remediation
 	const handleExecute = useCallback(async () => {
-		if (!evaluationId || totalSelected === 0) return;
+		if (!evaluationId || totalSelected === 0 || !targetAgent) return;
 
 		setIsExecuting(true);
 		setExecuteError(null);
@@ -640,7 +683,10 @@ export function RemediateTab({
 							).map(([value, label]) => (
 								<button
 									key={value}
-									onClick={() => setTargetAgent(value)}
+									onClick={() => {
+										setTargetAgent(value);
+										setUserHasSelectedAgent(true);
+									}}
 									className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm transition-colors ${
 										targetAgent === value
 											? "bg-blue-600 text-white"
@@ -656,9 +702,15 @@ export function RemediateTab({
 								</button>
 							))}
 						</div>
-						{AGENT_GENERATED_FILES[targetAgent] && (
+						{targetAgent && AGENT_GENERATED_FILES[targetAgent] && (
 							<p className="text-xs text-slate-500 mt-1">
 								Generates: {AGENT_GENERATED_FILES[targetAgent].join(", ")}
+							</p>
+						)}
+						{targetAgent === null && (
+							<p className="text-xs text-amber-400 mt-1">
+								Multiple agent file types detected. Please select a target
+								format.
 							</p>
 						)}
 					</div>
@@ -738,7 +790,7 @@ export function RemediateTab({
 					<div className="flex flex-wrap gap-3">
 						<button
 							onClick={() => setShowConfirmModal(true)}
-							disabled={isExecuting}
+							disabled={isExecuting || targetAgent === null}
 							className="btn-primary"
 						>
 							{isExecuting ? (
@@ -803,18 +855,20 @@ export function RemediateTab({
 								</span>
 							</div>
 						)}
-						<div className="flex justify-between text-slate-300">
-							<span>Target for markdown file rendering</span>
-							<span className="font-semibold">
-								{targetAgent === "agents-md"
-									? "AGENTS.md"
-									: targetAgent === "claude-code"
-										? "Claude Code"
-										: targetAgent === "github-copilot"
-											? "GitHub Copilot"
-											: "Cursor"}
-							</span>
-						</div>
+						{targetAgent && (
+							<div className="flex justify-between text-slate-300">
+								<span>Target for markdown file rendering</span>
+								<span className="font-semibold">
+									{targetAgent === "agents-md"
+										? "AGENTS.md"
+										: targetAgent === "claude-code"
+											? "Claude Code"
+											: targetAgent === "github-copilot"
+												? "GitHub Copilot"
+												: "Cursor"}
+								</span>
+							</div>
+						)}
 						{!cloudMode && (
 							<div className="flex justify-between text-slate-300">
 								<span>Provider</span>
