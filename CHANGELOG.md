@@ -1,8 +1,21 @@
 # Unreleased
 
 ## Changed
+
+- Evaluator prompts now use dynamic `{{CONTEXT_FILE}}` placeholder instead of hardcoded "AGENTS.md", so issue messages reference the actual filename (e.g., "CLAUDE.md") when evaluating non-AGENTS.md context files
+- All 17 evaluator role descriptions updated from "specialized AGENTS.md evaluator" to "specialized context file evaluator"
+- "No AGENTS.md File Mode" sections renamed to "No Context File Mode" in context-gaps, test-patterns-coverage, and database-patterns-coverage evaluators
+- Context scorer user-facing messages updated to use generic "context files" wording instead of "AGENTS.md files"
+- Output format templates (error and suggestion) now use `{{CONTEXT_FILE}}` in JSON examples
+
 ## Added
+
+- `fileName` parameter on `buildSingleFilePrompt()` and `primaryFileName` on `buildMultiFilePrompt()` to thread the actual context file name through the prompt pipeline
+- `{{CONTEXT_FILE}}` template variable replacement in `loadOutputFormatTemplate()`, evaluator prompts, and output format templates
+
 ## Fixed
+
+- Evaluator outputs no longer say "No AGENTS.md exists..." when evaluating a repository that only has CLAUDE.md or other context file formats
 
 # [0.4.3] - 2026-03-05
 

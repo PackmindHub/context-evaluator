@@ -519,14 +519,14 @@ describe("Context Scorer", () => {
 		test("should have appropriate summary for no files", () => {
 			const result = createNoFilesContextScore();
 
-			expect(result.summary).toContain("No AGENTS.md files found");
+			expect(result.summary).toContain("No context files found");
 		});
 
 		test("should have explanation field", () => {
 			const result = createNoFilesContextScore();
 
 			expect(result.explanation).toBeDefined();
-			expect(result.explanation).toContain("No AGENTS.md");
+			expect(result.explanation).toContain("No context files");
 		});
 
 		test("should have zero setup bonuses", () => {
@@ -561,7 +561,7 @@ describe("Context Scorer", () => {
 	describe("generateExplanation", () => {
 		test("should generate explanation for no files", () => {
 			const explanation = generateExplanation(3.5, "Developing", 0, 2.5, 0);
-			expect(explanation).toContain("No AGENTS.md");
+			expect(explanation).toContain("No context files");
 		});
 
 		test("should generate explanation for Excellent grade", () => {

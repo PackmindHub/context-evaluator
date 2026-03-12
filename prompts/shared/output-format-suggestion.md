@@ -14,7 +14,7 @@ Return a JSON array of suggestions. Each suggestion must have these fields:
   "impactLevel": "High",
   "problem": "short description",
   "location": {
-    "file": "AGENTS.md",
+    "file": "{{CONTEXT_FILE}}",
     "start": 1,
     "end": 1
   },
@@ -31,9 +31,9 @@ Return a JSON array of suggestions. Each suggestion must have these fields:
 - Use this extracted path in the "file" field of your location objects
 
 **For Single-File Evaluation:**
-- Location: `{"file": "AGENTS.md", "start": 1, "end": 1}`
+- Location: `{"file": "{{CONTEXT_FILE}}", "start": 1, "end": 1}`
 - For missing content suggestions, use line 1 or the most relevant location
-- The file path is simply "AGENTS.md" unless specified otherwise in the section header
+- The file path is the context file name unless specified otherwise in the section header
 
 **For Multi-File Evaluation (per-file suggestions):**
 - Location: `{"file": "frontend/AGENTS.md", "start": 1, "end": 1}`
@@ -180,7 +180,7 @@ A short, clear description of what is missing or could be improved:
 
 ### 4. location (object or array)
 Where in the file the content should be added:
-- Single file: `{"file": "AGENTS.md", "start": 1, "end": 1}`
+- Single file: `{"file": "{{CONTEXT_FILE}}", "start": 1, "end": 1}`
 - Cross-file: Array of location objects with file references
 - For missing content, use line 1 or the most relevant insertion point
 

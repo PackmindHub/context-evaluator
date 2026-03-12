@@ -228,7 +228,7 @@ export function generateExplanation(
 	agentsFileCount: number,
 ): string {
 	if (agentsFileCount === 0) {
-		return "No AGENTS.md files found. Create one to provide AI agents with essential context.";
+		return "No context files found. Create one to provide AI agents with essential context.";
 	}
 
 	if (grade === "Excellent") {
@@ -253,7 +253,7 @@ export function generateExplanation(
 		return `Your context setup is developing. Focus on fixing high-severity issues first.`;
 	}
 
-	return `Your AI context needs significant improvement. Start by creating or enhancing your AGENTS.md file.`;
+	return `Your AI context needs significant improvement. Start by creating or enhancing your context file.`;
 }
 
 // ============================================================================
@@ -451,10 +451,10 @@ export async function generateScoreExplanation(
 	const grade = getGradeFromScore(score);
 	const noFilesGuidance =
 		breakdown.context.agentsFileCount === 0
-			? `\nIMPORTANT: No AGENTS.md files exist in this repository. Your FIRST recommendation MUST be to bootstrap/create an AGENTS.md file at the repository root. The other two recommendations should focus on what context gaps to address (e.g., project architecture, coding conventions, testing requirements, technology stack).\n`
+			? `\nIMPORTANT: No context files exist in this repository. Your FIRST recommendation MUST be to bootstrap/create a context file (AGENTS.md or CLAUDE.md) at the repository root. The other two recommendations should focus on what context gaps to address (e.g., project architecture, coding conventions, testing requirements, technology stack).\n`
 			: "";
 
-	const prompt = `You are analyzing the quality of AGENTS.md files in a repository. Based on the following evaluation data, generate:
+	const prompt = `You are analyzing the quality of context files (AGENTS.md, CLAUDE.md) in a repository. Based on the following evaluation data, generate:
 1. A 1-2 sentence summary explaining the overall quality
 2. Top 3 actionable recommendations for improvement
 ${noFilesGuidance}
@@ -529,22 +529,22 @@ function getDefaultSummary(
 		breakdown.context;
 
 	if (agentsFileCount === 0) {
-		return "No AGENTS.md files found. AI agents have no context guidance for this repository.";
+		return "No context files found. AI agents have no context guidance for this repository.";
 	}
 
 	if (grade === "Excellent") {
-		return "Your AGENTS.md files provide excellent context for AI agents with minimal issues.";
+		return "Your context files provide excellent guidance for AI agents with minimal issues.";
 	}
 	if (grade === "Good") {
-		return `Your AGENTS.md files provide good context with ${errorCount} minor errors to address.`;
+		return `Your context files provide good guidance with ${errorCount} minor errors to address.`;
 	}
 	if (grade === "Fair") {
-		return `Your AGENTS.md files need improvement. Found ${errorCount} errors and ${suggestionCount} suggestions.`;
+		return `Your context files need improvement. Found ${errorCount} errors and ${suggestionCount} suggestions.`;
 	}
 	if (grade === "Developing") {
-		return `Your AGENTS.md files have significant issues. ${highIssues} high-severity problems require attention.`;
+		return `Your context files have significant issues. ${highIssues} high-severity problems require attention.`;
 	}
-	return `Critical issues in AGENTS.md files. ${highIssues} high-severity problems found.`;
+	return `Critical issues in context files. ${highIssues} high-severity problems found.`;
 }
 
 /**
@@ -586,19 +586,19 @@ function getDefaultRecommendations(
 
 	if (linkedDocsCount === 0 && recommendations.length < 3) {
 		recommendations.push(
-			"Link relevant documentation from your AGENTS.md to provide deeper context.",
+			"Link relevant documentation from your context file to provide deeper context.",
 		);
 	}
 
 	if (suggestionCount > errorCount && recommendations.length < 3) {
 		recommendations.push(
-			"Consider adding AGENTS.md files to subdirectories for better coverage.",
+			"Consider adding context files to subdirectories for better coverage.",
 		);
 	}
 
 	if (recommendations.length < 3) {
 		recommendations.push(
-			"Regularly review and update AGENTS.md files as your codebase evolves.",
+			"Regularly review and update context files as your codebase evolves.",
 		);
 	}
 
@@ -649,7 +649,7 @@ export function createNoFilesContextScore(): IContextScore {
 		score,
 		grade,
 		summary:
-			"No AGENTS.md files found. AI agents have no context guidance for this repository.",
+			"No context files found. AI agents have no context guidance for this repository.",
 		breakdown,
 		recommendations: [
 			"Bootstrap an AGENTS.md file at the repository root to provide essential AI context.",
@@ -657,7 +657,7 @@ export function createNoFilesContextScore(): IContextScore {
 			"Add technology stack details and critical workflows that AI agents need to understand.",
 		],
 		explanation:
-			"No AGENTS.md files found. Create one to provide AI agents with essential context.",
+			"No context files found. Create one to provide AI agents with essential context.",
 	};
 }
 

@@ -14,7 +14,7 @@ Return a JSON array of issues. Each issue must have these fields:
   "severity": 6-10,
   "problem": "short description",
   "location": {
-    "file": "AGENTS.md",
+    "file": "{{CONTEXT_FILE}}",
     "start": 10,
     "end": 11
   },
@@ -43,7 +43,7 @@ When reporting issues, the `"file"` field in location objects MUST contain the F
 
 ✅ **CORRECT** - Full relative paths:
 ```json
-{"file": "AGENTS.md", "start": 10, "end": 11}
+{"file": "{{CONTEXT_FILE}}", "start": 10, "end": 11}
 {"file": "packages/ui/AGENTS.md", "start": 5, "end": 8}
 {"file": "frontend/docs/AGENTS.md", "start": 15, "end": 20}
 ```
@@ -54,7 +54,7 @@ When reporting issues, the `"file"` field in location objects MUST contain the F
 ```
 
 **For Single-File Evaluation:**
-- Location: `{"file": "AGENTS.md", "start": 10, "end": 11}`
+- Location: `{"file": "{{CONTEXT_FILE}}", "start": 10, "end": 11}`
 - Use the file path exactly as shown in the section headers
 
 **For Multi-File Evaluation (per-file issues):**
@@ -138,7 +138,7 @@ Before returning your response, verify ALL of these:
     "category": "Content Quality & Focus",
     "severity": 8,
     "problem": "File lacks executable commands",
-    "location": {"file": "AGENTS.md", "start": 1, "end": 50},
+    "location": {"file": "{{CONTEXT_FILE}}", "start": 1, "end": 50},
     "impact": "Agents cannot perform actions without commands",
     "fix": "Add command examples with expected outputs"
   }
@@ -206,7 +206,7 @@ A short, clear description of what the issue is:
 
 ### 4. location (object or array)
 Where in the file the issue was found:
-- Single file: `{"file": "AGENTS.md", "start": 10, "end": 15}`
+- Single file: `{"file": "{{CONTEXT_FILE}}", "start": 10, "end": 15}`
 - Cross-file: Array of location objects with file references
 - Always include line numbers (start and end)
 

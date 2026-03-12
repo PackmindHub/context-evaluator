@@ -216,6 +216,75 @@ describe("prompt-builder", () => {
 		});
 	});
 
+	describe("{{CONTEXT_FILE}} replacement", () => {
+		const mockEvaluatorName = "test";
+
+		it("should replace {{CONTEXT_FILE}} with provided fileName in single-file prompt", async () => {
+			const evaluatorPrompt =
+				"# Test Evaluator\nCheck {{CONTEXT_FILE}} for issues.";
+			const prompt = await buildSingleFilePrompt(
+				evaluatorPrompt,
+				"# Some content",
+				undefined,
+				mockEvaluatorName,
+				"CLAUDE.md",
+			);
+
+			expect(prompt).toContain("Check CLAUDE.md for issues.");
+			expect(prompt).not.toContain("{{CONTEXT_FILE}}");
+		});
+
+		it("should default to AGENTS.md when no fileName provided", async () => {
+			const evaluatorPrompt =
+				"# Test Evaluator\nCheck {{CONTEXT_FILE}} for issues.";
+			const prompt = await buildSingleFilePrompt(
+				evaluatorPrompt,
+				"# Some content",
+				undefined,
+				mockEvaluatorName,
+			);
+
+			expect(prompt).toContain("Check AGENTS.md for issues.");
+			expect(prompt).not.toContain("{{CONTEXT_FILE}}");
+		});
+
+		it("should include fileName in header when provided", async () => {
+			const evaluatorPrompt = "# Test Evaluator\nTest content";
+			const prompt = await buildSingleFilePrompt(
+				evaluatorPrompt,
+				"# Some content",
+				undefined,
+				mockEvaluatorName,
+				"CLAUDE.md",
+			);
+
+			expect(prompt).toContain("Context File to Evaluate: CLAUDE.md");
+		});
+
+		it("should replace {{CONTEXT_FILE}} in multi-file prompt", async () => {
+			const evaluatorPrompt =
+				"# Test Evaluator\nCheck {{CONTEXT_FILE}} for issues.";
+			const files = [
+				{
+					filePath: "/test/CLAUDE.md",
+					relativePath: "CLAUDE.md",
+					content: "Root content",
+				},
+			];
+
+			const prompt = await buildMultiFilePrompt(
+				evaluatorPrompt,
+				files,
+				undefined,
+				mockEvaluatorName,
+				"CLAUDE.md",
+			);
+
+			expect(prompt).toContain("Check CLAUDE.md for issues.");
+			expect(prompt).not.toContain("{{CONTEXT_FILE}}");
+		});
+	});
+
 	describe("isEmptyContent", () => {
 		it("should detect empty strings", () => {
 			expect(isEmptyContent("")).toBe(true);

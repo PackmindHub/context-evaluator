@@ -391,11 +391,13 @@ export async function runAllEvaluators(
 				}
 
 				// Build prompt with project context
+				const fileName = basename(agentsFilePath);
 				const fullPrompt = await buildSingleFilePrompt(
 					evaluatorPrompt,
 					agentsContent,
 					projectContext,
 					evaluatorName,
+					fileName,
 				);
 
 				if (verbose) {
@@ -963,11 +965,13 @@ export async function runUnifiedEvaluation(
 					const evaluatorPrompt = await loadEvaluatorPrompt(evaluatorPath);
 
 					// Build multi-file prompt with project context
+					const primaryFileName = filteredContext.files[0]?.relativePath;
 					const fullPrompt = await buildMultiFilePrompt(
 						evaluatorPrompt,
 						filteredContext.files,
 						projectContext,
 						evaluatorName,
+						primaryFileName,
 					);
 					const tokenEstimate = estimateTokens(fullPrompt);
 

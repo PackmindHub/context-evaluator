@@ -75,6 +75,7 @@ export function isEmptyContent(content: string | undefined | null): boolean {
 async function loadOutputFormatTemplate(
 	category: string,
 	evaluatorName: string,
+	contextFile?: string,
 ): Promise<string> {
 	let template: string;
 
@@ -111,7 +112,8 @@ async function loadOutputFormatTemplate(
 
 	return template
 		.replace(/\{\{CATEGORY\}\}/g, category)
-		.replace(/\{\{AGENT_PERSPECTIVE\}\}/g, agentPerspective);
+		.replace(/\{\{AGENT_PERSPECTIVE\}\}/g, agentPerspective)
+		.replace(/\{\{CONTEXT_FILE\}\}/g, contextFile || "AGENTS.md");
 }
 
 /**
@@ -288,7 +290,7 @@ function buildLinkedDocsSection(linkedDocs?: ILinkedDocSummary[]): string {
 
 	return `### Referenced Documentation
 
-The AGENTS.md file references the following documentation:
+The context file references the following documentation:
 
 ${docLines}
 
@@ -493,13 +495,22 @@ export async function buildSingleFilePrompt(
 	agentsContent: string,
 	projectContext: string | undefined,
 	evaluatorName: string,
+	fileName?: string,
 ): Promise<string> {
 	const category = extractCategory(evaluatorPrompt);
+	const contextFile = fileName || "AGENTS.md";
 	const outputFormatTemplate = await loadOutputFormatTemplate(
 		category,
 		evaluatorName,
+		contextFile,
 	);
 	const contextSection = buildProjectContextSection(projectContext);
+
+	// Replace {{CONTEXT_FILE}} in evaluator prompt
+	const resolvedEvaluatorPrompt = evaluatorPrompt.replace(
+		/\{\{CONTEXT_FILE\}\}/g,
+		contextFile,
+	);
 
 	// Prompt ordering: file content → project context → evaluator template → output format → JSON reminder
 	// File content and project context are identical across evaluators, so placing them first
@@ -507,11 +518,15 @@ export async function buildSingleFilePrompt(
 
 	// Handle empty or missing content
 	if (isEmptyContent(agentsContent)) {
-		return `${NO_FILE_MESSAGE}\n\n${contextSection}${evaluatorPrompt}\n\n${outputFormatTemplate}${JSON_OUTPUT_REMINDER}`;
+		return `${NO_FILE_MESSAGE}\n\n${contextSection}${resolvedEvaluatorPrompt}\n\n${outputFormatTemplate}${JSON_OUTPUT_REMINDER}`;
 	}
 
 	const numberedContent = addLineNumbers(agentsContent);
-	return `## Context File Content to Evaluate:\n\n\`\`\`markdown\n${numberedContent}\n\`\`\`\n\n---\n\n${contextSection}${evaluatorPrompt}\n\n${outputFormatTemplate}${JSON_OUTPUT_REMINDER}`;
+	const fileLabel = fileName
+		? `Context File to Evaluate: ${fileName}`
+		: "Context File Content to Evaluate:";
+
+	return `## ${fileLabel}\n\n\`\`\`markdown\n${numberedContent}\n\`\`\`\n\n---\n\n${contextSection}${resolvedEvaluatorPrompt}\n\n${outputFormatTemplate}${JSON_OUTPUT_REMINDER}`;
 }
 
 /**
@@ -522,13 +537,22 @@ export async function buildMultiFilePrompt(
 	files: FileContext[],
 	projectContext: string | undefined,
 	evaluatorName: string,
+	primaryFileName?: string,
 ): Promise<string> {
 	const category = extractCategory(evaluatorPrompt);
+	const contextFile = primaryFileName || files[0]?.relativePath || "AGENTS.md";
 	const outputFormatTemplate = await loadOutputFormatTemplate(
 		category,
 		evaluatorName,
+		contextFile,
 	);
 	const contextSection = buildProjectContextSection(projectContext);
+
+	// Replace {{CONTEXT_FILE}} in evaluator prompt
+	const resolvedEvaluatorPrompt = evaluatorPrompt.replace(
+		/\{\{CONTEXT_FILE\}\}/g,
+		contextFile,
+	);
 
 	// Prompt ordering: file content → project context → evaluator template → output format → JSON reminder
 	// File content and project context are identical across evaluators, so placing them first
@@ -538,14 +562,14 @@ export async function buildMultiFilePrompt(
 	const allEmpty =
 		files.length === 0 || files.every((f) => isEmptyContent(f.content));
 	if (allEmpty) {
-		return `${NO_FILE_MESSAGE}\n\n${contextSection}${evaluatorPrompt}\n\n${outputFormatTemplate}${JSON_OUTPUT_REMINDER}`;
+		return `${NO_FILE_MESSAGE}\n\n${contextSection}${resolvedEvaluatorPrompt}\n\n${outputFormatTemplate}${JSON_OUTPUT_REMINDER}`;
 	}
 
 	const fileBlocks = files
 		.map((file, index) => formatFileBlockWithSeparators(file, index))
 		.join("\n\n");
 
-	return `## Multiple Context Files to Evaluate:\n\n${fileBlocks}\n\n---\n\n${contextSection}${evaluatorPrompt}\n\n${outputFormatTemplate}${JSON_OUTPUT_REMINDER}`;
+	return `## Multiple Context Files to Evaluate:\n\n${fileBlocks}\n\n---\n\n${contextSection}${resolvedEvaluatorPrompt}\n\n${outputFormatTemplate}${JSON_OUTPUT_REMINDER}`;
 }
 
 /**
