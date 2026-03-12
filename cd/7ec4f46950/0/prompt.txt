@@ -1,0 +1,92 @@
+Implement the following plan:
+
+# Plan: Smart Target Agent Auto-Selection in Remediation
+
+## Context
+
+Users can misclick or miss the target agent selector in the Remediate tab because AGENTS.md is always pre-selected by default. When a project only uses Claude Code files (CLAUDE.md, .claude/rules/), the remediation generates AGENTS.md content instead of Claude Code content — confusing and wrong.
+
+**Goal**: Intelligently auto-select the target agent based on discovered context files, and prevent execution when multiple agent types exist but none is explicitly selected.
+
+## Current State
+
+- `RemediateTab.tsx:105` — hardcoded default: `useState<TargetAgent>("agents-md")`
+- Evaluation results contain `metadata.projectContext.contextFiles` (typed `IContextFile[]`) with types: `"agents" | "claude" | "copilot" | "rules" | "cursor-rules" | "skills"`
+- `TARGET_AGENTS` map in `src/shared/types/remediation.ts`: `"agents-md"`, `"claude-code"`, `"github-copilot"`, `"cursor"`
+- No logic currently maps discovered context file types to target agent selection
+
+## Mapping: IContextFile.type → TargetAgent
+
+| Context file type(s) | Target Agent |
+|---|---|
+| `"agents"` only | `"agents-md"` |
+| `"claude"` and/or `"rules"` (no `"agents"`) | `"claude-code"` |
+| `"copilot"` only | `"github-copilot"` |
+| `"cursor-rules"` only | `"cursor"` |
+| Mixed (e.g., `"agents"` + `"claude"` + `"rules"`) | No default — force selection |
+
+**Note**: `"rules"` = `.claude/rules/*.md` → maps to Claude Code. `"cursor-rules"` = `.cursor/rules/*.md` → maps to Cursor.
+
+## Implementation
+
+### File: `frontend/src/components/RemediateTab.tsx`
+
+1. **Change initial state** from `useState<TargetAgent>("agents-md")` to `useState<TargetAgent | null>(null)`
+
+2. **Add a `useEffect`** that derives the default target from `evaluationData.metadata.projectContext.contextFiles`:
+   - Count unique "agent families" present:
+     - `"agents"` → agents-md family
+     - `"claude"` or `"rules"` → claude-code family
+     - `"copilot"` → github-copilot family
+     - `"cursor-rules"` → cursor family
+   - If exactly **one** family is detected → auto-select that target agent
+   - If **zero** families detected (no-file mode) → default to `"agents-md"` (backward compat)
+   - If **multiple** families detected → set `null` (no selection)
+   - Only run this on initial load / when evaluationData changes, don't override manual user selection
+
+3. **Block execution when `targetAgent` is null**:
+   - Disable the "Execute Remediation" button when `targetAgent === null`
+   - Show a hint message: "Please select a target agent format"
+   - The target agent buttons should show no active selection (no blue highlight)
+
+4. **Update type usage**: The `targetAgent` state type changes from `TargetAgent` to `TargetAgent | null`. Need to ensure:
+   - The confirmation modal only opens when `targetAgent !== null`
+   - `executeRemediation()` call passes a non-null `targetAgent` (guarded by disabled button)
+   - Button styling handles `null` state (none highlighted)
+
+### Files to modify
+
+| File | Change |
+|---|---|
+| `frontend/src/components/RemediateTab.tsx` | State type change, useEffect for auto-detection, button disable logic, hint message |
+
+No backend changes needed — the logic is purely frontend.
+
+## Verification
+
+1. **Run tests**: `bun run test`
+2. **Run lint**: `bun run lint`
+3. **Manual testing scenarios**:
+   - Project with only AGENTS.md files → auto-selects "AGENTS.md"
+   - Project with only CLAUDE.md / .claude/rules/ → auto-selects "Claude Code"
+   - Project with only .github/copilot-instructions.md → auto-selects "GitHub Copilot"
+   - Project with only .cursor/rules/ → auto-selects "Cursor"
+   - Project with AGENTS.md + CLAUDE.md → no default, button disabled, hint shown
+   - No agent files (no-file mode) → defaults to "AGENTS.md"
+   - User can still manually change selection after auto-select
+   - User can select a target when multiple exist, enabling the execute button
+
+
+If you need specific details from before exiting plan mode (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/cedricteyton/.REDACTED.jsonl
+
+---
+
+commit that, update @Changelog.md and create a new release
+
+---
+
+[Request interrupted by user]
+
+---
+
+No no just push the tag, the github actions will create the release
