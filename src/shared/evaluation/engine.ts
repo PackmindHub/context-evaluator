@@ -1601,6 +1601,7 @@ export class EvaluationEngine {
 		const contextScore = await computeFullContextScore(
 			allIssues,
 			agentsFiles.length,
+			aiProvider,
 			{
 				verbose,
 				projectContext: contextResult?.context,
@@ -2098,6 +2099,7 @@ export class EvaluationEngine {
 		const contextScore = await computeFullContextScore(
 			allIssues,
 			agentsFiles.length,
+			aiProvider,
 			{
 				verbose,
 				projectContext: contextResult?.context,

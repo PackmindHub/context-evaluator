@@ -2,8 +2,8 @@
 // Computes an overall quality grade (1-10) for repository AGENTS.md files
 // Algorithm: "Base + Setup Bonus - Issue Penalty"
 
-import { invokeClaudeWithRetry } from "@shared/claude/invoker";
 import { DEFAULT_TIMEOUT_MS } from "@shared/constants";
+import type { IAIProvider } from "@shared/providers";
 import type {
 	ContextScoreGrade,
 	IContextScore,
@@ -431,6 +431,7 @@ export async function generateScoreExplanation(
 	score: number,
 	breakdown: IContextScoreBreakdown,
 	issues: Issue[],
+	provider: IAIProvider,
 	options: { verbose?: boolean; timeout?: number } = {},
 ): Promise<{ summary: string; recommendations: string[] }> {
 	const { verbose = false, timeout } = options;
@@ -483,7 +484,7 @@ Respond in this exact JSON format:
 }`;
 
 	try {
-		const response = await invokeClaudeWithRetry(prompt, {
+		const response = await provider.invokeWithRetry(prompt, {
 			verbose,
 			timeout: timeout ?? DEFAULT_TIMEOUT_MS,
 		});
@@ -667,6 +668,7 @@ export function createNoFilesContextScore(): IContextScore {
 export async function computeFullContextScore(
 	issues: Issue[],
 	filesFound: number,
+	provider: IAIProvider,
 	options: {
 		verbose?: boolean;
 		filesExpected?: number;
@@ -693,6 +695,7 @@ export async function computeFullContextScore(
 		score,
 		breakdown,
 		issues,
+		provider,
 		{ verbose, timeout },
 	);
 
