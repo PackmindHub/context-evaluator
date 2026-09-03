@@ -98,30 +98,74 @@ export interface IJsonReport {
 // Helper: Extract all issues from evaluation output
 // =============================================================================
 
+/**
+ * Parse a single evaluator `output.result` string.
+ *
+ * Unified mode stores `JSON.stringify({ perFileIssues, crossFileIssues })`,
+ * not a bare issue array. Matching only `\[[\s\S]*\]` drops those findings and
+ * produced empty `issues[]` in CLI JSON reports / UI imports.
+ */
+export function parseIssuesFromResultString(resultString: string): Issue[] {
+	try {
+		const parsed = JSON.parse(resultString);
+
+		if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+			const allIssues: Issue[] = [];
+			if (parsed.perFileIssues && typeof parsed.perFileIssues === "object") {
+				for (const fileIssues of Object.values(parsed.perFileIssues)) {
+					if (Array.isArray(fileIssues)) {
+						allIssues.push(...(fileIssues as Issue[]));
+					}
+				}
+			}
+			if (Array.isArray(parsed.crossFileIssues)) {
+				allIssues.push(...parsed.crossFileIssues);
+			}
+			return allIssues;
+		}
+
+		if (Array.isArray(parsed)) {
+			return parsed as Issue[];
+		}
+
+		return [];
+	} catch {
+		try {
+			const jsonMatch = resultString.match(/\[[\s\S]*\]/);
+			if (!jsonMatch) {
+				return [];
+			}
+			const issues = JSON.parse(jsonMatch[0]) as Issue[];
+			return Array.isArray(issues) ? issues : [];
+		} catch {
+			return [];
+		}
+	}
+}
+
 export function extractAllIssues(output: EvaluationOutput): Issue[] {
 	const allIssues: Issue[] = [];
 
 	// Check if unified format (has 'results' array)
 	if ("results" in output && Array.isArray(output.results)) {
-		// Unified format: extract from results array
 		for (const result of output.results) {
 			if (result.output?.result) {
-				try {
-					const jsonMatch = result.output.result.match(/\[[\s\S]*\]/);
-					if (jsonMatch) {
-						const issues = JSON.parse(jsonMatch[0]) as Issue[];
-						if (Array.isArray(issues)) {
-							for (const issue of issues) {
-								allIssues.push({
-									...issue,
-									evaluatorName: issue.evaluatorName || result.evaluator,
-								});
-							}
-						}
-					}
-				} catch {
-					// Skip unparseable results
+				const parsedIssues = parseIssuesFromResultString(result.output.result);
+				for (const issue of parsedIssues) {
+					allIssues.push({
+						...issue,
+						evaluatorName: issue.evaluatorName || result.evaluator,
+					});
 				}
+			}
+		}
+
+		if ("crossFileIssues" in output && Array.isArray(output.crossFileIssues)) {
+			for (const issue of output.crossFileIssues) {
+				allIssues.push({
+					...issue,
+					evaluatorName: issue.evaluatorName || "cross-file",
+				});
 			}
 		}
 	} else if ("files" in output && typeof output.files === "object") {
@@ -131,8 +175,24 @@ export function extractAllIssues(output: EvaluationOutput): Issue[] {
 			if (typedResult.evaluations) {
 				for (const evaluation of typedResult.evaluations) {
 					const typedEval = evaluation as EvaluatorResult;
-					if (typedEval.issues) {
+					if (typedEval.issues && typedEval.issues.length > 0) {
 						for (const issue of typedEval.issues) {
+							allIssues.push({
+								...issue,
+								evaluatorName: issue.evaluatorName || typedEval.evaluator,
+							});
+						}
+					} else if (
+						"output" in evaluation &&
+						evaluation.output &&
+						typeof evaluation.output === "object" &&
+						"result" in evaluation.output &&
+						typeof evaluation.output.result === "string"
+					) {
+						const parsedIssues = parseIssuesFromResultString(
+							evaluation.output.result,
+						);
+						for (const issue of parsedIssues) {
 							allIssues.push({
 								...issue,
 								evaluatorName: issue.evaluatorName || typedEval.evaluator,
@@ -146,7 +206,10 @@ export function extractAllIssues(output: EvaluationOutput): Issue[] {
 		// Also include cross-file issues
 		if ("crossFileIssues" in output && Array.isArray(output.crossFileIssues)) {
 			for (const issue of output.crossFileIssues) {
-				allIssues.push(issue);
+				allIssues.push({
+					...issue,
+					evaluatorName: issue.evaluatorName || "cross-file",
+				});
 			}
 		}
 	}
@@ -200,16 +263,33 @@ export function convertJsonReportToEvaluationOutput(
 ): EvaluationOutput {
 	// Group issues by evaluator name
 	const issuesByEvaluator = new Map<string, Issue[]>();
+	const crossFileIssues: Issue[] = [];
+
 	for (const issue of report.issues) {
-		const evaluator = issue.evaluatorName || "unknown";
-		const existing = issuesByEvaluator.get(evaluator) || [];
 		// Strip enriched fields (severityLevel, formattedLocation) that don't belong in Issue
-		const { severityLevel: _sl, formattedLocation: _fl, ...baseIssue } = issue;
-		existing.push(baseIssue as Issue);
+		const {
+			severityLevel: _sl,
+			formattedLocation: _fl,
+			...baseIssue
+		} = issue as Issue & {
+			severityLevel?: string;
+			formattedLocation?: string;
+		};
+		const cleaned = baseIssue as Issue;
+		const evaluator = cleaned.evaluatorName || "unknown";
+
+		// Keep consistency-validator issues on the top-level list only
+		if (evaluator === "cross-file") {
+			crossFileIssues.push(cleaned);
+			continue;
+		}
+
+		const existing = issuesByEvaluator.get(evaluator) || [];
+		existing.push(cleaned);
 		issuesByEvaluator.set(evaluator, existing);
 	}
 
-	// Build unified results array
+	// Build unified results array (array format — frontend/API parse both shapes)
 	const results = Array.from(issuesByEvaluator.entries()).map(
 		([evaluator, issues]) => ({
 			evaluator,
@@ -236,7 +316,7 @@ export function convertJsonReportToEvaluationOutput(
 	return {
 		metadata: report.metadata,
 		results,
-		crossFileIssues: [],
+		crossFileIssues,
 		curation: report.curation,
 	};
 }
